@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v16";
+const VERSAO = "v18";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -80,22 +80,11 @@ function icon(name, size = 16) {
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name] || ""}</svg>`;
 }
 
-const TIPOS = {
-  etapa: { rotulo: "Etapa", cor: "var(--ink-3)", classe: "" },
-  decisao: { rotulo: "Decisão", cor: "var(--amber)", classe: "amber" },
-  evidencia: { rotulo: "Evidência", cor: "var(--navy-2)", classe: "navy" },
-  aprovacao: { rotulo: "Aprovação", cor: "var(--green)", classe: "green" },
-};
 
-const TIPOS_TRILHA = {
-  video: { rotulo: "Vídeo", classe: "navy" },
-  curso: { rotulo: "Curso externo", classe: "" },
-  leitura: { rotulo: "Leitura", classe: "" },
-  pratica: { rotulo: "Prática acompanhada", classe: "amber" },
-  documento: { rotulo: "Documento interno", classe: "green" },
-};
 
-const CORES_SETOR = ["#2b46a4", "#0c7048", "#bf1f2c", "#9c5806", "#5b4bb7", "#0d7490"];
+
+
+
 
 /* ---------------------------------------------------------------- IA
 
@@ -108,11 +97,14 @@ const IA = {
 };
 
 async function chamarIA(acao, entrada, contexto) {
+  const token = await tokenDoUsuario();
+  if (!token) throw new Error("Entre na sua conta para usar a IA.");
+
   const resposta = await fetch(IA.url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${IA.chave}`,
+      authorization: `Bearer ${token}`,
       apikey: IA.chave,
     },
     body: JSON.stringify({ acao, entrada, contexto }),
@@ -123,14 +115,7 @@ async function chamarIA(acao, entrada, contexto) {
 }
 
 /* Os ids que a IA pode usar. Sem isso ela inventa setor e cargo. */
-function contextoBase() {
-  return {
-    empresa: state.empresa?.nome,
-    setores: state.setores.map((s) => ({ id: s.id, nome: s.nome })),
-    fases: state.fases.map((f) => ({ id: f.id, nome: f.nome })),
-    cargos: state.cargos.map((c) => ({ id: c.id, nome: c.nome, setor: setor(c.setorId)?.nome || "" })),
-  };
-}
+
 
 /* Opus 5 pensa antes de responder — a espera é de dezenas de segundos. */
 async function comEspera(botao, tarefa) {
@@ -151,23 +136,12 @@ async function comEspera(botao, tarefa) {
 }
 
 /* Só preenche o que está vazio — o que você escreveu é seu. */
-function preencherVazios(alvo, sugestao, campos) {
-  campos.forEach((campo) => {
-    const novo = String(sugestao?.[campo] ?? "").trim();
-    if (novo && !String(alvo[campo] ?? "").trim()) alvo[campo] = novo;
-  });
-}
+
 
 /* Só http/https saem daqui — o link é digitado pelo usuário. */
-function linkSeguro(url) {
-  const u = String(url || "").trim();
-  return /^https?:\/\//i.test(u) ? u : "";
-}
 
-function youtubeId(url) {
-  const m = String(url || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : "";
-}
+
+
 
 function video(url, rotulo = "Abrir vídeo") {
   const id = youtubeId(url);
@@ -183,50 +157,19 @@ function video(url, rotulo = "Abrir vídeo") {
 /* Uma única fonte de verdade para "estado completo e vazio". Tanto a semente
    quanto o botão de apagar tudo saem daqui — foi a falta disso que deixou o
    app abrir sem `decisoes` e sem `documentos`, quebrando três telas. */
-function estadoVazio() {
-  return {
-    empresa: { nome: "Platina Extintores" },
-    setores: [],
-    cargos: [],
-    fases: [],
-    decisoes: [],
-    documentos: [],
-    processos: [],
-  };
-}
+
 
 /* O esqueleto da empresa: setores, cargos e a cadeia de valor. Nada de
    conteúdo — missão, processo, trilha e documento são escritos pelo gestor. */
-function semente() {
-  return {
-    ...estadoVazio(),
-    setores: [
-      { id: "s-gestao", nome: "Gestão" },
-      { id: "s-comercial", nome: "Comercial" },
-      { id: "s-tecnica", nome: "Técnica" },
-      { id: "s-admin", nome: "Administrativo" },
-    ],
-    cargos: [
-      { id: "c-diretor", setorId: "s-gestao", nome: "Diretor", reportaA: null, missao: "", expectativas: "", conhecimentos: "", trilha: [] },
-      { id: "c-supervisor", setorId: "s-gestao", nome: "Supervisor Operacional", reportaA: "c-diretor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
-      { id: "c-vendedor", setorId: "s-comercial", nome: "Vendedor", reportaA: "c-supervisor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
-      { id: "c-tecnico", setorId: "s-tecnica", nome: "Técnico de Extintores", reportaA: "c-supervisor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
-      { id: "c-admin", setorId: "s-admin", nome: "Auxiliar Administrativo", reportaA: "c-diretor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
-    ],
-    fases: [
-      { id: "f-captar", nome: "Captar" },
-      { id: "f-orcar", nome: "Orçar" },
-      { id: "f-executar", nome: "Executar" },
-      { id: "f-entregar", nome: "Entregar" },
-      { id: "f-cuidar", nome: "Cuidar" },
-      { id: "f-apoio", nome: "Apoio" },
-    ],
-  };
-}
+
 
 /* ---------------------------------------------------------------- estado */
 
-let state = carregar();
+
+/* Só aqui, e não no topo: `carregar()` lê STORAGE_KEY e MODO_SEGURO, que são
+   declarados acima. Chamado antes deles, o arquivo inteiro aborta em silêncio. */
+state = carregar();
+
 let ui = {
   view: "organograma",
   cargoSel: null,
@@ -269,59 +212,14 @@ function baixarBrutoSalvo() {
   URL.revokeObjectURL(url);
 }
 
-function valido(dados) {
-  const listas = ["setores", "cargos", "fases", "processos"];
-  return !!dados && listas.every((chave) => Array.isArray(dados[chave]));
-}
+
 
 /* A seta do macro passou a carregar rótulo ("sim", "não"), então o formato
    antigo — uma lista de ids — vira uma lista de { para, rotulo }. */
-function normalizarSaidas(bruto) {
-  return (Array.isArray(bruto) ? bruto : [])
-    .map((x) => (typeof x === "string" ? { para: x, rotulo: "" } : { para: x?.para || "", rotulo: x?.rotulo || "" }))
-    .filter((x) => x.para);
-}
+
 
 /* Preenche o que versões anteriores não tinham, para o app nunca abrir quebrado. */
-function normalizar(dados) {
-  dados.empresa = dados.empresa || { nome: "Empresa" };
-  dados.documentos = Array.isArray(dados.documentos) ? dados.documentos : [];
-  dados.decisoes = Array.isArray(dados.decisoes) ? dados.decisoes : [];
 
-  dados.decisoes.forEach((d) => {
-    d.pergunta = d.pergunta || "";
-    d.setorId = d.setorId || "";
-    d.faseId = d.faseId || "";
-    d.proximos = normalizarSaidas(d.proximos);
-  });
-
-  dados.cargos.forEach((c) => {
-    c.missao = c.missao || "";
-    c.expectativas = c.expectativas || "";
-    c.conhecimentos = c.conhecimentos || "";
-    c.trilha = Array.isArray(c.trilha) ? c.trilha : [];
-  });
-
-  dados.processos.forEach((p) => {
-    p.cargosIds = Array.isArray(p.cargosIds) ? p.cargosIds : [];
-    p.passos = Array.isArray(p.passos) ? p.passos : [];
-    p.perguntas = Array.isArray(p.perguntas) ? p.perguntas : [];
-    p.anexos = Array.isArray(p.anexos) ? p.anexos : [];
-    p.videoUrl = p.videoUrl || "";
-    p.passos.forEach((s) => { s.videoUrl = s.videoUrl || ""; });
-    p.proximos = normalizarSaidas(p.proximos);
-    p.revisado = p.revisado !== false;
-    p.passos.forEach((s) => { s.cargoId = s.cargoId || ""; });
-  });
-
-  /* Ligação apontando para peça apagada vira lixo silencioso. */
-  const vivos = new Set([...dados.processos, ...dados.decisoes].map((n) => n.id));
-  [...dados.processos, ...dados.decisoes].forEach((n) => {
-    n.proximos = n.proximos.filter((x) => vivos.has(x.para) && x.para !== n.id);
-  });
-
-  return dados;
-}
 
 /* Sobe para o banco o que mudou. Sempre com atraso: digitar dispara `salvar`
    a cada tecla, e uma ida ao servidor por tecla seria absurdo. */
@@ -361,59 +259,35 @@ function salvar(imediato = false) {
 const $ = (sel, raiz = document) => raiz.querySelector(sel);
 const $$ = (sel, raiz = document) => Array.from(raiz.querySelectorAll(sel));
 
-function uid(prefixo) {
-  return `${prefixo}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-}
 
-function esc(valor) {
-  return String(valor ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
-const setor = (id) => state.setores.find((s) => s.id === id);
-const cargo = (id) => state.cargos.find((c) => c.id === id);
-const fase = (id) => state.fases.find((f) => f.id === id);
-const processo = (id) => state.processos.find((p) => p.id === id);
-const documento = (id) => state.documentos.find((d) => d.id === id);
-const decisao = (id) => state.decisoes.find((d) => d.id === id);
+
+
+
+
+
+
+
+
 
 /* O macro tem dois tipos de peça: processo e decisão. Quase tudo trata as duas
    igual — só o desenho e o painel lateral distinguem. */
-const nosMacro = () => [...state.processos, ...state.decisoes];
-const noMacro = (id) => processo(id) || decisao(id);
-const ehDecisao = (id) => !!decisao(id);
 
-const linhas = (texto) => String(texto || "").split("\n").map((l) => l.trim()).filter(Boolean);
 
-function corSetor(id) {
-  const i = state.setores.findIndex((s) => s.id === id);
-  return CORES_SETOR[i < 0 ? 0 : i % CORES_SETOR.length];
-}
 
-function processosDoCargo(cargoId) {
-  return state.processos.filter((p) => p.cargosIds.includes(cargoId) || p.donoCargoId === cargoId);
-}
+
+
+
+
+
+
 
 /* Um processo conta como mapeado quando tem o porquê, pelo menos 3 passos com
    "o que fazer" preenchido, e passou por revisão humana. Rascunho de IA entra
    com revisado = false: a régua não aceita texto que ninguém conferiu. */
-function mapeado(p) {
-  const passosOk = (p.passos || []).filter((s) => s.oQue && s.oQue.trim()).length;
-  return !!(p.porque && p.porque.trim()) && passosOk >= 3 && p.revisado !== false;
-}
 
-function faltando(p) {
-  const faltas = [];
-  if (!p.porque?.trim()) faltas.push("por que existe");
-  if (!(p.passos || []).length) faltas.push("os passos");
-  const semExemplo = (p.passos || []).filter((s) => !s.imagem && !s.comoFazer?.trim()).length;
-  if (semExemplo) faltas.push(`${semExemplo} passo(s) sem exemplo`);
-  return faltas;
-}
+
+
 
 /* ---------------------------------------------------------------- navegação */
 
@@ -476,16 +350,7 @@ function atualizarProgresso() {
 /* ---------------------------------------------------------------- organograma */
 
 /* Quem está abaixo de quem — usado para recusar uma ligação que fecharia ciclo. */
-function descendeDe(idFilho, idAncestral) {
-  const vistos = new Set();
-  let atual = cargo(idFilho);
-  while (atual?.reportaA && !vistos.has(atual.id)) {
-    vistos.add(atual.id);
-    if (atual.reportaA === idAncestral) return true;
-    atual = cargo(atual.reportaA);
-  }
-  return false;
-}
+
 
 function religarCargo(idFilho, idChefe) {
   const filho = cargo(idFilho);
@@ -590,40 +455,7 @@ function noCargo(c, vistos) {
    mas empurraria as colunas para sempre. Então marcamos as arestas de retorno
    com uma busca em profundidade e calculamos as colunas só no que sobra —
    a seta continua desenhada, ela apenas não conta para a posição. */
-function colunas() {
-  const nos = nosMacro();
-  const vivos = new Set(nos.map((n) => n.id));
-  const saidas = {};
-  const col = {};
-  nos.forEach((n) => {
-    col[n.id] = 0;
-    saidas[n.id] = (n.proximos || []).map((x) => x.para).filter((d) => d !== n.id && vivos.has(d));
-  });
 
-  const estado = {}; // 1 = na pilha, 2 = fechado
-  const retorno = new Set();
-  const visitar = (id) => {
-    estado[id] = 1;
-    saidas[id].forEach((d) => {
-      if (estado[d] === 1) retorno.add(`${id}>${d}`);
-      else if (!estado[d]) visitar(d);
-    });
-    estado[id] = 2;
-  };
-  nos.forEach((n) => { if (!estado[n.id]) visitar(n.id); });
-
-  for (let volta = 0; volta < nos.length; volta++) {
-    let mudou = false;
-    nos.forEach((n) => {
-      saidas[n.id].forEach((d) => {
-        if (retorno.has(`${n.id}>${d}`)) return;
-        if (col[d] < col[n.id] + 1) { col[d] = col[n.id] + 1; mudou = true; }
-      });
-    });
-    if (!mudou) break;
-  }
-  return col;
-}
 
 function viewFluxo() {
   const porSetor = ui.agrupar !== "fase";
@@ -839,144 +671,10 @@ function soltarNo(processoId, raiaId, clienteX) {
    caminhos desenhados, evidência vira tarefa com objeto de dados anexado. */
 /* Passo sem título entra no desenho mesmo assim — quem desenha primeiro e
    escreve depois precisa ver a forma aparecer no instante em que a cria. */
-function bpmnDoProcesso(p) {
-  const passos = p.passos || [];
-  if (!passos.length) return null;
 
-  const faixaDe = (s) => (s.cargoId && cargo(s.cargoId) ? s.cargoId : p.donoCargoId || "");
-
-  const idsFaixa = [];
-  passos.forEach((s) => {
-    const id = faixaDe(s);
-    if (!idsFaixa.includes(id)) idsFaixa.push(id);
-  });
-  if (!idsFaixa.length) idsFaixa.push("");
-
-  const faixas = idsFaixa.map((id) => ({
-    id,
-    nome: cargo(id)?.nome || "Sem responsável",
-    cor: id ? corSetor(cargo(id)?.setorId) : "",
-  }));
-
-  const elementos = [{ id: "inicio", tipo: "inicio", rotulo: "", faixaId: idsFaixa[0], coluna: 0 }];
-  const fluxos = [];
-
-  let coluna = 1;
-  let anterior = "inicio";
-  let rotuloProximo = "";
-  let aguardandoMerge = null;
-
-  passos.forEach((s) => {
-    const id = s.id;
-    const faixaId = faixaDe(s);
-    const decisao = s.tipo === "decisao";
-
-    elementos.push({
-      id,
-      tipo: decisao ? "gateway" : "tarefa",
-      rotulo: s.oQue?.trim() || "sem título",
-      sub: decisao ? "" : TIPOS[s.tipo]?.rotulo || "",
-      faixaId,
-      coluna,
-      dado: s.tipo === "evidencia" ? "Evidência" : "",
-      editavel: true,
-    });
-
-    fluxos.push({ de: anterior, para: id, rotulo: rotuloProximo });
-    if (aguardandoMerge) {
-      fluxos.push({ de: aguardandoMerge, para: id, rotulo: "" });
-      aguardandoMerge = null;
-    }
-
-    if (decisao && s.seNao?.trim()) {
-      const desvio = `${id}::nao`;
-      elementos.push({
-        id: desvio,
-        tipo: "tarefa",
-        rotulo: s.seNao,
-        sub: "caminho não",
-        faixaId,
-        coluna: coluna + 1,
-        dado: "",
-      });
-      fluxos.push({ de: id, para: desvio, rotulo: "Não" });
-      aguardandoMerge = desvio;
-      coluna += 2;
-    } else {
-      coluna += 1;
-    }
-
-    rotuloProximo = decisao ? (s.seSim?.trim() ? "Sim" : "") : "";
-    anterior = id;
-  });
-
-  elementos.push({ id: "fim", tipo: "fim", rotulo: "", faixaId: faixaDe(passos[passos.length - 1]), coluna });
-  fluxos.push({ de: anterior, para: "fim", rotulo: rotuloProximo });
-  if (aguardandoMerge) fluxos.push({ de: aguardandoMerge, para: "fim", rotulo: "" });
-
-  return { faixas, elementos, fluxos };
-}
 
 /* O mapa: cada processo é um subprocesso colapsado; raia é setor ou fase. */
-function bpmnDoMapa() {
-  const nos = nosMacro();
 
-  const porSetor = ui.agrupar !== "fase";
-  const grupos = porSetor ? state.setores : state.fases;
-  const chave = porSetor ? "setorId" : "faseId";
-  const col = colunas();
-
-  const faixaDe = (n) => (grupos.some((g) => g.id === n[chave]) ? n[chave] : "");
-
-  /* Todas as raias aparecem, mesmo vazias — senão um setor recém-criado fica
-     invisível e parece que não foi criado. Só a raia "sem setor" é condicional. */
-  const faixas = grupos.map((g) => ({
-    id: g.id,
-    nome: g.nome,
-    cor: porSetor ? corSetor(g.id) : "",
-  }));
-  if (nos.some((n) => !faixaDe(n))) {
-    faixas.push({ id: "", nome: porSetor ? "Sem setor" : "Sem fase", cor: "" });
-  }
-
-  const elementos = [];
-  const fluxos = [];
-  const temEntrada = new Set();
-  nos.forEach((n) => (n.proximos || []).forEach((x) => temEntrada.add(x.para)));
-
-  nos.forEach((n) => {
-    const faixaId = faixaDe(n);
-    const c = (col[n.id] || 0) * 2 + 1;
-    const eDecisao = ehDecisao(n.id);
-
-    elementos.push({
-      id: n.id,
-      tipo: eDecisao ? "gateway" : "subprocesso",
-      rotulo: eDecisao ? (n.pergunta || "sem pergunta") : n.nome,
-      sub: eDecisao ? "" : cargo(n.donoCargoId)?.nome || "",
-      faixaId,
-      coluna: c,
-      dado: "",
-      editavel: true,
-    });
-
-    if (!temEntrada.has(n.id)) {
-      elementos.push({ id: `ini-${n.id}`, tipo: "inicio", rotulo: "", faixaId, coluna: c - 1 });
-      fluxos.push({ de: `ini-${n.id}`, para: n.id, rotulo: "" });
-    }
-
-    if (!(n.proximos || []).length) {
-      elementos.push({ id: `fim-${n.id}`, tipo: "fim", rotulo: "", faixaId, coluna: c + 1 });
-      fluxos.push({ de: n.id, para: `fim-${n.id}`, rotulo: "" });
-    }
-
-    (n.proximos || []).forEach((x) => {
-      if (noMacro(x.para)) fluxos.push({ de: n.id, para: x.para, rotulo: x.rotulo || "" });
-    });
-  });
-
-  return { faixas, elementos, fluxos };
-}
 
 function blocoBpmn(modelo, vazio) {
   if (!modelo) return `<div class="empty">${vazio}</div>`;
@@ -989,22 +687,7 @@ function blocoBpmn(modelo, vazio) {
    desenho é um passo criado; arrastar uma sobre a outra reordena a lista.
    Não existe estado paralelo — o desenho é a lista, vista de outro jeito. */
 
-function novoPasso(tipo) {
-  return {
-    id: uid("ps"),
-    tipo,
-    cargoId: "",
-    oQue: "",
-    comoFazer: "",
-    porque: "",
-    armadilha: "",
-    regra: "",
-    imagem: "",
-    videoUrl: "",
-    seSim: "",
-    seNao: "",
-  };
-}
+
 
 /* ---------------------------------------------------------------- macro em tela cheia
 
@@ -1014,7 +697,7 @@ function novoPasso(tipo) {
 function viewMacro() {
   const porSetor = ui.agrupar !== "fase";
   const sel = ui.macroSel ? noMacro(ui.macroSel) : null;
-  const modelo = bpmnDoMapa();
+  const modelo = bpmnDoMapa(ui.agrupar !== "fase");
   const zoom = ui.zoomMacro || 1;
   const ligando = ui.ligando ? noMacro(ui.ligando) : null;
 
@@ -1337,7 +1020,7 @@ function redesenharMacro() {
   clearTimeout(macroTimer);
   macroTimer = setTimeout(() => {
     const tela = $("#telaMacro");
-    const modelo = bpmnDoMapa();
+    const modelo = bpmnDoMapa(ui.agrupar !== "fase");
     if (tela && modelo) tela.innerHTML = bpmnDesenhar(modelo, { interativo: true, selecionado: ui.macroSel, zoom: ui.zoomMacro || 1 });
   }, 450);
 }
@@ -2549,19 +2232,7 @@ function abrirContarProcesso() {
   });
 }
 
-function textoDoProcesso(p) {
-  const cargos = p.cargosIds.map((id) => cargo(id)?.nome).filter(Boolean).join(", ");
-  return [
-    `Processo: ${p.nome}`,
-    `Setor: ${setor(p.setorId)?.nome || "—"} · Fase: ${fase(p.faseId)?.nome || "—"}`,
-    cargos ? `Quem executa: ${cargos}` : "",
-    p.porque ? `Por que existe: ${p.porque}` : "",
-    p.seErrar ? `Quando sai errado: ${p.seErrar}` : "",
-    "",
-    "Passos:",
-    ...(p.passos || []).map((s, i) => `${i + 1}. [${s.tipo}] ${s.oQue}${s.comoFazer ? ` — ${s.comoFazer}` : ""}`),
-  ].filter(Boolean).join("\n");
-}
+
 
 /* ---------------------------------------------------------------- eventos */
 
@@ -3155,26 +2826,7 @@ function digitandoAgora() {
   return !!a && ["INPUT", "TEXTAREA", "SELECT"].includes(a.tagName);
 }
 
-function aplicarNoEstado(m) {
-  if (!m?.peca) return;
-  if (m.peca === "estrutura") {
-    if (m.acao !== "DELETE" && m.dados) Object.assign(state, m.dados);
-    return;
-  }
-  const [prefixo, ...resto] = m.peca.split(":");
-  const id = resto.join(":");
-  const lista = prefixo === "p" ? "processos" : prefixo === "d" ? "decisoes" : "documentos";
-  const i = state[lista].findIndex((x) => x.id === id);
 
-  /* Substitui no lugar, nunca no fim: a ordem da lista é a ordem na tela. */
-  if (m.acao === "DELETE") {
-    if (i >= 0) state[lista].splice(i, 1);
-  } else if (i >= 0) {
-    state[lista][i] = m.dados;
-  } else {
-    state[lista].push(m.dados);
-  }
-}
 
 function aplicarMudancaRemota(m) {
   const editandoEsta =

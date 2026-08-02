@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Testes do CIP</title>
+    <style>
+      body { margin: 0; background: #f6f7fa; color: #0e1729; font: 15px/1.6 ui-sans-serif, system-ui, sans-serif; padding: 24px; }
+      .caixa { max-width: 780px; margin: 0 auto; border: 1px solid #e4e8ef; border-radius: 12px; background: #fff; padding: 24px; }
+      h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+      .placar { margin: 0 0 20px; font-size: 14px; }
+      .verde { color: #0c7048; font-weight: 600; }
+      .vermelho { color: #bf1f2c; font-weight: 600; }
+      h2 { margin: 22px 0 8px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #737f95; font-weight: 600; }
+      .caso { display: flex; gap: 10px; border-top: 1px solid #eef1f6; padding: 7px 0; font-size: 14px; }
+      .caso:first-of-type { border-top: 0; }
+      .marca { flex: none; width: 18px; }
+      .porque { display: block; color: #bf1f2c; font-size: 13px; }
+      #palco { position: absolute; left: -9999px; width: 1200px; }
+    </style>
+  </head>
+  <body>
+    <div class="caixa">
+      <h1>Testes do CIP</h1>
+      <p class="placar" id="placar">rodando…</p>
+      <div id="saida"></div>
+    </div>
+
+    <!-- Palco onde as telas são desenhadas para conferência, fora da vista. -->
+    <div id="palco">
+      <header class="topbar"><span id="presenca" hidden></span><span id="estadoNuvem"></span><div id="progressChip"></div><button id="openData"></button><button id="sairBotao"></button></header>
+      <main id="main"></main>
+      <div class="drawer-scrim" id="scrim" hidden></div>
+      <aside class="drawer" id="drawer" hidden></aside>
+      <div class="portao" id="portao" hidden><form id="formEntrar"><input id="entrarEmail"><input id="entrarSenha"><p id="portaoErro" hidden></p><button id="botaoEntrar"></button><button id="esqueciSenha"></button><span id="carimboVersao"></span></form></div>
+    </div>
+
+    <!-- A versão sai do relógio: testar código velho por causa de cache já
+         custou caro aqui. Esta página nunca deve ser servida do cache. -->
+    <script>
+      const V = "?t=" + Date.now();
+      document.write(`<link rel="stylesheet" href="./styles.css${V}" />`);
+      document.write(`<scr` + `ipt src="./dominio.js${V}"></scr` + `ipt>`);
+      document.write(`<scr` + `ipt src="./bpmn.js${V}"></scr` + `ipt>`);
+    </script>
+
+    <script>
+      const saida = document.getElementById("saida");
+      let passou = 0;
+      let falhou = 0;
+
+      function grupo(nome) {
+        const h = document.createElement("h2");
+        h.textContent = nome;
+        saida.appendChild(h);
+      }
+
+      function teste(nome, fn) {
+        let erro = null;
+        try {
+          const r = fn();
+          if (r === false) erro = "devolveu falso";
+        } catch (e) {
+          erro = e.message;
+        }
+        erro ? falhou++ : passou++;
+        const d = document.createElement("div");
+        d.className = "caso";
+        d.innerHTML = `<span class="marca ${erro ? "vermelho" : "verde"}">${erro ? "✕" : "✔"}</span>
+          <span>${nome}${erro ? `<span class="porque">${erro}</span>` : ""}</span>`;
+        saida.appendChild(d);
+      }
+
+      function igual(a, b, msg = "") {
+        const x = JSON.stringify(a);
+        const y = JSON.stringify(b);
+        if (x !== y) throw new Error(`${msg} esperava ${y}, veio ${x}`);
+      }
+
+      /* Um processo mínimo, para os testes não repetirem 15 campos. */
+      function proc(extra = {}) {
+        return {
+          id: "p1", nome: "Processo", setorId: "s-comercial", faseId: "f-orcar",
+          donoCargoId: "c-supervisor", cargosIds: [], status: "rascunho", revisado: true,
+          videoUrl: "", porque: "", seErrar: "", anexos: [], passos: [], perguntas: [],
+          proximos: [], ...extra,
+        };
+      }
+      function passo(extra = {}) {
+        return {
+          id: "ps1", tipo: "etapa", cargoId: "", oQue: "Fazer algo", comoFazer: "",
+          porque: "", armadilha: "", regra: "", imagem: "", videoUrl: "",
+          seSim: "", seNao: "", ...extra,
+        };
+      }
+
+      // ============================================================ DOMÍNIO
+
+      grupo("Domínio · estado");
+
+      teste("estadoVazio traz as sete listas do modelo", () => {
+        const v = estadoVazio();
+        igual(Object.keys(v).sort(), ["cargos", "decisoes", "documentos", "empresa", "fases", "processos", "setores"]);
+      });
+
+      teste("semente traz o esqueleto e nenhum conteúdo", () => {
+        const s = semente();
+        igual([s.setores.length, s.cargos.length, s.fases.length], [4, 5, 6], "esqueleto:");
+        igual([s.processos.length, s.decisoes.length, s.documentos.length], [0, 0, 0], "conteúdo:");
+      });
+
+      teste("normalizar repara base sem decisoes nem documentos", () => {
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], fases: [], processos: [] });
+        if (!Array.isArray(d.decisoes) || !Array.isArray(d.documentos)) throw new Error("não criou as listas");
+      });
+
+      teste("normalizar converte saída do formato antigo (id solto)", () => {
+        const d = normalizar({
+          empresa: {}, setores: [], cargos: [], fases: [], decisoes: [],
+          processos: [proc({ proximos: ["p2"] }), proc({ id: "p2" })],
+        });
+        igual(d.processos[0].proximos, [{ para: "p2", rotulo: "" }]);
+      });
+
+      teste("normalizar descarta ligação para peça que não existe", () => {
+        const d = normalizar({
+          empresa: {}, setores: [], cargos: [], fases: [], decisoes: [],
+          processos: [proc({ proximos: [{ para: "fantasma", rotulo: "" }] })],
+        });
+        igual(d.processos[0].proximos, []);
+      });
+
+      grupo("Domínio · a régua do que está pronto");
+
+      teste("processo sem porquê não conta como pronto", () =>
+        mapeado(proc({ passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === false);
+
+      teste("processo com menos de três passos não conta", () =>
+        mapeado(proc({ porque: "existe por isso", passos: [passo(), passo({ id: "b" })] })) === false);
+
+      teste("processo completo conta como pronto", () =>
+        mapeado(proc({ porque: "existe por isso", passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === true);
+
+      teste("rascunho de IA não conta como pronto até ser revisado", () =>
+        mapeado(proc({ porque: "x", revisado: false, passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === false);
+
+      teste("faltando aponta o que impede", () => {
+        const f = faltando(proc());
+        if (!f.includes("por que existe") || !f.includes("os passos")) throw new Error("veio " + JSON.stringify(f));
+      });
+
+      grupo("Domínio · posição vem das ligações");
+
+      teste("cadeia simples anda uma casa por ligação", () => {
+        state = semente();
+        state.processos = [
+          proc({ id: "a", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", proximos: [{ para: "c", rotulo: "" }] }),
+          proc({ id: "c" }),
+        ];
+        igual([colunas().a, colunas().b, colunas().c], [0, 1, 2]);
+      });
+
+      teste("retorno legítimo não empurra as colunas", () => {
+        state = semente();
+        state.processos = [
+          proc({ id: "a", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", proximos: [{ para: "c", rotulo: "" }] }),
+          proc({ id: "c", proximos: [{ para: "b", rotulo: "não aprovou" }] }),
+        ];
+        igual([colunas().a, colunas().b, colunas().c], [0, 1, 2]);
+      });
+
+      teste("ciclo fechado não trava nem estoura", () => {
+        state = semente();
+        state.processos = [
+          proc({ id: "a", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", proximos: [{ para: "a", rotulo: "" }] }),
+        ];
+        const t = performance.now();
+        const c = colunas();
+        if (performance.now() - t > 500) throw new Error("demorou demais");
+        if (Math.max(c.a, c.b) > 2) throw new Error("colunas dispararam: " + JSON.stringify(c));
+      });
+
+      teste("decisão entra na conta das colunas", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", proximos: [{ para: "d1", rotulo: "" }] }), proc({ id: "b" })];
+        state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial", faseId: "f-orcar", proximos: [{ para: "b", rotulo: "sim" }] }];
+        igual([colunas().a, colunas().d1, colunas().b], [0, 1, 2]);
+      });
+
+      grupo("Domínio · hierarquia");
+
+      teste("descendeDe enxerga neto, não só filho", () => {
+        state = semente();
+        if (!descendeDe("c-vendedor", "c-diretor")) throw new Error("não viu o neto");
+        if (descendeDe("c-diretor", "c-vendedor")) throw new Error("viu o que não existe");
+      });
+
+      teste("trilha do cargo deriva do vínculo, nunca é guardada", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", cargosIds: ["c-vendedor"] }), proc({ id: "b", cargosIds: [] })];
+        igual(processosDoCargo("c-vendedor").map((p) => p.id), ["a"]);
+      });
+
+      grupo("Domínio · links de fora");
+
+      teste("linkSeguro barra javascript:", () => linkSeguro("javascript:alert(1)") === "");
+      teste("linkSeguro deixa passar https", () => linkSeguro("https://a.com") === "https://a.com");
+      teste("youtubeId entende watch, youtu.be e shorts", () => {
+        igual([
+          youtubeId("https://www.youtube.com/watch?v=abcdefghijk"),
+          youtubeId("https://youtu.be/abcdefghijk"),
+          youtubeId("https://www.youtube.com/shorts/abcdefghijk"),
+        ], ["abcdefghijk", "abcdefghijk", "abcdefghijk"]);
+      });
+      teste("esc neutraliza HTML", () => esc('<img src=x onerror="a">').indexOf("<") === -1);
+
+      grupo("Domínio · sincronia vinda de fora");
+
+      teste("alteração remota substitui no lugar, não no fim", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", nome: "A" }), proc({ id: "b", nome: "B" }), proc({ id: "c", nome: "C" })];
+        aplicarNoEstado({ peca: "p:b", acao: "UPDATE", dados: proc({ id: "b", nome: "B EDITADO" }) });
+        igual(state.processos.map((p) => p.nome), ["A", "B EDITADO", "C"]);
+      });
+
+      teste("remoção remota tira a peça certa", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", nome: "A" }), proc({ id: "b", nome: "B" })];
+        aplicarNoEstado({ peca: "p:a", acao: "DELETE" });
+        igual(state.processos.map((p) => p.nome), ["B"]);
+      });
+
+      teste("evento sem peça não derruba nada", () => {
+        state = semente();
+        aplicarNoEstado({ acao: "DELETE" });
+        aplicarNoEstado(null);
+        return true;
+      });
+
+      // ============================================================ BPMN
+
+      grupo("BPMN · tradução do modelo");
+
+      teste("processo vira início, tarefas e fim", () => {
+        state = semente();
+        const p = proc({ passos: [passo({ id: "1" }), passo({ id: "2" })] });
+        const m = bpmnDoProcesso(p);
+        igual(m.elementos.map((e) => e.tipo), ["inicio", "tarefa", "tarefa", "fim"]);
+      });
+
+      teste("decisão vira gateway com os dois caminhos", () => {
+        state = semente();
+        const p = proc({ passos: [passo({ id: "1", tipo: "decisao", seSim: "segue", seNao: "para" })] });
+        const m = bpmnDoProcesso(p);
+        if (!m.elementos.some((e) => e.tipo === "gateway")) throw new Error("sem gateway");
+        igual(m.fluxos.filter((f) => f.rotulo).map((f) => f.rotulo).sort(), ["Não", "Sim"]);
+      });
+
+      teste("evidência ganha objeto de dados", () => {
+        state = semente();
+        const m = bpmnDoProcesso(proc({ passos: [passo({ tipo: "evidencia" })] }));
+        if (!m.elementos.some((e) => e.dado)) throw new Error("sem objeto de dados");
+      });
+
+      teste("quem faz o passo define a raia", () => {
+        state = semente();
+        const p = proc({ passos: [passo({ id: "1", cargoId: "c-vendedor" }), passo({ id: "2", cargoId: "c-supervisor" })] });
+        igual(bpmnDoProcesso(p).faixas.map((f) => f.nome), ["Vendedor", "Supervisor Operacional"]);
+      });
+
+      teste("passo sem título ainda aparece no desenho", () => {
+        state = semente();
+        const m = bpmnDoProcesso(proc({ passos: [passo({ oQue: "" })] }));
+        if (m.elementos.length !== 3) throw new Error("a forma sumiu");
+      });
+
+      teste("nenhum elemento fica órfão de fluxo", () => {
+        state = semente();
+        const p = proc({ passos: [passo({ id: "1" }), passo({ id: "2", tipo: "decisao", seNao: "desvio" }), passo({ id: "3" })] });
+        const m = bpmnDoProcesso(p);
+        const semEntrada = m.elementos.filter((e) => e.tipo !== "inicio" && !m.fluxos.some((f) => f.para === e.id));
+        const semSaida = m.elementos.filter((e) => e.tipo !== "fim" && !m.fluxos.some((f) => f.de === e.id));
+        igual([semEntrada.length, semSaida.length], [0, 0]);
+      });
+
+      teste("macro mostra todas as raias, mesmo vazias", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", setorId: "s-comercial" })];
+        igual(bpmnDoMapa().faixas.length, 4, "setores da semente:");
+      });
+
+      grupo("BPMN · desenho");
+
+      teste("desenha SVG com raias e formas", () => {
+        state = semente();
+        const html = bpmnDesenhar(bpmnDoProcesso(proc({ passos: [passo(), passo({ id: "2" })] })));
+        if (!html.includes("<svg")) throw new Error("sem svg");
+        if (!html.includes("bpmn-faixa")) throw new Error("sem raia");
+      });
+
+      teste("nenhuma coordenada sai NaN", () => {
+        state = semente();
+        const html = bpmnDesenhar(bpmnDoProcesso(proc({ passos: [passo({ tipo: "decisao", seNao: "x" }), passo({ id: "2" })] })));
+        if (/NaN|undefined/.test(html)) throw new Error("coordenada quebrada");
+      });
+
+      teste("dois rótulos do mesmo gateway não se sobrepõem", () => {
+        state = semente();
+        const p = proc({ passos: [passo({ tipo: "decisao", seSim: "a", seNao: "b" }), passo({ id: "2" })] });
+        const html = bpmnDesenhar(bpmnDoProcesso(p));
+        const ys = [...html.matchAll(/class="bpmn-rotulo-fluxo"[^>]*y="([\d.]+)"/g)].map((m) => m[1]);
+        const alt = [...html.matchAll(/<text x="[\d.]+" y="([\d.]+)" class="bpmn-rotulo-fluxo"/g)].map((m) => m[1]);
+        const todos = ys.length ? ys : alt;
+        if (todos.length >= 2 && new Set(todos).size !== todos.length) throw new Error("rótulos empilhados em " + todos);
+      });
+
+      // ============================================================ TELA
+
+      grupo("Tela · o que o CSS pode esconder");
+
+      teste("atributo hidden vence qualquer classe com display", () => {
+        const d = document.createElement("div");
+        d.className = "portao";
+        d.hidden = true;
+        document.getElementById("palco").appendChild(d);
+        const visivel = getComputedStyle(d).display !== "none";
+        d.remove();
+        if (visivel) throw new Error("elemento continua na tela mesmo com hidden — foi este o bug do login");
+      });
+
+      teste("as classes que se escondem obedecem", () => {
+        const quebradas = [];
+        ["portao", "aviso-remoto", "drawer", "drawer-scrim", "presenca"].forEach((c) => {
+          const d = document.createElement("div");
+          d.className = c;
+          d.hidden = true;
+          document.getElementById("palco").appendChild(d);
+          if (getComputedStyle(d).display !== "none") quebradas.push(c);
+          d.remove();
+        });
+        if (quebradas.length) throw new Error("continuam visíveis: " + quebradas.join(", "));
+      });
+
+      // ============================================================ placar
+
+      const placar = document.getElementById("placar");
+      placar.innerHTML = falhou
+        ? `<span class="vermelho">${falhou} falhou${falhou > 1 ? "ram" : ""}</span> · ${passou} passou${passou > 1 ? "ram" : ""}`
+        : `<span class="verde">${passou} testes, todos passaram</span>`;
+      document.title = `${falhou ? "✕" : "✔"} Testes do CIP`;
+    </script>
+  </body>
+</html>

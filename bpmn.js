@@ -203,7 +203,7 @@ function bpmnCaminho(de, para) {
   return `M${de.x} ${de.y + md.y}V${desvio}H${para.x}V${para.y + mp.y}`;
 }
 
-function bpmnFluxo(fluxo, porId) {
+function bpmnFluxo(fluxo, porId, ordem = 0) {
   const de = porId[fluxo.de];
   const para = porId[fluxo.para];
   if (!de || !para) return "";
@@ -217,7 +217,11 @@ function bpmnFluxo(fluxo, porId) {
   if (fluxo.rotulo) {
     const dy = para.y - de.y;
     const x = de.x + bpmnMeia(de).x + 10;
-    const y = Math.abs(dy) < 2 ? de.y - 8 : dy > 0 ? de.y + 20 : de.y - 16;
+    /* Quando os dois caminhos do gateway ficam na MESMA raia, `dy` é zero para
+       ambos e os rótulos se escreveriam um sobre o outro. Por isso a ordem da
+       saída também afasta — não só a diferença de altura. */
+    const base = Math.abs(dy) < 2 ? de.y - 8 : dy > 0 ? de.y + 20 : de.y - 16;
+    const y = base + (Math.abs(dy) < 2 ? ordem * 15 : 0);
     rotulo = `<text x="${x}" y="${y}" class="bpmn-rotulo-fluxo" text-anchor="start">${bpmnEsc(fluxo.rotulo)}</text>`;
   }
 
@@ -265,7 +269,11 @@ function bpmnDesenhar(modelo, opcoes = {}) {
     return `<g class="${marcas}" data-bpmn-el="${bpmnEsc(e.id)}" tabindex="0" role="button" aria-label="${bpmnEsc(e.rotulo || "elemento")}">${corpo}</g>`;
   }).join("");
 
-  const fluxos = l.fluxos.map((f) => bpmnFluxo(f, porId)).join("");
+  const saidasPorNo = {};
+  const fluxos = l.fluxos.map((f) => {
+    const ordem = saidasPorNo[f.de] = (saidasPorNo[f.de] ?? -1) + 1;
+    return bpmnFluxo(f, porId, ordem);
+  }).join("");
 
   return `
     <div class="bpmn-wrap${opcoes.interativo ? " bpmn-editando" : ""}">

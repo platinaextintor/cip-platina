@@ -13,9 +13,10 @@ const MODELO = "claude-opus-5";
    pública do Supabase é o único portão; restringir a origem tira o abuso
    casual de quem apenas copiou o endereço da função. */
 const ORIGENS = [
-  "http://localhost:8777",
+  "https://platinaextintor.github.io", // publicado
+  "http://localhost:8777",             // desenvolvimento
   "http://127.0.0.1:8777",
-  "null", // arquivo aberto direto do disco (file://)
+  "null",                              // arquivo aberto direto do disco
 ];
 
 function cors(req: Request) {
@@ -207,6 +208,20 @@ Escopo: para quem vale.`,
   },
 };
 
+/* Lê o campo `role` do token sem validar assinatura — quem valida é o gateway
+   do Supabase, antes de a função rodar. Aqui só se distingue anon de pessoa. */
+function papelDoToken(cabecalho: string | null): string {
+  try {
+    const token = (cabecalho || "").replace(/^Bearer\s+/i, "");
+    const meio = token.split(".")[1];
+    if (!meio) return "";
+    const json = atob(meio.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json).role || "";
+  } catch {
+    return "";
+  }
+}
+
 function json(req: Request, corpo: unknown, status = 200) {
   return new Response(JSON.stringify(corpo), {
     status,
@@ -221,6 +236,14 @@ Deno.serve(async (req: Request) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) {
     return json(req, { erro: "A variável ANTHROPIC_API_KEY não está configurada nos secrets do projeto Supabase." }, 500);
+  }
+
+  /* `verify_jwt` aceita qualquer token do projeto — inclusive a chave pública,
+     que está à vista no código publicado. Aqui exigimos que seja o token de uma
+     pessoa que entrou de verdade. */
+  const papel = papelDoToken(req.headers.get("authorization"));
+  if (papel !== "authenticated") {
+    return json(req, { erro: "Entre na sua conta para usar a IA." }, 401);
   }
 
   if (excedeuOTeto()) {

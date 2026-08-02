@@ -1,0 +1,444 @@
+/* O domínio do CIP — o que o sistema É, independente de como aparece.
+
+   Aqui não há tela, nem rede, nem navegador: só o modelo da empresa e as regras
+   que valem sobre ele. É a camada que responde "o que conta como processo
+   pronto?", "quem executa o quê?" e "de onde vem a posição de cada peça?".
+
+   As outras camadas dependem desta, nunca o contrário:
+     app.js    — como aparece na tela
+     nuvem.js  — onde é guardado e como chega ao vivo
+     bpmn.js   — como o diagrama é desenhado
+
+   A tradução entre o modelo e as linhas do banco mora na nuvem, de propósito:
+   o domínio não sabe que existe banco.
+
+   Por não depender de tela, é a camada que se testa sem abrir navegador. */
+
+/* O estado é o modelo, não a interface — por isso vive aqui. */
+let state = estadoVazio();
+
+const CORES_SETOR = ["#2b46a4", "#0c7048", "#bf1f2c", "#9c5806", "#5b4bb7", "#0d7490"];
+
+const TIPOS_TRILHA = {
+  video: { rotulo: "Vídeo", classe: "navy" },
+  curso: { rotulo: "Curso externo", classe: "" },
+  leitura: { rotulo: "Leitura", classe: "" },
+  pratica: { rotulo: "Prática acompanhada", classe: "amber" },
+  documento: { rotulo: "Documento interno", classe: "green" },
+};
+
+const TIPOS = {
+  etapa: { rotulo: "Etapa", cor: "var(--ink-3)", classe: "" },
+  decisao: { rotulo: "Decisão", cor: "var(--amber)", classe: "amber" },
+  evidencia: { rotulo: "Evidência", cor: "var(--navy-2)", classe: "navy" },
+  aprovacao: { rotulo: "Aprovação", cor: "var(--green)", classe: "green" },
+};
+
+function estadoVazio() {
+  return {
+    empresa: { nome: "Platina Extintores" },
+    setores: [],
+    cargos: [],
+    fases: [],
+    decisoes: [],
+    documentos: [],
+    processos: [],
+  };
+}
+
+function semente() {
+  return {
+    ...estadoVazio(),
+    setores: [
+      { id: "s-gestao", nome: "Gestão" },
+      { id: "s-comercial", nome: "Comercial" },
+      { id: "s-tecnica", nome: "Técnica" },
+      { id: "s-admin", nome: "Administrativo" },
+    ],
+    cargos: [
+      { id: "c-diretor", setorId: "s-gestao", nome: "Diretor", reportaA: null, missao: "", expectativas: "", conhecimentos: "", trilha: [] },
+      { id: "c-supervisor", setorId: "s-gestao", nome: "Supervisor Operacional", reportaA: "c-diretor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
+      { id: "c-vendedor", setorId: "s-comercial", nome: "Vendedor", reportaA: "c-supervisor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
+      { id: "c-tecnico", setorId: "s-tecnica", nome: "Técnico de Extintores", reportaA: "c-supervisor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
+      { id: "c-admin", setorId: "s-admin", nome: "Auxiliar Administrativo", reportaA: "c-diretor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
+    ],
+    fases: [
+      { id: "f-captar", nome: "Captar" },
+      { id: "f-orcar", nome: "Orçar" },
+      { id: "f-executar", nome: "Executar" },
+      { id: "f-entregar", nome: "Entregar" },
+      { id: "f-cuidar", nome: "Cuidar" },
+      { id: "f-apoio", nome: "Apoio" },
+    ],
+  };
+}
+
+function valido(dados) {
+  const listas = ["setores", "cargos", "fases", "processos"];
+  return !!dados && listas.every((chave) => Array.isArray(dados[chave]));
+}
+
+function normalizarSaidas(bruto) {
+  return (Array.isArray(bruto) ? bruto : [])
+    .map((x) => (typeof x === "string" ? { para: x, rotulo: "" } : { para: x?.para || "", rotulo: x?.rotulo || "" }))
+    .filter((x) => x.para);
+}
+
+function normalizar(dados) {
+  dados.empresa = dados.empresa || { nome: "Empresa" };
+  dados.documentos = Array.isArray(dados.documentos) ? dados.documentos : [];
+  dados.decisoes = Array.isArray(dados.decisoes) ? dados.decisoes : [];
+
+  dados.decisoes.forEach((d) => {
+    d.pergunta = d.pergunta || "";
+    d.setorId = d.setorId || "";
+    d.faseId = d.faseId || "";
+    d.proximos = normalizarSaidas(d.proximos);
+  });
+
+  dados.cargos.forEach((c) => {
+    c.missao = c.missao || "";
+    c.expectativas = c.expectativas || "";
+    c.conhecimentos = c.conhecimentos || "";
+    c.trilha = Array.isArray(c.trilha) ? c.trilha : [];
+  });
+
+  dados.processos.forEach((p) => {
+    p.cargosIds = Array.isArray(p.cargosIds) ? p.cargosIds : [];
+    p.passos = Array.isArray(p.passos) ? p.passos : [];
+    p.perguntas = Array.isArray(p.perguntas) ? p.perguntas : [];
+    p.anexos = Array.isArray(p.anexos) ? p.anexos : [];
+    p.videoUrl = p.videoUrl || "";
+    p.passos.forEach((s) => { s.videoUrl = s.videoUrl || ""; });
+    p.proximos = normalizarSaidas(p.proximos);
+    p.revisado = p.revisado !== false;
+    p.passos.forEach((s) => { s.cargoId = s.cargoId || ""; });
+  });
+
+  /* Ligação apontando para peça apagada vira lixo silencioso. */
+  const vivos = new Set([...dados.processos, ...dados.decisoes].map((n) => n.id));
+  [...dados.processos, ...dados.decisoes].forEach((n) => {
+    n.proximos = n.proximos.filter((x) => vivos.has(x.para) && x.para !== n.id);
+  });
+
+  return dados;
+}
+
+function uid(prefixo) {
+  return `${prefixo}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function esc(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function linkSeguro(url) {
+  const u = String(url || "").trim();
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+
+function youtubeId(url) {
+  const m = String(url || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : "";
+}
+
+function corSetor(id) {
+  const i = state.setores.findIndex((s) => s.id === id);
+  return CORES_SETOR[i < 0 ? 0 : i % CORES_SETOR.length];
+}
+
+function processosDoCargo(cargoId) {
+  return state.processos.filter((p) => p.cargosIds.includes(cargoId) || p.donoCargoId === cargoId);
+}
+
+function mapeado(p) {
+  const passosOk = (p.passos || []).filter((s) => s.oQue && s.oQue.trim()).length;
+  return !!(p.porque && p.porque.trim()) && passosOk >= 3 && p.revisado !== false;
+}
+
+function faltando(p) {
+  const faltas = [];
+  if (!p.porque?.trim()) faltas.push("por que existe");
+  if (!(p.passos || []).length) faltas.push("os passos");
+  const semExemplo = (p.passos || []).filter((s) => !s.imagem && !s.comoFazer?.trim()).length;
+  if (semExemplo) faltas.push(`${semExemplo} passo(s) sem exemplo`);
+  return faltas;
+}
+
+function descendeDe(idFilho, idAncestral) {
+  const vistos = new Set();
+  let atual = cargo(idFilho);
+  while (atual?.reportaA && !vistos.has(atual.id)) {
+    vistos.add(atual.id);
+    if (atual.reportaA === idAncestral) return true;
+    atual = cargo(atual.reportaA);
+  }
+  return false;
+}
+
+function colunas() {
+  const nos = nosMacro();
+  const vivos = new Set(nos.map((n) => n.id));
+  const saidas = {};
+  const col = {};
+  nos.forEach((n) => {
+    col[n.id] = 0;
+    saidas[n.id] = (n.proximos || []).map((x) => x.para).filter((d) => d !== n.id && vivos.has(d));
+  });
+
+  const estado = {}; // 1 = na pilha, 2 = fechado
+  const retorno = new Set();
+  const visitar = (id) => {
+    estado[id] = 1;
+    saidas[id].forEach((d) => {
+      if (estado[d] === 1) retorno.add(`${id}>${d}`);
+      else if (!estado[d]) visitar(d);
+    });
+    estado[id] = 2;
+  };
+  nos.forEach((n) => { if (!estado[n.id]) visitar(n.id); });
+
+  for (let volta = 0; volta < nos.length; volta++) {
+    let mudou = false;
+    nos.forEach((n) => {
+      saidas[n.id].forEach((d) => {
+        if (retorno.has(`${n.id}>${d}`)) return;
+        if (col[d] < col[n.id] + 1) { col[d] = col[n.id] + 1; mudou = true; }
+      });
+    });
+    if (!mudou) break;
+  }
+  return col;
+}
+
+function bpmnDoProcesso(p) {
+  const passos = p.passos || [];
+  if (!passos.length) return null;
+
+  const faixaDe = (s) => (s.cargoId && cargo(s.cargoId) ? s.cargoId : p.donoCargoId || "");
+
+  const idsFaixa = [];
+  passos.forEach((s) => {
+    const id = faixaDe(s);
+    if (!idsFaixa.includes(id)) idsFaixa.push(id);
+  });
+  if (!idsFaixa.length) idsFaixa.push("");
+
+  const faixas = idsFaixa.map((id) => ({
+    id,
+    nome: cargo(id)?.nome || "Sem responsável",
+    cor: id ? corSetor(cargo(id)?.setorId) : "",
+  }));
+
+  const elementos = [{ id: "inicio", tipo: "inicio", rotulo: "", faixaId: idsFaixa[0], coluna: 0 }];
+  const fluxos = [];
+
+  let coluna = 1;
+  let anterior = "inicio";
+  let rotuloProximo = "";
+  let aguardandoMerge = null;
+
+  passos.forEach((s) => {
+    const id = s.id;
+    const faixaId = faixaDe(s);
+    const decisao = s.tipo === "decisao";
+
+    elementos.push({
+      id,
+      tipo: decisao ? "gateway" : "tarefa",
+      rotulo: s.oQue?.trim() || "sem título",
+      sub: decisao ? "" : TIPOS[s.tipo]?.rotulo || "",
+      faixaId,
+      coluna,
+      dado: s.tipo === "evidencia" ? "Evidência" : "",
+      editavel: true,
+    });
+
+    fluxos.push({ de: anterior, para: id, rotulo: rotuloProximo });
+    if (aguardandoMerge) {
+      fluxos.push({ de: aguardandoMerge, para: id, rotulo: "" });
+      aguardandoMerge = null;
+    }
+
+    if (decisao && s.seNao?.trim()) {
+      const desvio = `${id}::nao`;
+      elementos.push({
+        id: desvio,
+        tipo: "tarefa",
+        rotulo: s.seNao,
+        sub: "caminho não",
+        faixaId,
+        coluna: coluna + 1,
+        dado: "",
+      });
+      fluxos.push({ de: id, para: desvio, rotulo: "Não" });
+      aguardandoMerge = desvio;
+      coluna += 2;
+    } else {
+      coluna += 1;
+    }
+
+    rotuloProximo = decisao ? (s.seSim?.trim() ? "Sim" : "") : "";
+    anterior = id;
+  });
+
+  elementos.push({ id: "fim", tipo: "fim", rotulo: "", faixaId: faixaDe(passos[passos.length - 1]), coluna });
+  fluxos.push({ de: anterior, para: "fim", rotulo: rotuloProximo });
+  if (aguardandoMerge) fluxos.push({ de: aguardandoMerge, para: "fim", rotulo: "" });
+
+  return { faixas, elementos, fluxos };
+}
+
+/* O agrupamento é escolha de tela, então chega por parâmetro: o domínio não
+   conhece `ui`. Foi o teste, rodando sem o app.js, que expôs essa dependência. */
+function bpmnDoMapa(porSetor = true) {
+  const nos = nosMacro();
+
+  const grupos = porSetor ? state.setores : state.fases;
+  const chave = porSetor ? "setorId" : "faseId";
+  const col = colunas();
+
+  const faixaDe = (n) => (grupos.some((g) => g.id === n[chave]) ? n[chave] : "");
+
+  /* Todas as raias aparecem, mesmo vazias — senão um setor recém-criado fica
+     invisível e parece que não foi criado. Só a raia "sem setor" é condicional. */
+  const faixas = grupos.map((g) => ({
+    id: g.id,
+    nome: g.nome,
+    cor: porSetor ? corSetor(g.id) : "",
+  }));
+  if (nos.some((n) => !faixaDe(n))) {
+    faixas.push({ id: "", nome: porSetor ? "Sem setor" : "Sem fase", cor: "" });
+  }
+
+  const elementos = [];
+  const fluxos = [];
+  const temEntrada = new Set();
+  nos.forEach((n) => (n.proximos || []).forEach((x) => temEntrada.add(x.para)));
+
+  nos.forEach((n) => {
+    const faixaId = faixaDe(n);
+    const c = (col[n.id] || 0) * 2 + 1;
+    const eDecisao = ehDecisao(n.id);
+
+    elementos.push({
+      id: n.id,
+      tipo: eDecisao ? "gateway" : "subprocesso",
+      rotulo: eDecisao ? (n.pergunta || "sem pergunta") : n.nome,
+      sub: eDecisao ? "" : cargo(n.donoCargoId)?.nome || "",
+      faixaId,
+      coluna: c,
+      dado: "",
+      editavel: true,
+    });
+
+    if (!temEntrada.has(n.id)) {
+      elementos.push({ id: `ini-${n.id}`, tipo: "inicio", rotulo: "", faixaId, coluna: c - 1 });
+      fluxos.push({ de: `ini-${n.id}`, para: n.id, rotulo: "" });
+    }
+
+    if (!(n.proximos || []).length) {
+      elementos.push({ id: `fim-${n.id}`, tipo: "fim", rotulo: "", faixaId, coluna: c + 1 });
+      fluxos.push({ de: n.id, para: `fim-${n.id}`, rotulo: "" });
+    }
+
+    (n.proximos || []).forEach((x) => {
+      if (noMacro(x.para)) fluxos.push({ de: n.id, para: x.para, rotulo: x.rotulo || "" });
+    });
+  });
+
+  return { faixas, elementos, fluxos };
+}
+
+function novoPasso(tipo) {
+  return {
+    id: uid("ps"),
+    tipo,
+    cargoId: "",
+    oQue: "",
+    comoFazer: "",
+    porque: "",
+    armadilha: "",
+    regra: "",
+    imagem: "",
+    videoUrl: "",
+    seSim: "",
+    seNao: "",
+  };
+}
+
+function textoDoProcesso(p) {
+  const cargos = p.cargosIds.map((id) => cargo(id)?.nome).filter(Boolean).join(", ");
+  return [
+    `Processo: ${p.nome}`,
+    `Setor: ${setor(p.setorId)?.nome || "—"} · Fase: ${fase(p.faseId)?.nome || "—"}`,
+    cargos ? `Quem executa: ${cargos}` : "",
+    p.porque ? `Por que existe: ${p.porque}` : "",
+    p.seErrar ? `Quando sai errado: ${p.seErrar}` : "",
+    "",
+    "Passos:",
+    ...(p.passos || []).map((s, i) => `${i + 1}. [${s.tipo}] ${s.oQue}${s.comoFazer ? ` — ${s.comoFazer}` : ""}`),
+  ].filter(Boolean).join("\n");
+}
+
+function contextoBase() {
+  return {
+    empresa: state.empresa?.nome,
+    setores: state.setores.map((s) => ({ id: s.id, nome: s.nome })),
+    fases: state.fases.map((f) => ({ id: f.id, nome: f.nome })),
+    cargos: state.cargos.map((c) => ({ id: c.id, nome: c.nome, setor: setor(c.setorId)?.nome || "" })),
+  };
+}
+
+function preencherVazios(alvo, sugestao, campos) {
+  campos.forEach((campo) => {
+    const novo = String(sugestao?.[campo] ?? "").trim();
+    if (novo && !String(alvo[campo] ?? "").trim()) alvo[campo] = novo;
+  });
+}
+
+function aplicarNoEstado(m) {
+  if (!m?.peca) return;
+  if (m.peca === "estrutura") {
+    if (m.acao !== "DELETE" && m.dados) Object.assign(state, m.dados);
+    return;
+  }
+  const [prefixo, ...resto] = m.peca.split(":");
+  const id = resto.join(":");
+  const lista = prefixo === "p" ? "processos" : prefixo === "d" ? "decisoes" : "documentos";
+  const i = state[lista].findIndex((x) => x.id === id);
+
+  /* Substitui no lugar, nunca no fim: a ordem da lista é a ordem na tela. */
+  if (m.acao === "DELETE") {
+    if (i >= 0) state[lista].splice(i, 1);
+  } else if (i >= 0) {
+    state[lista][i] = m.dados;
+  } else {
+    state[lista].push(m.dados);
+  }
+}
+
+const setor = (id) => state.setores.find((s) => s.id === id);
+
+const cargo = (id) => state.cargos.find((c) => c.id === id);
+
+const fase = (id) => state.fases.find((f) => f.id === id);
+
+const processo = (id) => state.processos.find((p) => p.id === id);
+
+const documento = (id) => state.documentos.find((d) => d.id === id);
+
+const decisao = (id) => state.decisoes.find((d) => d.id === id);
+
+const nosMacro = () => [...state.processos, ...state.decisoes];
+
+const noMacro = (id) => processo(id) || decisao(id);
+
+const ehDecisao = (id) => !!decisao(id);
+
+const linhas = (texto) => String(texto || "").split("\n").map((l) => l.trim()).filter(Boolean);

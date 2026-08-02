@@ -83,6 +83,16 @@ function quemEstaLogado() {
   return usuarioAtual;
 }
 
+/* O token de quem está logado. A função de IA passou a exigir isto em vez da
+   chave pública — com o repositório público, a chave está à vista de todos, e
+   sem essa troca qualquer um poderia gastar os créditos da Platina. */
+async function tokenDoUsuario() {
+  const cliente = nuvemPronta();
+  if (!cliente) return null;
+  const { data } = await cliente.auth.getSession();
+  return data?.session?.access_token || null;
+}
+
 function nomeDoUsuario(user = usuarioAtual) {
   if (!user) return "";
   return user.user_metadata?.nome || user.email?.split("@")[0] || "alguém";

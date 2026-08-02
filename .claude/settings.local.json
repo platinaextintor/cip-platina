@@ -33,7 +33,13 @@
       "Bash(command -v gh)",
       "Bash(gh --version)",
       "Bash(gh auth *)",
-      "Bash(gh api *)"
+      "Bash(gh api *)",
+      "Bash(git commit -q -m 'CIP: modelador de processos da Platina Extintores *)",
+      "Bash(git branch *)",
+      "Bash(gh repo *)",
+      "Bash(curl -s -X POST https://zxbjluzxmucpzvgwtkns.supabase.co/functions/v1/cip-ia -H 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4YmpsdXp4bXVjcHp2Z3d0a25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTU2MjgsImV4cCI6MjEwMDgzMTYyOH0.2R4zTbSupwt7n3i5PMciG_paRmJNuV9L4QW3qVVlcHk' -H 'Origin: https://platinaextintor.github.io' -H 'content-type: application/json' -d '{\"acao\":\"documento\",\"entrada\":\"teste\"}')",
+      "Bash(curl -s -i -X OPTIONS https://zxbjluzxmucpzvgwtkns.supabase.co/functions/v1/cip-ia -H 'Origin: https://platinaextintor.github.io' -H 'Access-Control-Request-Method: POST')",
+      "Bash(curl -s -o /dev/null -w \"  HTTP %{http_code}\\\\n\" \"https://platinaextintor.github.io/cip-platina/\")"
     ]
   }
 }
