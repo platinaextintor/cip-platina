@@ -86,6 +86,12 @@
           proximos: [], ...extra,
         };
       }
+      /* Na vida real nenhum processo chega ao desenhista sem passar por normalizar().
+         Testar sem ele é testar um estado que o CIP nunca produz. */
+      function procVivo(extra = {}) {
+        state = normalizar({ ...semente(), processos: [proc(extra)] });
+        return state.processos[0];
+      }
       function passo(extra = {}) {
         return {
           id: "ps1", tipo: "etapa", cargoId: "", oQue: "Fazer algo", comoFazer: "",
@@ -372,41 +378,35 @@
       grupo("BPMN · tradução do modelo");
 
       teste("processo vira início, tarefas e fim", () => {
-        state = semente();
-        const p = proc({ passos: [passo({ id: "1" }), passo({ id: "2" })] });
+        const p = procVivo({ passos: [passo({ id: "1" }), passo({ id: "2" })] });
         const m = bpmnDoProcesso(p);
         igual(m.elementos.map((e) => e.tipo), ["inicio", "tarefa", "tarefa", "fim"]);
       });
 
       teste("decisão vira gateway com os dois caminhos", () => {
-        state = semente();
-        const p = proc({ passos: [passo({ id: "1", tipo: "decisao", seSim: "segue", seNao: "para" })] });
+        const p = procVivo({ passos: [passo({ id: "1", tipo: "decisao", seSim: "segue", seNao: "para" })] });
         const m = bpmnDoProcesso(p);
         if (!m.elementos.some((e) => e.tipo === "gateway")) throw new Error("sem gateway");
         igual(m.fluxos.filter((f) => f.rotulo).map((f) => f.rotulo).sort(), ["Não", "Sim"]);
       });
 
       teste("evidência ganha objeto de dados", () => {
-        state = semente();
-        const m = bpmnDoProcesso(proc({ passos: [passo({ tipo: "evidencia" })] }));
+        const m = bpmnDoProcesso(procVivo({ passos: [passo({ tipo: "evidencia" })] }));
         if (!m.elementos.some((e) => e.dado)) throw new Error("sem objeto de dados");
       });
 
       teste("quem faz o passo define a raia", () => {
-        state = semente();
-        const p = proc({ passos: [passo({ id: "1", cargoId: "c-vendedor" }), passo({ id: "2", cargoId: "c-supervisor" })] });
+        const p = procVivo({ passos: [passo({ id: "1", cargoId: "c-vendedor" }), passo({ id: "2", cargoId: "c-supervisor" })] });
         igual(bpmnDoProcesso(p).faixas.map((f) => f.nome), ["Vendedor", "Supervisor Operacional"]);
       });
 
       teste("passo sem título ainda aparece no desenho", () => {
-        state = semente();
-        const m = bpmnDoProcesso(proc({ passos: [passo({ oQue: "" })] }));
+        const m = bpmnDoProcesso(procVivo({ passos: [passo({ oQue: "" })] }));
         if (m.elementos.length !== 3) throw new Error("a forma sumiu");
       });
 
       teste("nenhum elemento fica órfão de fluxo", () => {
-        state = semente();
-        const p = proc({ passos: [passo({ id: "1" }), passo({ id: "2", tipo: "decisao", seNao: "desvio" }), passo({ id: "3" })] });
+        const p = procVivo({ passos: [passo({ id: "1" }), passo({ id: "2", tipo: "decisao", seNao: "desvio" }), passo({ id: "3" })] });
         const m = bpmnDoProcesso(p);
         const semEntrada = m.elementos.filter((e) => e.tipo !== "inicio" && !m.fluxos.some((f) => f.para === e.id));
         const semSaida = m.elementos.filter((e) => e.tipo !== "fim" && !m.fluxos.some((f) => f.de === e.id));
@@ -419,24 +419,165 @@
         igual(bpmnDoMapa().faixas.length, 4, "setores da semente:");
       });
 
+      grupo("Domínio · o subprocesso é desenho, não fila");
+
+      teste("base antiga vira cadeia: cada passo aponta para o seguinte", () => {
+        const p = procVivo({ passos: [passo({ id: "1" }), passo({ id: "2" }), passo({ id: "3" })] });
+        igual(p.passos.map((s) => s.proximos.map((x) => x.para)), [["2"], ["3"], []]);
+      });
+
+      teste("os dois lados da decisão viram passo de verdade", () => {
+        const p = procVivo({ passos: [passo({ id: "1", tipo: "decisao", seSim: "aprova", seNao: "devolve" }), passo({ id: "2" })] });
+        const d = p.passos.find((s) => s.id === "1");
+        igual(d.proximos.map((x) => x.rotulo), ["Sim", "Não"], "rótulos do gateway:");
+        const textos = d.proximos.map((x) => p.passos.find((y) => y.id === x.para).oQue);
+        igual(textos, ["aprova", "devolve"], "o texto virou trabalho:");
+      });
+
+      teste("o desvio reentra no fluxo em vez de morrer", () => {
+        const p = procVivo({ passos: [passo({ id: "1", tipo: "decisao", seNao: "devolve" }), passo({ id: "2" })] });
+        const desvio = p.passos.find((s) => s.oQue === "devolve");
+        igual(desvio.proximos.map((x) => x.para), ["2"]);
+      });
+
+      teste("quem já tem ligação não é remexido", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "3", rotulo: "" }] }),
+          passo({ id: "2" }),
+          passo({ id: "3" }),
+        ] });
+        igual(p.passos.find((s) => s.id === "1").proximos.map((x) => x.para), ["3"]);
+      });
+
+      teste("bifurcação abre coluna: os dois ramos ficam lado a lado", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "2" }, { para: "3" }] }),
+          passo({ id: "2" }), passo({ id: "3" }),
+        ] });
+        const c = colunasDe(p.passos);
+        igual([c["2"], c["3"]], [1, 1], "irmãos na mesma coluna:");
+      });
+
+      teste("passo pode voltar para trás sem travar o cálculo", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "2" }] }),
+          passo({ id: "2", proximos: [{ para: "1" }] }),
+        ] });
+        const c = colunasDe(p.passos);
+        if (!Number.isFinite(c["1"]) || !Number.isFinite(c["2"])) throw new Error("ciclo travou a coluna");
+      });
+
+      teste("passo de outro cargo abre outra raia no subprocesso", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", cargoId: "c-vendedor", proximos: [{ para: "2" }] }),
+          passo({ id: "2", cargoId: "c-supervisor" }),
+        ] });
+        igual(bpmnDoProcesso(p).faixas.length, 2);
+      });
+
+      grupo("Domínio · o caminho da aula");
+
+      teste("a aula segue a primeira saída de cada passo", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "2" }, { para: "3" }] }),
+          passo({ id: "2" }), passo({ id: "3" }),
+        ] });
+        igual(caminhoDaAula(p).map((s) => s.id).slice(0, 2), ["1", "2"]);
+      });
+
+      teste("ciclo fechado ainda tem porta de entrada", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "2" }] }),
+          passo({ id: "2", proximos: [{ para: "1" }] }),
+        ] });
+        igual(bpmnDoProcesso(p).elementos.filter((e) => e.tipo === "inicio").length, 1);
+      });
+
+      teste("a aula não entra em laço infinito", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "2" }] }),
+          passo({ id: "2", proximos: [{ para: "1" }] }),
+        ] });
+        igual(caminhoDaAula(p).map((s) => s.id), ["1", "2"]);
+      });
+
+      teste("quem ficou fora do caminho principal ainda é ensinado", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", proximos: [{ para: "2" }, { para: "3" }] }),
+          passo({ id: "2" }), passo({ id: "3" }),
+        ] });
+        if (!caminhoDaAula(p).some((s) => s.id === "3")) throw new Error("passo sumiu da aula");
+      });
+
+      teste("o desvio do gateway é o que não é caminho principal", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", tipo: "decisao", proximos: [{ para: "2", rotulo: "Sim" }, { para: "3", rotulo: "Não" }] }),
+          passo({ id: "2" }), passo({ id: "3" }),
+        ] });
+        const d = desviosDoPasso(p, p.passos.find((s) => s.id === "1"));
+        igual(d.map((x) => [x.rotulo, x.passo.id]), [["Não", "3"]]);
+      });
+
+      grupo("Domínio · processos que sustentam");
+
+      teste("processo sem ligação nenhuma está fora do fluxo", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b" }),
+          proc({ id: "rh" }),
+        ] });
+        igual(processosQueSustentam().map((p) => p.id), ["rh"]);
+      });
+
+      teste("ligou, sobe para o fluxo sozinho — não há campo de classificação", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", proximos: [{ para: "b", rotulo: "" }] }), proc({ id: "b" }), proc({ id: "rh" }),
+        ] });
+        igual(processosQueSustentam().map((p) => p.id), ["rh"], "antes:");
+        state.processos[1].proximos = [{ para: "rh", rotulo: "" }];
+        igual(processosQueSustentam().length, 0, "depois:");
+      });
+
+      teste("mapa sem nenhuma ligação não tem ninguém 'fora do fluxo'", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a" }), proc({ id: "b" })] });
+        igual(processosQueSustentam().length, 0);
+      });
+
+      teste("quem sustenta não ganha início nem fim no macro", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", setorId: "s-comercial", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", setorId: "s-comercial" }),
+          proc({ id: "rh", setorId: "s-comercial" }),
+        ] });
+        const m = bpmnDoMapa();
+        const perto = (id, tipo) => m.elementos.some((e) => e.tipo === tipo && e.id.endsWith(id));
+        if (perto("rh", "inicio") || perto("rh", "fim")) throw new Error("ganhou evento sem estar no fluxo");
+      });
+
+      teste("mas continua desenhado — está fora do fluxo, não fora do mapa", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", setorId: "s-comercial", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", setorId: "s-comercial" }),
+          proc({ id: "rh", setorId: "s-comercial" }),
+        ] });
+        if (!bpmnDoMapa().elementos.some((e) => e.id === "rh")) throw new Error("sumiu do mapa");
+      });
+
       grupo("BPMN · desenho");
 
       teste("desenha SVG com raias e formas", () => {
-        state = semente();
-        const html = bpmnDesenhar(bpmnDoProcesso(proc({ passos: [passo(), passo({ id: "2" })] })));
+        const html = bpmnDesenhar(bpmnDoProcesso(procVivo({ passos: [passo(), passo({ id: "2" })] })));
         if (!html.includes("<svg")) throw new Error("sem svg");
         if (!html.includes("bpmn-faixa")) throw new Error("sem raia");
       });
 
       teste("nenhuma coordenada sai NaN", () => {
-        state = semente();
-        const html = bpmnDesenhar(bpmnDoProcesso(proc({ passos: [passo({ tipo: "decisao", seNao: "x" }), passo({ id: "2" })] })));
+        const html = bpmnDesenhar(bpmnDoProcesso(procVivo({ passos: [passo({ tipo: "decisao", seNao: "x" }), passo({ id: "2" })] })));
         if (/NaN|undefined/.test(html)) throw new Error("coordenada quebrada");
       });
 
       teste("dois rótulos do mesmo gateway não se sobrepõem", () => {
-        state = semente();
-        const p = proc({ passos: [passo({ tipo: "decisao", seSim: "a", seNao: "b" }), passo({ id: "2" })] });
+        const p = procVivo({ passos: [passo({ tipo: "decisao", seSim: "a", seNao: "b" }), passo({ id: "2" })] });
         const html = bpmnDesenhar(bpmnDoProcesso(p));
         const ys = [...html.matchAll(/class="bpmn-rotulo-fluxo"[^>]*y="([\d.]+)"/g)].map((m) => m[1]);
         const alt = [...html.matchAll(/<text x="[\d.]+" y="([\d.]+)" class="bpmn-rotulo-fluxo"/g)].map((m) => m[1]);

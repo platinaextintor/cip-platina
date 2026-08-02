@@ -176,8 +176,48 @@ function normalizar(dados) {
     p.entrada = p.entrada || "";
     p.saida = p.saida || "";
     p.revisado = p.revisado !== false;
+    /* O subprocesso era uma fila: a ordem do array virava a sequência. Agora é
+       desenho — cada passo aponta para os próximos. Base antiga é convertida
+       encadeando na ordem em que estava, para nada se perder. */
+    const semLigacao = p.passos.every((s) => !Array.isArray(s.proximos) || !s.proximos.length);
+    if (semLigacao && p.passos.length) {
+      p.passos.forEach((s, i) => {
+        const proximo = p.passos[i + 1];
+        s.proximos = proximo ? [{ para: proximo.id, rotulo: s.tipo === "decisao" ? "Sim" : "" }] : [];
+      });
+
+      /* "Se sim" e "se não" eram texto solto descrevendo o que acontece em cada
+         caminho. Texto que descreve trabalho é passo — então vira passo de
+         verdade, pendurado no ramo certo e reentrando no fluxo. Senão a
+         bifurcação continuaria existindo só na descrição, e o desenho mentiria.
+         O rótulo da seta fica curto: quem lê o fluxo lê "Sim"/"Não", não a frase. */
+      p.passos.filter((s) => s.tipo === "decisao").forEach((s) => {
+        const depois = s.proximos[0]?.para || "";
+        const ramo = (texto, rotulo) => {
+          const novo = {
+            id: uid("ps"), tipo: "etapa", cargoId: s.cargoId, sistemaIds: [],
+            oQue: texto, comoFazer: "", porque: "", armadilha: "", regra: "",
+            imagem: "", videoUrl: "", seSim: "", seNao: "",
+            proximos: depois ? [{ para: depois, rotulo: "" }] : [],
+          };
+          p.passos.splice(p.passos.indexOf(s) + 1, 0, novo);
+          return { para: novo.id, rotulo };
+        };
+
+        /* Se o "se sim" virou passo, ele passa a ser o ramo do sim — a seta direta
+           para o que vinha depois some, senão o gateway sairia duas vezes pelo
+           mesmo lado. O passo novo é quem reentra no fluxo. */
+        const sim = s.seSim?.trim() ? ramo(s.seSim.trim(), "Sim")
+          : depois ? { para: depois, rotulo: "Sim" } : null;
+        const nao = s.seNao?.trim() ? ramo(s.seNao.trim(), "Não") : null;
+        s.proximos = [sim, nao].filter(Boolean);
+      });
+    }
+
+    const idsDePasso = new Set(p.passos.map((s) => s.id));
     p.passos.forEach((s) => {
       s.cargoId = s.cargoId || "";
+      s.proximos = normalizarSaidas(s.proximos).filter((x) => idsDePasso.has(x.para) && x.para !== s.id);
       /* Sistema que sobrou de um apagado vira lixo silencioso. */
       s.sistemaIds = (Array.isArray(s.sistemaIds) ? s.sistemaIds : [])
         .filter((id) => dados.sistemas.some((x) => x.id === id));
@@ -250,8 +290,15 @@ function descendeDe(idFilho, idAncestral) {
   return false;
 }
 
-function colunas() {
-  const nos = nosMacro();
+/* A coluna de cada peça nasce das ligações: quem vem depois anda uma casa para
+   a direita.
+
+   Retorno ("não aprovou, volta pro orçamento") é legítimo, mas empurraria as
+   colunas para sempre. Uma busca em profundidade marca as arestas de retorno e
+   as tira da conta — a seta continua desenhada, só não influencia a posição.
+
+   Serve ao macro e ao subprocesso: os dois são peças ligadas por setas. */
+function colunasDe(nos) {
   const vivos = new Set(nos.map((n) => n.id));
   const saidas = {};
   const col = {};
@@ -264,9 +311,9 @@ function colunas() {
   const retorno = new Set();
   const visitar = (id) => {
     estado[id] = 1;
-    saidas[id].forEach((d) => {
-      if (estado[d] === 1) retorno.add(`${id}>${d}`);
-      else if (!estado[d]) visitar(d);
+    saidas[id].forEach((destino) => {
+      if (estado[destino] === 1) retorno.add(`${id}>${destino}`);
+      else if (!estado[destino]) visitar(destino);
     });
     estado[id] = 2;
   };
@@ -275,9 +322,9 @@ function colunas() {
   for (let volta = 0; volta < nos.length; volta++) {
     let mudou = false;
     nos.forEach((n) => {
-      saidas[n.id].forEach((d) => {
-        if (retorno.has(`${n.id}>${d}`)) return;
-        if (col[d] < col[n.id] + 1) { col[d] = col[n.id] + 1; mudou = true; }
+      saidas[n.id].forEach((destino) => {
+        if (retorno.has(`${n.id}>${destino}`)) return;
+        if (col[destino] < col[n.id] + 1) { col[destino] = col[n.id] + 1; mudou = true; }
       });
     });
     if (!mudou) break;
@@ -285,12 +332,17 @@ function colunas() {
   return col;
 }
 
+const colunas = () => colunasDe(nosMacro());
+
+
 function bpmnDoProcesso(p) {
-  const passos = p.passos || [];
+  const passos = p?.passos || [];
   if (!passos.length) return null;
 
   const faixaDe = (s) => (s.cargoId && cargo(s.cargoId) ? s.cargoId : p.donoCargoId || "");
 
+  /* A raia é o cargo, e o cargo pode ser de outro setor — é assim que um
+     subprocesso que depende de outra área aparece atravessando o desenho. */
   const idsFaixa = [];
   passos.forEach((s) => {
     const id = faixaDe(s);
@@ -304,64 +356,89 @@ function bpmnDoProcesso(p) {
     cor: id ? corSetor(cargo(id)?.setorId) : "",
   }));
 
-  const elementos = [{ id: "inicio", tipo: "inicio", rotulo: "", faixaId: idsFaixa[0], coluna: 0 }];
+  const col = colunasDe(passos);
+  const temEntrada = new Set();
+  passos.forEach((s) => (s.proximos || []).forEach((x) => temEntrada.add(x.para)));
+
+  /* Um ciclo fechado não tem ninguém sem entrada — e ficaria sem início, um
+     desenho sem porta. Quando isso acontece, o primeiro passo é a porta. É a
+     mesma escolha que caminhoDaAula() faz; as duas telas contam a mesma história. */
+  if (passos.every((s) => temEntrada.has(s.id))) temEntrada.delete(passos[0].id);
+
+  const elementos = [];
   const fluxos = [];
 
-  let coluna = 1;
-  let anterior = "inicio";
-  let rotuloProximo = "";
-  let aguardandoMerge = null;
-
   passos.forEach((s) => {
-    const id = s.id;
-    const faixaId = faixaDe(s);
     const decisao = s.tipo === "decisao";
+    const c = (col[s.id] || 0) * 2 + 1;
+
+    /* Quem ninguém aponta é uma entrada do desenho, e entrada tem início.
+       Sai antes da forma para que a leitura do SVG bata com a do olho. */
+    if (!temEntrada.has(s.id)) {
+      elementos.push({ id: `ini-${s.id}`, tipo: "inicio", rotulo: "", faixaId: faixaDe(s), coluna: c - 1 });
+      fluxos.push({ de: `ini-${s.id}`, para: s.id, rotulo: "" });
+    }
 
     elementos.push({
-      id,
+      id: s.id,
       tipo: decisao ? "gateway" : "tarefa",
       rotulo: s.oQue?.trim() || "sem título",
       sub: decisao ? "" : TIPOS[s.tipo]?.rotulo || "",
-      faixaId,
-      coluna,
+      simbolo: decisao ? "X" : "",
+      faixaId: faixaDe(s),
+      coluna: c,
       dado: s.tipo === "evidencia" ? "Evidência" : "",
       editavel: true,
     });
 
-    fluxos.push({ de: anterior, para: id, rotulo: rotuloProximo });
-    if (aguardandoMerge) {
-      fluxos.push({ de: aguardandoMerge, para: id, rotulo: "" });
-      aguardandoMerge = null;
+    if (!(s.proximos || []).length) {
+      elementos.push({ id: `fim-${s.id}`, tipo: "fim", rotulo: "", faixaId: faixaDe(s), coluna: c + 1 });
+      fluxos.push({ de: s.id, para: `fim-${s.id}`, rotulo: "" });
     }
 
-    if (decisao && s.seNao?.trim()) {
-      const desvio = `${id}::nao`;
-      elementos.push({
-        id: desvio,
-        tipo: "tarefa",
-        rotulo: s.seNao,
-        sub: "caminho não",
-        faixaId,
-        coluna: coluna + 1,
-        dado: "",
-      });
-      fluxos.push({ de: id, para: desvio, rotulo: "Não" });
-      aguardandoMerge = desvio;
-      coluna += 2;
-    } else {
-      coluna += 1;
-    }
-
-    rotuloProximo = decisao ? (s.seSim?.trim() ? "Sim" : "") : "";
-    anterior = id;
+    (s.proximos || []).forEach((x) => {
+      if (passos.some((y) => y.id === x.para)) fluxos.push({ de: s.id, para: x.para, rotulo: x.rotulo || "" });
+    });
   });
-
-  elementos.push({ id: "fim", tipo: "fim", rotulo: "", faixaId: faixaDe(passos[passos.length - 1]), coluna });
-  fluxos.push({ de: anterior, para: "fim", rotulo: rotuloProximo });
-  if (aguardandoMerge) fluxos.push({ de: aguardandoMerge, para: "fim", rotulo: "" });
 
   return { faixas, elementos, fluxos };
 }
+
+/* O caminho que a aula percorre. Num desenho com bifurcação, "o próximo" é
+   ambíguo — a aula segue a PRIMEIRA saída de cada peça, que é o caminho
+   principal, e mostra os outros como desvio na tela do gateway. */
+function caminhoDaAula(p) {
+  const passos = p?.passos || [];
+  if (!passos.length) return [];
+
+  const temEntrada = new Set();
+  passos.forEach((s) => (s.proximos || []).forEach((x) => temEntrada.add(x.para)));
+  const inicio = passos.find((s) => !temEntrada.has(s.id)) || passos[0];
+
+  const caminho = [];
+  const vistos = new Set();
+  let atual = inicio;
+  while (atual && !vistos.has(atual.id)) {
+    vistos.add(atual.id);
+    caminho.push(atual);
+    const proximo = (atual.proximos || [])[0]?.para;
+    atual = passos.find((s) => s.id === proximo);
+  }
+
+  /* Quem ficou fora do caminho principal ainda precisa ser ensinado — entra
+     no fim, na ordem em que está. */
+  passos.forEach((s) => { if (!vistos.has(s.id)) caminho.push(s); });
+  return caminho;
+}
+
+/* Para onde a decisão manda, além do caminho principal. */
+function desviosDoPasso(p, s) {
+  return (s.proximos || []).slice(1).map((x) => ({
+    rotulo: x.rotulo || "outro caminho",
+    passo: (p.passos || []).find((y) => y.id === x.para),
+  })).filter((x) => x.passo);
+}
+
 
 /* O agrupamento é escolha de tela, então chega por parâmetro: o domínio não
    conhece `ui`. Foi o teste, rodando sem o app.js, que expôs essa dependência. */
@@ -408,14 +485,18 @@ function bpmnDoMapa(porSetor = true) {
       editavel: true,
     });
 
-    if (!temEntrada.has(n.id)) {
+    /* Peça fora do fluxo não ganha início nem fim: ela não começa nem termina
+       nada — sustenta. Desenhar evento nela seria dizer o que não é. */
+    const noFluxo = estaNoFluxo(n.id);
+
+    if (noFluxo && !temEntrada.has(n.id)) {
       elementos.push({ id: `ini-${n.id}`, tipo: "inicio", rotulo: "", faixaId, coluna: c - 1 });
       fluxos.push({ de: `ini-${n.id}`, para: n.id, rotulo: "" });
     }
 
     /* Fim automático só para quem não termina em fim nomeado — senão o desenho
        ganharia dois desfechos para a mesma ponta. */
-    if (!eFim && !(n.proximos || []).length) {
+    if (noFluxo && !eFim && !(n.proximos || []).length) {
       elementos.push({ id: `fim-${n.id}`, tipo: "fim", rotulo: "", faixaId, coluna: c + 1 });
       fluxos.push({ de: n.id, para: `fim-${n.id}`, rotulo: "" });
     }
@@ -576,4 +657,27 @@ function ondeApareceOSistema(sistemaId, st = state) {
    o mapeamento está incompleto. Vale avisar em vez de deixar passar. */
 function sistemasOrfaos(st = state) {
   return st.sistemas.filter((s) => s.critico && !ondeApareceOSistema(s.id, st).length);
+}
+
+
+/* Os processos auxiliares do dossiê: "não aparecem necessariamente no fluxo
+   ponta a ponta do cliente, mas sustentam, controlam e melhoram toda a
+   operação".
+
+   Não precisam de campo próprio: quem não tem ligação nenhuma não está no
+   fluxo. Ligou numa peça, entra — e é exatamente o comportamento certo. */
+function estaNoFluxo(id, st = state) {
+  const no = [...st.processos, ...st.decisoes, ...st.fins].find((n) => n.id === id);
+  if (!no) return false;
+  if ((no.proximos || []).length) return true;
+  return [...st.processos, ...st.decisoes].some((n) => (n.proximos || []).some((x) => x.para === id));
+}
+
+function processosQueSustentam(st = state) {
+  /* Enquanto nada está ligado, não existe fluxo — e sem fluxo ninguém está
+     fora dele. Chamar o primeiro processo do mapa de "apoio" só porque ele
+     ainda não tem seta seria mentir para quem está começando a desenhar. */
+  const existeFluxo = [...st.processos, ...st.decisoes].some((n) => (n.proximos || []).length);
+  if (!existeFluxo) return [];
+  return st.processos.filter((p) => !estaNoFluxo(p.id, st));
 }

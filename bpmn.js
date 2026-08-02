@@ -132,9 +132,11 @@ function bpmnTarefa(e) {
         <path d="M0 12c0-3 2.2-5 5-5s5 2 5 5" />
       </g>
       ${e.tipo === "subprocesso" ? `
-        <g class="bpmn-marcador" transform="translate(${e.x - 6}, ${y + a - 16})">
+        <g class="bpmn-marcador bpmn-abrir" data-bpmn-abrir="${bpmnEsc(e.id)}" transform="translate(${x + l - 22}, ${y + a - 20})">
+          <rect x="-7" y="-7" width="26" height="26" class="bpmn-abrir-area" />
           <rect x="0" y="0" width="12" height="12" rx="1.5" />
           <path d="M6 3v6M3 6h6" />
+          <title>Abrir por dentro</title>
         </g>` : ""}
       ${linhas.map((linha, i) => `<text x="${e.x}" y="${base + i * 14}" class="bpmn-txt">${bpmnEsc(linha)}</text>`).join("")}
       ${e.sub ? `<text x="${e.x}" y="${y + a - 12}" class="bpmn-sub">${bpmnEsc(e.sub)}</text>` : ""}
