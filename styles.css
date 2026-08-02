@@ -569,6 +569,52 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 .bpmn-editando { user-select: none; }
 .arrastando-forma .bpmn-alvo { cursor: grabbing; }
 
+/* ---------- legenda dos símbolos ---------- */
+
+.legenda {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 10px 14px;
+  max-width: 760px;
+}
+.legenda summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 13px;
+  list-style: none;
+}
+.legenda summary::-webkit-details-marker { display: none; }
+.legenda summary::before { content: "▸"; color: var(--ink-3); }
+.legenda[open] summary::before { content: "▾"; }
+.legenda-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px 18px;
+  margin-top: 14px;
+}
+.legenda-item { display: flex; align-items: flex-start; gap: 10px; }
+.legenda-item svg { flex: none; color: var(--ink-2); margin-top: 1px; }
+.legenda-item strong { display: block; font-size: 13px; font-weight: 600; }
+.legenda-item small { display: block; color: var(--ink-3); font-size: 12px; line-height: 1.45; }
+.legenda-nota { margin-top: 14px; }
+
+/* ---------- alça de ligação ---------- */
+
+.bpmn-alca { opacity: 0; cursor: crosshair; transition: opacity .12s; }
+.bpmn-alvo:hover .bpmn-alca,
+.bpmn-alvo:focus-visible .bpmn-alca { opacity: 1; }
+.bpmn-alca-area { fill: transparent; }
+.bpmn-alca-ponto { fill: var(--paper); stroke: var(--navy-2); stroke-width: 1.6; }
+.bpmn-alca-mais { stroke: var(--navy-2); stroke-width: 1.5; stroke-linecap: round; }
+.bpmn-fio-temp { fill: none; stroke: var(--navy-2); stroke-width: 1.8; stroke-dasharray: 5 4; pointer-events: none; }
+.ligando-fio { cursor: crosshair; }
+.ligando-fio .bpmn-alca { opacity: 1; }
+
 /* ---------- tela de desenho ---------- */
 
 .desenho { display: flex; flex-direction: column; height: calc(100vh - 61px); }

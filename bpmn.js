@@ -148,10 +148,16 @@ function bpmnGateway(e) {
   const d = m * 0.38;
   const linhas = bpmnQuebrar(e.rotulo, 26, 2);
 
+  /* X = os caminhos se excluem. O = podem valer juntos. É a distinção que a
+     notação faz, e trocar uma pela outra descreve a operação errado. */
+  const marca = e.simbolo === "O"
+    ? `<circle cx="${e.x}" cy="${e.y}" r="${d}" class="bpmn-simbolo" fill="none" />`
+    : `<path d="M${e.x - d} ${e.y - d}L${e.x + d} ${e.y + d}M${e.x + d} ${e.y - d}L${e.x - d} ${e.y + d}" class="bpmn-simbolo" />`;
+
   return `
     <g class="bpmn-el">
       <polygon points="${pontos}" class="bpmn-forma" />
-      <path d="M${e.x - d} ${e.y - d}L${e.x + d} ${e.y + d}M${e.x + d} ${e.y - d}L${e.x - d} ${e.y + d}" class="bpmn-simbolo" />
+      ${marca}
       ${linhas.map((linha, i) => `<text x="${e.x}" y="${e.y + m + 16 + i * 13}" class="bpmn-rotulo-forma">${bpmnEsc(linha)}</text>`).join("")}
     </g>
   `;
@@ -266,7 +272,20 @@ function bpmnDesenhar(modelo, opcoes = {}) {
     if (!opcoes.interativo || !e.editavel) return corpo;
 
     const marcas = ["bpmn-alvo", opcoes.selecionado === e.id ? "selecionado" : ""].filter(Boolean).join(" ");
-    return `<g class="${marcas}" data-bpmn-el="${bpmnEsc(e.id)}" tabindex="0" role="button" aria-label="${bpmnEsc(e.rotulo || "elemento")}">${corpo}</g>`;
+
+    /* A alça na borda direita: arrastar dela até outra forma cria a ligação.
+       É o gesto que toda ferramenta de modelagem usa — sem ele, ligar vira um
+       modo escondido atrás de um botão, e o desenho fica travado. */
+    const meia = bpmnMeia(e);
+    const alca = opcoes.ligavel && e.tipo !== "fim"
+      ? `<g class="bpmn-alca" data-bpmn-alca="${bpmnEsc(e.id)}">
+           <circle cx="${e.x + meia.x}" cy="${e.y}" r="11" class="bpmn-alca-area" />
+           <circle cx="${e.x + meia.x}" cy="${e.y}" r="5.5" class="bpmn-alca-ponto" />
+           <path d="M${e.x + meia.x - 2.5} ${e.y}h5M${e.x + meia.x} ${e.y - 2.5}v5" class="bpmn-alca-mais" />
+         </g>`
+      : "";
+
+    return `<g class="${marcas}" data-bpmn-el="${bpmnEsc(e.id)}" tabindex="0" role="button" aria-label="${bpmnEsc(e.rotulo || "elemento")}">${corpo}${alca}</g>`;
   }).join("");
 
   const saidasPorNo = {};
@@ -288,6 +307,7 @@ function bpmnDesenhar(modelo, opcoes = {}) {
         ${faixas}
         ${fluxos}
         ${formas}
+        <path id="fioTemporario" class="bpmn-fio-temp" d="" />
       </svg>
     </div>
   `;

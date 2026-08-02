@@ -50,7 +50,8 @@ Aplicada em quatro lugares:
   cargos:     [{ id, setorId, nome, reportaA, missao, expectativas, conhecimentos,
                  trilha: [{ id, tipo, titulo, url, duracao, obrigatorio, nota, documentoId }] }],
   fases:      [{ id, nome }],                                  // a cadeia de valor
-  decisoes:   [{ id, pergunta, setorId, faseId, proximos }],    // os losangos do macro
+  decisoes:   [{ id, tipo, pergunta, setorId, faseId, proximos }], // exclusivo | inclusivo
+  fins:       [{ id, nome, setorId, faseId }],                  // desfechos nomeados
   documentos: [{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
   sistemas:   [{ id, nome, descricao, url, critico }],          // onde o trabalho acontece
   processos:  [{
@@ -81,7 +82,9 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 7. **O domínio não conhece `ui`.** Se precisar de algo da tela, recebe por parâmetro.
 8. **A camada mora no setor**, nunca no processo — o processo herda.
 9. **O sistema é objeto, não texto.** Existe uma vez e é referenciado pelo passo — por isso `ondeApareceOSistema()` consegue responder o que para se ele cair. Apagar o sistema limpa a referência em todos os passos.
-10. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
+10. **Fim explícito dispensa o automático.** Quem termina em fim nomeado não ganha um segundo desfecho desenhado.
+11. **Do fim não sai alça** — dele não parte nada.
+12. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 
@@ -98,6 +101,16 @@ Cobre as três camadas, porque os três bugs que mais custaram nesta semana fora
 Testar só função pura teria pego um de três.
 
 **A página nunca é servida do cache** — a versão sai do relógio. Testar código velho por engano já custou uma rodada aqui.
+
+## A tela de desenho
+
+O desenho precisa se explicar sozinho e obedecer ao gesto que a pessoa já conhece de outras ferramentas. Três decisões:
+
+**Legenda sempre à mão.** Um `<details>` no topo das duas telas, com o símbolo desenhado ao lado do que ele significa. Ninguém é obrigado a saber BPMN de cor.
+
+**Ligar é arrastar, não é modo.** Ao passar o mouse numa peça aparece uma alça na borda direita; arrastar dela até outra peça cria a ligação, com um fio pontilhado acompanhando o ponteiro. O botão "Ligar" do inspetor continua, como caminho alternativo — mas deixou de ser o único.
+
+**Teclado.** `Delete` apaga o selecionado, `Esc` desmarca. Antes, apagar exigia achar o botão no inspetor: três movimentos para o que devia ser um.
 
 ## O que ainda não está separado
 

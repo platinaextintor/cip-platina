@@ -20,6 +20,18 @@ let state = estadoVazio();
 /* As três camadas do dossiê. A camada mora no SETOR, não no processo: o
    processo herda a do setor dele. Guardar nos dois seria a mesma informação
    em dois lugares, esperando divergir. */
+/* Os dois gateways que a operação da Platina precisa.
+
+   Exclusivo: os caminhos se excluem — aprovado OU reprovado.
+   Inclusivo: podem valer ao mesmo tempo — o pedido pode ser venda E contrato.
+
+   Modelar um como o outro diz algo falso sobre a operação, por isso os dois
+   existem desde o começo. */
+const TIPOS_DECISAO = {
+  exclusivo: { rotulo: "Ou um, ou outro", simbolo: "X", ajuda: "Só um caminho segue. Aprovado ou reprovado." },
+  inclusivo: { rotulo: "Pode ser os dois", simbolo: "O", ajuda: "Mais de um caminho pode seguir junto. Venda e contrato ao mesmo tempo." },
+};
+
 const CAMADAS = {
   estrategico: { rotulo: "Estratégico", ordem: 0, ajuda: "Direção, planejamento, indicadores e prioridades." },
   principal: { rotulo: "Principal", ordem: 1, ajuda: "O que entrega valor ao cliente, ponta a ponta." },
@@ -66,6 +78,7 @@ function estadoVazio() {
     cargos: [],
     fases: [],
     decisoes: [],
+    fins: [],
     documentos: [],
     sistemas: [],
     processos: [],
@@ -127,7 +140,18 @@ function normalizar(dados) {
     if (!CAMADAS[s.camada]) s.camada = "principal";
   });
 
+  /* Fim nomeado: "Proposta não aprovada" e "Não aprovado pelo Financeiro" são
+     desfechos diferentes, e a diferença é informação. Fim anônimo não ensina. */
+  dados.fins = Array.isArray(dados.fins) ? dados.fins : [];
+  dados.fins.forEach((f) => {
+    f.nome = f.nome || "";
+    f.setorId = f.setorId || "";
+    f.faseId = f.faseId || "";
+    f.proximos = [];
+  });
+
   dados.decisoes.forEach((d) => {
+    d.tipo = TIPOS_DECISAO[d.tipo] ? d.tipo : "exclusivo";
     d.pergunta = d.pergunta || "";
     d.setorId = d.setorId || "";
     d.faseId = d.faseId || "";
@@ -161,7 +185,7 @@ function normalizar(dados) {
   });
 
   /* Ligação apontando para peça apagada vira lixo silencioso. */
-  const vivos = new Set([...dados.processos, ...dados.decisoes].map((n) => n.id));
+  const vivos = new Set([...dados.processos, ...dados.decisoes, ...dados.fins].map((n) => n.id));
   [...dados.processos, ...dados.decisoes].forEach((n) => {
     n.proximos = n.proximos.filter((x) => vivos.has(x.para) && x.para !== n.id);
   });
@@ -370,12 +394,14 @@ function bpmnDoMapa(porSetor = true) {
     const faixaId = faixaDe(n);
     const c = (col[n.id] || 0) * 2 + 1;
     const eDecisao = ehDecisao(n.id);
+    const eFim = ehFim(n.id);
 
     elementos.push({
       id: n.id,
-      tipo: eDecisao ? "gateway" : "subprocesso",
-      rotulo: eDecisao ? (n.pergunta || "sem pergunta") : n.nome,
-      sub: eDecisao ? "" : cargo(n.donoCargoId)?.nome || "",
+      tipo: eFim ? "fim" : eDecisao ? "gateway" : "subprocesso",
+      rotulo: eFim ? (n.nome || "fim") : eDecisao ? (n.pergunta || "sem pergunta") : n.nome,
+      sub: eDecisao || eFim ? "" : cargo(n.donoCargoId)?.nome || "",
+      simbolo: eDecisao ? TIPOS_DECISAO[n.tipo]?.simbolo || "X" : "",
       faixaId,
       coluna: c,
       dado: "",
@@ -387,7 +413,9 @@ function bpmnDoMapa(porSetor = true) {
       fluxos.push({ de: `ini-${n.id}`, para: n.id, rotulo: "" });
     }
 
-    if (!(n.proximos || []).length) {
+    /* Fim automático só para quem não termina em fim nomeado — senão o desenho
+       ganharia dois desfechos para a mesma ponta. */
+    if (!eFim && !(n.proximos || []).length) {
       elementos.push({ id: `fim-${n.id}`, tipo: "fim", rotulo: "", faixaId, coluna: c + 1 });
       fluxos.push({ de: n.id, para: `fim-${n.id}`, rotulo: "" });
     }
@@ -481,13 +509,15 @@ const processo = (id) => state.processos.find((p) => p.id === id);
 const sistema = (id) => state.sistemas.find((s) => s.id === id);
 const documento = (id) => state.documentos.find((d) => d.id === id);
 
+const fim = (id) => state.fins.find((f) => f.id === id);
 const decisao = (id) => state.decisoes.find((d) => d.id === id);
 
-const nosMacro = () => [...state.processos, ...state.decisoes];
+const nosMacro = () => [...state.processos, ...state.decisoes, ...state.fins];
 
-const noMacro = (id) => processo(id) || decisao(id);
+const noMacro = (id) => processo(id) || decisao(id) || fim(id);
 
 const ehDecisao = (id) => !!decisao(id);
+const ehFim = (id) => !!fim(id);
 
 const linhas = (texto) => String(texto || "").split("\n").map((l) => l.trim()).filter(Boolean);
 

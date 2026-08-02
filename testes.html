@@ -98,10 +98,16 @@
 
       grupo("Domínio · estado");
 
-      teste("estadoVazio traz todas as listas do modelo", () => {
+      /* Verifica a forma, não a lista exata: o modelo cresce, e um teste que
+         enumera chaves quebra a cada entidade nova sem apontar defeito algum. */
+      teste("estadoVazio traz as entidades conhecidas, todas como lista vazia", () => {
         const v = estadoVazio();
-        igual(Object.keys(v).sort(),
-          ["cargos", "decisoes", "documentos", "empresa", "fases", "processos", "setores", "sistemas"]);
+        ["setores", "cargos", "fases", "processos", "decisoes", "fins", "documentos", "sistemas"]
+          .forEach((k) => {
+            if (!Array.isArray(v[k])) throw new Error(`${k} não é lista`);
+            if (v[k].length) throw new Error(`${k} deveria nascer vazia`);
+          });
+        if (typeof v.empresa !== "object") throw new Error("empresa deveria ser objeto");
       });
 
       teste("semente traz o esqueleto e nenhum conteúdo", () => {
@@ -436,6 +442,65 @@
         const alt = [...html.matchAll(/<text x="[\d.]+" y="([\d.]+)" class="bpmn-rotulo-fluxo"/g)].map((m) => m[1]);
         const todos = ys.length ? ys : alt;
         if (todos.length >= 2 && new Set(todos).size !== todos.length) throw new Error("rótulos empilhados em " + todos);
+      });
+
+      grupo("BPMN · gateway inclusivo e fim nomeado");
+
+      teste("decisão sem tipo assume exclusivo", () => {
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], fases: [], processos: [], documentos: [], sistemas: [],
+          decisoes: [{ id: "d1", pergunta: "?" }, { id: "d2", pergunta: "?", tipo: "inventado" }] });
+        igual(d.decisoes.map((x) => x.tipo), ["exclusivo", "exclusivo"]);
+      });
+
+      teste("exclusivo desenha X, inclusivo desenha círculo", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", proximos: [{ para: "d1", rotulo: "" }] })];
+        state.decisoes = [{ id: "d1", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        const m = bpmnDoMapa();
+        igual(m.elementos.find((e) => e.id === "d1").simbolo, "O");
+        state.decisoes[0].tipo = "exclusivo";
+        igual(bpmnDoMapa().elementos.find((e) => e.id === "d1").simbolo, "X");
+      });
+
+      teste("fim nomeado entra no grafo com o nome dele", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", proximos: [{ para: "f1", rotulo: "não" }] })];
+        state.fins = [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        const m = bpmnDoMapa();
+        const f = m.elementos.find((e) => e.id === "f1");
+        igual([f.tipo, f.rotulo], ["fim", "Proposta não aprovada"]);
+      });
+
+      teste("quem termina em fim nomeado não ganha fim automático", () => {
+        state = semente();
+        state.processos = [proc({ id: "a", proximos: [{ para: "f1", rotulo: "" }] })];
+        state.fins = [{ id: "f1", nome: "Concluído", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        const fins = bpmnDoMapa().elementos.filter((e) => e.tipo === "fim");
+        igual(fins.length, 1, "deveria haver só o nomeado:");
+      });
+
+      teste("ligação para um fim apagado é descartada", () => {
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], fases: [], documentos: [], sistemas: [],
+          decisoes: [], fins: [], processos: [proc({ proximos: [{ para: "f-sumiu", rotulo: "" }] })] });
+        igual(d.processos[0].proximos, []);
+      });
+
+      teste("a alça de ligar aparece quando o desenho é ligável", () => {
+        state = semente();
+        state.processos = [proc({ id: "a" })];
+        const comAlca = bpmnDesenhar(bpmnDoMapa(), { interativo: true, ligavel: true });
+        const semAlca = bpmnDesenhar(bpmnDoMapa(), { interativo: true });
+        if (!comAlca.includes("bpmn-alca")) throw new Error("sem alça quando deveria ter");
+        if (semAlca.includes("bpmn-alca")) throw new Error("alça em desenho só de leitura");
+      });
+
+      teste("o fim não recebe alça de saída — dele não sai nada", () => {
+        state = semente();
+        state.fins = [{ id: "f1", nome: "Fim", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        state.processos = [proc({ id: "a", proximos: [{ para: "f1", rotulo: "" }] })];
+        const html = bpmnDesenhar(bpmnDoMapa(), { interativo: true, ligavel: true });
+        const alcas = [...html.matchAll(/data-bpmn-alca="([^"]+)"/g)].map((m) => m[1]);
+        if (alcas.includes("f1")) throw new Error("o fim ganhou alça de saída");
       });
 
       // ============================================================ TELA

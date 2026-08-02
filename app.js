@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v20";
+const VERSAO = "v21";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -177,6 +177,7 @@ let ui = {
   passoIdx: 0,
   docId: null,
   sistemaId: null,
+  legendaAberta: false,
   agrupar: "setor",
   ligando: null,
   arrastando: null,
@@ -706,6 +707,41 @@ function blocoBpmn(modelo, vazio) {
    O mesmo painel do processo, um nível acima: as peças são processos e
    decisões, as raias são setores. Criar um processo aqui já cria o card dele. */
 
+/* A legenda. O usuário não é obrigado a saber BPMN de cor: o desenho precisa
+   se explicar sozinho, senão vira um monte de forma sem sentido. */
+function legenda(quais) {
+  const catalogo = {
+    inicio: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Início", ajuda: "Onde o processo começa" },
+    fim: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="3.4"/>', nome: "Fim", ajuda: "Um desfecho. Vale nomear: nem todo fim é sucesso" },
+    tarefa: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Etapa", ajuda: "Alguém faz alguma coisa" },
+    subprocesso: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13 14v5M10.5 16.5h5" stroke="currentColor" stroke-width="1.3"/>', nome: "Processo", ajuda: "Abre por dentro — duplo clique para entrar" },
+    evidencia: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M17 3h6l2 5h-8z" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Evidência", ajuda: "Produz prova: foto, assinatura, comprovante" },
+    aprovacao: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 13l3 3 6-6" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Aprovação", ajuda: "Alguém precisa autorizar para seguir" },
+    exclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 9.5l7 7M16.5 9.5l-7 7" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — ou um, ou outro", ajuda: "Só um caminho segue" },
+    inclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — pode ser os dois", ajuda: "Mais de um caminho segue junto" },
+    dado: { forma: '<path d="M6 3h9l4 4v16H6z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Objeto de dados", ajuda: "O que a etapa produz e fica guardado" },
+    fluxo: { forma: '<path d="M2 13h18" stroke="currentColor" stroke-width="1.6"/><path d="M18 9l5 4-5 4z" fill="currentColor"/>', nome: "Sequência", ajuda: "O que vem depois. Clique na seta para desfazer" },
+  };
+
+  return `
+    <details class="legenda"${ui.legendaAberta ? " open" : ""}>
+      <summary>${icon("ia", 14)} O que cada símbolo quer dizer</summary>
+      <div class="legenda-grade">
+        ${quais.map((k) => {
+          const c = catalogo[k];
+          if (!c) return "";
+          return `
+            <div class="legenda-item">
+              <svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true">${c.forma}</svg>
+              <span><strong>${c.nome}</strong><small>${c.ajuda}</small></span>
+            </div>`;
+        }).join("")}
+      </div>
+      <p class="hint legenda-nota">Notação BPMN 2.0 — a mesma que consultor, auditor e certificadora reconhecem.</p>
+    </details>
+  `;
+}
+
 function viewMacro() {
   const porSetor = ui.agrupar !== "fase";
   const sel = ui.macroSel ? noMacro(ui.macroSel) : null;
@@ -722,6 +758,7 @@ function viewMacro() {
         <div class="chips desenho-paleta">
           <button class="chip" data-add-macro="processo" type="button" title="Novo processo${sel ? " ligado ao selecionado" : ""}">${icon("plus", 13)} Processo</button>
           <button class="chip" data-add-macro="decisao" type="button" title="Nova decisão${sel ? " ligada ao selecionado" : ""}">${icon("plus", 13)} Decisão</button>
+          <button class="chip" data-add-macro="fim" type="button" title="Um desfecho nomeado">${icon("plus", 13)} Fim</button>
           <button class="chip" data-nova-raia type="button" title="Cria ${porSetor ? "um setor" : "uma fase"}, que vira uma raia">${icon("plus", 13)} Raia</button>
         </div>
 
@@ -748,12 +785,13 @@ function viewMacro() {
 
       <div class="desenho-corpo">
         <div class="desenho-tela" id="telaMacro">
+          ${legenda(["inicio", "subprocesso", "exclusivo", "inclusivo", "fim", "fluxo"])}
           ${!nosMacro().length ? `<p class="hint desenho-dica">As raias já estão aqui. Use a paleta acima para colocar o primeiro processo dentro de uma delas.</p>` : ""}
-          ${bpmnDesenhar(modelo, { interativo: true, selecionado: ui.macroSel, zoom })}
+          ${bpmnDesenhar(modelo, { interativo: true, ligavel: true, selecionado: ui.macroSel, zoom })}
         </div>
 
         <aside class="desenho-lado">
-          ${sel ? (ehDecisao(sel.id) ? inspetorDecisao(sel) : inspetorProcessoMacro(sel)) : `
+          ${sel ? (ehFim(sel.id) ? inspetorFim(sel) : ehDecisao(sel.id) ? inspetorDecisao(sel) : inspetorProcessoMacro(sel)) : `
             <div class="drawer-head"><h2>Nada selecionado</h2></div>
             <p class="sub">Clique numa peça para editar, ou use a paleta acima para criar a próxima.</p>
             <div class="note note-rule" style="margin-top:20px">
@@ -761,8 +799,15 @@ function viewMacro() {
               <p>Crie um processo, clique nele, e use <strong>Ligar</strong> para apontar o que vem depois. Se o caminho se divide, crie uma <strong>Decisão</strong> no meio e escreva o rótulo de cada saída — "aprovado", "reprovado".</p>
             </div>
             <div class="note note-why" style="margin-top:12px">
+              <div class="block-label">Como se desenha aqui</div>
+              <p><strong>Ligar:</strong> passe o mouse numa peça e arraste a bolinha da borda até outra.<br>
+                 <strong>Mover de raia:</strong> arraste a peça pelo corpo.<br>
+                 <strong>Entrar no processo:</strong> duplo clique.<br>
+                 <strong>Apagar:</strong> selecione e tecle Delete.</p>
+            </div>
+            <div class="note note-why" style="margin-top:12px">
               <div class="block-label">A posição é automática</div>
-              <p>Você não arrasta para posicionar. Ligou uma peça na outra, ela anda para a direita sozinha. Arrastar serve para mudar de raia.</p>
+              <p>Você não posiciona nada à mão. Ligou uma peça na outra, ela anda para a direita sozinha.</p>
             </div>
           `}
         </aside>
@@ -832,6 +877,15 @@ function inspetorDecisao(d) {
         <label>A pergunta</label>
         <input data-m="pergunta" value="${esc(d.pergunta)}" placeholder="Aprovado?" />
       </div>
+      <div class="field">
+        <label>Como os caminhos se comportam</label>
+        <div class="chips">
+          ${Object.entries(TIPOS_DECISAO).map(([chave, t]) => `
+            <button class="chip${(d.tipo || "exclusivo") === chave ? " on" : ""}" data-tipo-decisao="${chave}" type="button">${t.rotulo}</button>
+          `).join("")}
+        </div>
+        <p class="hint" style="margin-top:8px">${esc(TIPOS_DECISAO[d.tipo || "exclusivo"].ajuda)}</p>
+      </div>
       <div class="field-grid">
         <div class="field">
           <label>Setor</label>
@@ -848,6 +902,40 @@ function inspetorDecisao(d) {
 
     <div class="btn-row" style="margin-top:20px">
       <button class="btn btn-sm btn-danger" data-remover-macro type="button">${icon("trash", 15)} Apagar decisão</button>
+    </div>
+  `;
+}
+
+function inspetorFim(f) {
+  const chegam = nosMacro().filter((n) => (n.proximos || []).some((x) => x.para === f.id));
+  return `
+    <div class="drawer-head"><h2>Fim</h2></div>
+    <p class="sub">Um desfecho do processo. Nomear importa: nem todo fim é sucesso.</p>
+
+    <div class="stack" style="margin-top:16px">
+      <div class="field">
+        <label>Como termina</label>
+        <input data-m="nome" value="${esc(f.nome)}" placeholder="Proposta não aprovada" />
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label>Setor</label>
+          <select data-m="setorId">${opcoes(state.setores, f.setorId)}</select>
+        </div>
+        <div class="field">
+          <label>Fase</label>
+          <select data-m="faseId">${opcoes(state.fases, f.faseId)}</select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title"><h3>Chega aqui vindo de</h3><span class="line"></span><span class="muted">${chegam.length}</span></div>
+    ${chegam.length
+      ? `<ul class="lista">${chegam.map((n) => `<li>${esc(n.nome || n.pergunta || "peça")}</li>`).join("")}</ul>`
+      : '<p class="hint">Nada aponta para este fim ainda. Arraste a alça de uma peça até ele.</p>'}
+
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-sm btn-danger" data-remover-macro type="button">${icon("trash", 15)} Apagar fim</button>
     </div>
   `;
 }
@@ -880,8 +968,11 @@ function ligarMacro(raiz) {
     let novo;
 
     if (b.dataset.addMacro === "decisao") {
-      novo = { id: uid("d"), pergunta: "", setorId, faseId, proximos: [] };
+      novo = { id: uid("d"), tipo: "exclusivo", pergunta: "", setorId, faseId, proximos: [] };
       state.decisoes.push(novo);
+    } else if (b.dataset.addMacro === "fim") {
+      novo = { id: uid("f"), nome: "Fim", setorId, faseId, proximos: [] };
+      state.fins.push(novo);
     } else {
       novo = {
         id: uid("p"), nome: "Novo processo", faseId, setorId,
@@ -928,12 +1019,73 @@ function ligarMacro(raiz) {
     let arrastando = false;
     let acabou = false;
 
+    /* Arrastar da alça até outra forma. É o gesto de toda ferramenta de
+       modelagem — o modo "Ligar" continua no inspetor, mas deixa de ser a
+       única saída. */
+    let ligandoDe = null;
+    const fio = () => $("#fioTemporario", tela);
+
+    const pontoNoSvg = (e) => {
+      const svg = $("svg.bpmn", tela);
+      const r = svg.getBoundingClientRect();
+      const vb = svg.getAttribute("viewBox").split(" ").map(Number);
+      return {
+        x: ((e.clientX - r.left) / r.width) * vb[2],
+        y: ((e.clientY - r.top) / r.height) * vb[3],
+      };
+    };
+
     tela.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
+
+      const alca = e.target.closest("[data-bpmn-alca]");
+      if (alca) {
+        e.preventDefault();
+        e.stopPropagation();
+        ligandoDe = alca.dataset.bpmnAlca;
+        tela.classList.add("ligando-fio");
+        return;
+      }
+
       origem = idDe(e.target);
       x0 = e.clientX;
       y0 = e.clientY;
       arrastando = false;
+    });
+
+    tela.addEventListener("pointermove", (e) => {
+      if (!ligandoDe) return;
+      const de = $(`[data-bpmn-el="${CSS.escape(ligandoDe)}"] .bpmn-forma`, tela);
+      if (!de || !fio()) return;
+      const cx = de.getBBox ? de.getBBox() : null;
+      const p = pontoNoSvg(e);
+      const inicio = cx ? { x: cx.x + cx.width, y: cx.y + cx.height / 2 } : p;
+      fio().setAttribute("d", `M${inicio.x} ${inicio.y}L${p.x} ${p.y}`);
+
+      $$(".bpmn-alvo", tela).forEach((n) => n.classList.remove("recebendo"));
+      const sob = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-bpmn-el]");
+      if (sob && sob.dataset.bpmnEl !== ligandoDe) sob.classList.add("recebendo");
+    });
+
+    tela.addEventListener("pointerup", (e) => {
+      if (!ligandoDe) return;
+      const de = ligandoDe;
+      ligandoDe = null;
+      tela.classList.remove("ligando-fio");
+      fio()?.setAttribute("d", "");
+      $$(".bpmn-alvo", tela).forEach((n) => n.classList.remove("recebendo"));
+
+      const alvo = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-bpmn-el]");
+      const para = alvo?.dataset.bpmnEl;
+      if (!para || para === de) return;
+
+      const origemNo = noMacro(de);
+      if (origemNo && !origemNo.proximos.some((x) => x.para === para)) {
+        origemNo.proximos.push({ para, rotulo: "" });
+        ui.macroSel = de;
+        salvar(true);
+        render();
+      }
     });
 
     tela.addEventListener("pointermove", (e) => {
@@ -1008,6 +1160,12 @@ function ligarMacro(raiz) {
     });
   });
 
+  $$("[data-tipo-decisao]", raiz).forEach((b) => b.addEventListener("click", () => {
+    sel.tipo = b.dataset.tipoDecisao;
+    salvar(true);
+    render();
+  }));
+
   $$(".saida-row", raiz).forEach((linha) => {
     const saida = sel.proximos.find((x) => x.para === linha.dataset.saida);
     if (!saida) return;
@@ -1028,6 +1186,7 @@ function ligarMacro(raiz) {
     if (!confirm(`Apagar "${nome}"? As ligações que chegam nela também somem.`)) return;
     state.processos = state.processos.filter((x) => x.id !== sel.id);
     state.decisoes = state.decisoes.filter((x) => x.id !== sel.id);
+    state.fins = state.fins.filter((x) => x.id !== sel.id);
     nosMacro().forEach((n) => { n.proximos = n.proximos.filter((x) => x.para !== sel.id); });
     ui.macroSel = null;
     salvar(true);
@@ -1041,7 +1200,7 @@ function redesenharMacro() {
   macroTimer = setTimeout(() => {
     const tela = $("#telaMacro");
     const modelo = bpmnDoMapa(ui.agrupar !== "fase");
-    if (tela && modelo) tela.innerHTML = bpmnDesenhar(modelo, { interativo: true, selecionado: ui.macroSel, zoom: ui.zoomMacro || 1 });
+    if (tela && modelo) tela.innerHTML = bpmnDesenhar(modelo, { interativo: true, ligavel: true, selecionado: ui.macroSel, zoom: ui.zoomMacro || 1 });
   }, 450);
 }
 
@@ -1077,6 +1236,7 @@ function viewDesenho() {
 
       <div class="desenho-corpo">
         <div class="desenho-tela" id="telaBpmn">
+          ${legenda(["inicio", "tarefa", "evidencia", "aprovacao", "exclusivo", "dado", "fim"])}
           ${modelo
             ? bpmnDesenhar(modelo, { interativo: true, selecionado: ui.elSel, zoom })
             : `<div class="empty desenho-vazio">
@@ -2830,6 +2990,27 @@ function novaFase() {
 const drawer = $("#drawer");
 const scrim = $("#scrim");
 scrim.addEventListener("click", fecharDrawer);
+/* Teclado nas telas de desenho. Sem isso, apagar uma peça exige achar o botão
+   no inspetor — três movimentos para o que devia ser um. */
+document.addEventListener("keydown", (e) => {
+  const digitando = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+  if (digitando) return;
+
+  if ((e.key === "Delete" || e.key === "Backspace") && (ui.view === "macro" || ui.view === "desenho")) {
+    const botao = ui.view === "macro" ? $("[data-remover-macro]") : $("[data-remover-desenho]");
+    if (botao) {
+      e.preventDefault();
+      botao.click();
+    }
+    return;
+  }
+
+  if (e.key === "Escape" && !ui.ligando && !ui.ligandoCargo) {
+    if (ui.view === "macro" && ui.macroSel) { ui.macroSel = null; return render(); }
+    if (ui.view === "desenho" && ui.elSel) { ui.elSel = null; return render(); }
+  }
+});
+
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (ui.ligando || ui.ligandoCargo) {
