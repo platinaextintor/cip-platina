@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v18";
+const VERSAO = "v19";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -389,9 +389,13 @@ function viewOrganograma() {
       </div>` : ""}
 
       <div class="sector-strip">
-        ${state.setores.map((s) => {
+        ${setoresPorCamada().map((s) => {
           const n = state.cargos.filter((c) => c.setorId === s.id).length;
-          return `<div class="sector-pill"><span class="swatch" style="background:${corSetor(s.id)}"></span>${esc(s.nome)} <span>${n} cargo${n === 1 ? "" : "s"}</span></div>`;
+          return `<button class="sector-pill" data-editar-setor="${s.id}" type="button" title="Editar setor e camada">
+            <span class="swatch" style="background:${corSetor(s.id)}"></span>${esc(s.nome)}
+            <span class="camada-tag c-${camadaDoSetor(s.id)}">${CAMADAS[camadaDoSetor(s.id)].rotulo}</span>
+            <span>${n} cargo${n === 1 ? "" : "s"}</span>
+          </button>`;
         }).join("")}
       </div>
 
@@ -459,7 +463,7 @@ function noCargo(c, vistos) {
 
 function viewFluxo() {
   const porSetor = ui.agrupar !== "fase";
-  const grupos = porSetor ? state.setores : state.fases;
+  const grupos = porSetor ? setoresPorCamada() : state.fases;
   const chave = porSetor ? "setorId" : "faseId";
   const orfaos = state.processos.filter((p) => !grupos.some((g) => g.id === p[chave]));
   const c = ui.cargoSel ? cargo(ui.cargoSel) : null;
@@ -512,6 +516,11 @@ function viewFluxo() {
           ${orfaos.length ? raia({ id: "", nome: porSetor ? "Sem setor" : "Sem fase" }, chave, porSetor, orfaos, col, totalColunas) : ""}
         </div>
       </div>
+
+      ${elosFracos().length ? `<div class="filter-bar aviso" style="margin-top:14px">
+        ${icon("link", 15)} <strong>${elosFracos().length} elo${elosFracos().length === 1 ? "" : "s"} sem declarar.</strong>
+        ${esc(elosFracos().slice(0, 3).map((f) => `${f.nome} sem ${f.falta}`).join(" · "))}${elosFracos().length > 3 ? " …" : ""}
+      </div>` : ""}
 
       <p class="hint" style="margin-top:12px">Visão de acompanhamento. Para desenhar o fluxo com decisões, use <strong>Desenhar o macro</strong>.</p>
     </div>
@@ -787,6 +796,14 @@ function inspetorProcessoMacro(p) {
       <div class="field">
         <label>Dono do processo</label>
         <select data-m="donoCargoId">${opcoes(state.cargos, p.donoCargoId)}</select>
+      </div>
+      <div class="field">
+        <label>O que chega <span class="hint">— a entrada</span></label>
+        <input data-m="entrada" value="${esc(p.entrada || "")}" placeholder="Proposta aprovada" />
+      </div>
+      <div class="field">
+        <label>O que sai <span class="hint">— a saída</span></label>
+        <input data-m="saida" value="${esc(p.saida || "")}" placeholder="Pedido criado" />
       </div>
     </div>
 
@@ -1537,6 +1554,17 @@ function viewEditor() {
           </div>
         </div>
 
+        <div class="field-grid">
+          <div class="field">
+            <label for="e-entrada">O que chega <span class="hint">— a entrada</span></label>
+            <input id="e-entrada" data-p="entrada" value="${esc(p.entrada || "")}" placeholder="Proposta aprovada pelo cliente" />
+          </div>
+          <div class="field">
+            <label for="e-saida">O que sai <span class="hint">— a saída</span></label>
+            <input id="e-saida" data-p="saida" value="${esc(p.saida || "")}" placeholder="Pedido criado no sistema" />
+          </div>
+        </div>
+
         <div class="field">
           <label for="e-porque">Por que esse processo existe</label>
           <textarea id="e-porque" data-p="porque" placeholder="O que ele protege, o que ele garante. Fale como você explicaria pro seu filho.">${esc(p.porque)}</textarea>
@@ -2283,6 +2311,7 @@ function ligarEventos(raiz) {
     });
   });
   $$("[data-editar-cargo]", raiz).forEach((b) => b.addEventListener("click", () => ir("cargoEditor", { cargoSel: b.dataset.editarCargo })));
+  $$("[data-editar-setor]", raiz).forEach((b) => b.addEventListener("click", () => abrirDrawerSetor(b.dataset.editarSetor)));
   $$("[data-doc]", raiz).forEach((b) => b.addEventListener("click", () => ir("docEditor", { docId: b.dataset.doc })));
 
   $$("[data-processo]", raiz).forEach((b) => b.addEventListener("click", () => abrirAula(b.dataset.processo)));
@@ -2662,6 +2691,65 @@ window.addEventListener("resize", () => {
 function fecharDrawer() {
   drawer.hidden = true;
   scrim.hidden = true;
+}
+
+function abrirDrawerSetor(setorId) {
+  const s = setor(setorId);
+  if (!s) return;
+  const cargos = state.cargos.filter((c) => c.setorId === s.id).length;
+  const procs = state.processos.filter((p) => p.setorId === s.id).length;
+
+  abrirDrawer(`
+    <div class="drawer-head">
+      <h2>${esc(s.nome)}</h2>
+      <button class="icon-btn" data-fechar type="button" aria-label="Fechar">${icon("close")}</button>
+    </div>
+    <p class="sub">${cargos} cargo${cargos === 1 ? "" : "s"} · ${procs} processo${procs === 1 ? "" : "s"}</p>
+
+    <div class="field" style="margin-top:16px">
+      <label for="s-nome">Nome</label>
+      <input id="s-nome" value="${esc(s.nome)}" />
+    </div>
+
+    <div class="field" style="margin-top:14px">
+      <label>Camada da arquitetura</label>
+      <div class="chips">
+        ${Object.entries(CAMADAS).map(([chave, c]) => `
+          <button class="chip${camadaDoSetor(s.id) === chave ? " on" : ""}" data-camada="${chave}" type="button">${c.rotulo}</button>
+        `).join("")}
+      </div>
+      <p class="hint" style="margin-top:8px">${esc(CAMADAS[camadaDoSetor(s.id)].ajuda)}</p>
+    </div>
+
+    <div class="note note-why" style="margin-top:18px">
+      <div class="block-label">Por que classificar</div>
+      <p>Os processos deste setor herdam esta camada — não se marca duas vezes. No macro, as raias saem nesta ordem: estratégico em cima, principal no meio, apoio embaixo.</p>
+    </div>
+
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-sm btn-danger" data-apagar-setor type="button">${icon("trash", 15)} Apagar setor</button>
+    </div>
+  `);
+
+  $("#s-nome", drawer).addEventListener("input", (e) => { s.nome = e.target.value; salvar(); });
+
+  $$("[data-camada]", drawer).forEach((b) => b.addEventListener("click", () => {
+    s.camada = b.dataset.camada;
+    salvar(true);
+    render();
+    abrirDrawerSetor(s.id);
+  }));
+
+  $("[data-apagar-setor]", drawer).addEventListener("click", () => {
+    if (cargos || procs) {
+      return alert(`"${s.nome}" ainda tem ${cargos} cargo(s) e ${procs} processo(s). Mova-os antes de apagar.`);
+    }
+    if (!confirm(`Apagar o setor "${s.nome}"?`)) return;
+    state.setores = state.setores.filter((x) => x.id !== s.id);
+    salvar(true);
+    fecharDrawer();
+    render();
+  });
 }
 
 function abrirDrawer(html) {

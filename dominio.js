@@ -17,6 +17,31 @@
 /* O estado é o modelo, não a interface — por isso vive aqui. */
 let state = estadoVazio();
 
+/* As três camadas do dossiê. A camada mora no SETOR, não no processo: o
+   processo herda a do setor dele. Guardar nos dois seria a mesma informação
+   em dois lugares, esperando divergir. */
+const CAMADAS = {
+  estrategico: { rotulo: "Estratégico", ordem: 0, ajuda: "Direção, planejamento, indicadores e prioridades." },
+  principal: { rotulo: "Principal", ordem: 1, ajuda: "O que entrega valor ao cliente, ponta a ponta." },
+  apoio: { rotulo: "Apoio", ordem: 2, ajuda: "Sustenta os principais: pessoas, informação, conformidade." },
+};
+
+function camadaDoSetor(id) {
+  return CAMADAS[setor(id)?.camada] ? setor(id).camada : "principal";
+}
+
+function camadaDoProcesso(p) {
+  return camadaDoSetor(p?.setorId);
+}
+
+/* Setores na ordem das camadas — é assim que uma arquitetura de processos se
+   lê: estratégicos em cima, principais no meio, apoio embaixo. */
+function setoresPorCamada() {
+  return [...state.setores].sort(
+    (a, b) => (CAMADAS[a.camada]?.ordem ?? 1) - (CAMADAS[b.camada]?.ordem ?? 1),
+  );
+}
+
 const CORES_SETOR = ["#2b46a4", "#0c7048", "#bf1f2c", "#9c5806", "#5b4bb7", "#0d7490"];
 
 const TIPOS_TRILHA = {
@@ -50,10 +75,10 @@ function semente() {
   return {
     ...estadoVazio(),
     setores: [
-      { id: "s-gestao", nome: "Gestão" },
-      { id: "s-comercial", nome: "Comercial" },
-      { id: "s-tecnica", nome: "Técnica" },
-      { id: "s-admin", nome: "Administrativo" },
+      { id: "s-gestao", nome: "Gestão", camada: "estrategico" },
+      { id: "s-comercial", nome: "Comercial", camada: "principal" },
+      { id: "s-tecnica", nome: "Técnica", camada: "principal" },
+      { id: "s-admin", nome: "Administrativo", camada: "apoio" },
     ],
     cargos: [
       { id: "c-diretor", setorId: "s-gestao", nome: "Diretor", reportaA: null, missao: "", expectativas: "", conhecimentos: "", trilha: [] },
@@ -89,6 +114,10 @@ function normalizar(dados) {
   dados.documentos = Array.isArray(dados.documentos) ? dados.documentos : [];
   dados.decisoes = Array.isArray(dados.decisoes) ? dados.decisoes : [];
 
+  dados.setores.forEach((s) => {
+    if (!CAMADAS[s.camada]) s.camada = "principal";
+  });
+
   dados.decisoes.forEach((d) => {
     d.pergunta = d.pergunta || "";
     d.setorId = d.setorId || "";
@@ -111,6 +140,8 @@ function normalizar(dados) {
     p.videoUrl = p.videoUrl || "";
     p.passos.forEach((s) => { s.videoUrl = s.videoUrl || ""; });
     p.proximos = normalizarSaidas(p.proximos);
+    p.entrada = p.entrada || "";
+    p.saida = p.saida || "";
     p.revisado = p.revisado !== false;
     p.passos.forEach((s) => { s.cargoId = s.cargoId || ""; });
   });
@@ -299,7 +330,7 @@ function bpmnDoProcesso(p) {
 function bpmnDoMapa(porSetor = true) {
   const nos = nosMacro();
 
-  const grupos = porSetor ? state.setores : state.fases;
+  const grupos = porSetor ? setoresPorCamada() : state.fases;
   const chave = porSetor ? "setorId" : "faseId";
   const col = colunas();
 
@@ -442,3 +473,28 @@ const noMacro = (id) => processo(id) || decisao(id);
 const ehDecisao = (id) => !!decisao(id);
 
 const linhas = (texto) => String(texto || "").split("\n").map((l) => l.trim()).filter(Boolean);
+
+
+/* Onde a corrente arrebenta.
+
+   Não dá para conferir por semântica se a saída de um é mesmo a entrada do
+   outro — isso é leitura humana. O que dá para conferir é a ausência: peça que
+   entrega para alguém sem dizer o que entrega, ou que recebe sem dizer o que
+   recebe. É o suficiente para apontar onde olhar. */
+function elosFracos(st = state) {
+  const falhas = [];
+  const temEntrada = new Set();
+  const nos = [...st.processos, ...st.decisoes];
+  nos.forEach((n) => (n.proximos || []).forEach((x) => temEntrada.add(x.para)));
+
+  st.processos.forEach((p) => {
+    const entrega = (p.proximos || []).length > 0;
+    if (entrega && !p.saida?.trim()) {
+      falhas.push({ processo: p.id, nome: p.nome, falta: "saída", porque: "entrega para outra peça mas não diz o que entrega" });
+    }
+    if (temEntrada.has(p.id) && !p.entrada?.trim()) {
+      falhas.push({ processo: p.id, nome: p.nome, falta: "entrada", porque: "recebe de outra peça mas não diz o que recebe" });
+    }
+  });
+  return falhas;
+}

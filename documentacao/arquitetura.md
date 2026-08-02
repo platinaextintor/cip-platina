@@ -36,6 +36,7 @@ Aplicada em quatro lugares:
 | posição das peças no mapa | das ligações `proximos` |
 | o diagrama BPMN | dos passos do processo |
 | a árvore do organograma | de `cargo.reportaA` |
+| a camada do processo | da camada do setor dele |
 
 É o que impede o CIP de virar cópias desencontradas — o erro clássico de ferramenta caseira de processo. É também o princípio central do ARIS: cada objeto existe uma vez e é reutilizado.
 
@@ -44,7 +45,7 @@ Aplicada em quatro lugares:
 ```js
 {
   empresa:    { nome },
-  setores:    [{ id, nome }],
+  setores:    [{ id, nome, camada }],                           // estrategico | principal | apoio
   cargos:     [{ id, setorId, nome, reportaA, missao, expectativas, conhecimentos,
                  trilha: [{ id, tipo, titulo, url, duracao, obrigatorio, nota, documentoId }] }],
   fases:      [{ id, nome }],                                  // a cadeia de valor
@@ -53,6 +54,7 @@ Aplicada em quatro lugares:
   processos:  [{
     id, nome, faseId, setorId, donoCargoId, cargosIds[], status, revisado, videoUrl,
     proximos: [{ para, rotulo }],
+    entrada, saida,                                            // o que chega e o que sai
     porque, seErrar,
     anexos:    [{ id, titulo, url }],
     passos:    [{ id, tipo, cargoId, oQue, comoFazer, porque, armadilha, regra,
@@ -75,6 +77,8 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 5. **Link do usuário só passa se for `http`/`https`.**
 6. **Alteração remota substitui no lugar**, nunca no fim — a ordem da lista é a ordem na tela.
 7. **O domínio não conhece `ui`.** Se precisar de algo da tela, recebe por parâmetro.
+8. **A camada mora no setor**, nunca no processo — o processo herda.
+9. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 

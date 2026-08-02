@@ -271,6 +271,16 @@ body.deslogado #main { display: none; }
   padding: 6px 14px 6px 10px;
   font-size: 13px;
 }
+.camada-tag {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.camada-tag.c-estrategico { background: var(--navy-bg); color: var(--navy); }
+.camada-tag.c-principal { background: var(--green-bg); color: var(--green); }
+.camada-tag.c-apoio { background: var(--amber-bg); color: var(--amber); }
+
 .sector-pill .swatch { width: 9px; height: 9px; border-radius: 50%; }
 .sector-pill span { color: var(--ink-3); font-size: 12px; }
 

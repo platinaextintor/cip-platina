@@ -240,6 +240,75 @@
         return true;
       });
 
+      grupo("Domínio · camadas da arquitetura");
+
+      teste("semente já classifica os setores nas três camadas", () => {
+        state = semente();
+        igual(state.setores.map((s) => s.camada), ["estrategico", "principal", "principal", "apoio"]);
+      });
+
+      teste("setor sem camada vira principal", () => {
+        const d = normalizar({ empresa: {}, cargos: [], fases: [], decisoes: [], processos: [],
+          setores: [{ id: "x", nome: "Novo" }, { id: "y", nome: "Errado", camada: "inventada" }] });
+        igual(d.setores.map((s) => s.camada), ["principal", "principal"]);
+      });
+
+      teste("processo herda a camada do setor, não guarda a sua", () => {
+        state = semente();
+        const p = proc({ setorId: "s-admin" });
+        if (camadaDoProcesso(p) !== "apoio") throw new Error("veio " + camadaDoProcesso(p));
+        if ("camada" in p) throw new Error("o processo não deveria guardar camada");
+      });
+
+      teste("setores saem na ordem estratégico, principal, apoio", () => {
+        state = semente();
+        igual(setoresPorCamada().map((s) => s.nome), ["Gestão", "Comercial", "Técnica", "Administrativo"]);
+      });
+
+      grupo("Domínio · onde a cadeia arrebenta");
+
+      teste("quem entrega sem dizer o que entrega é apontado", () => {
+        state = semente();
+        state.processos = [
+          proc({ id: "a", nome: "Orçamento", saida: "", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", nome: "Análise", entrada: "proposta aprovada" }),
+        ];
+        const f = elosFracos();
+        igual(f.map((x) => [x.nome, x.falta]), [["Orçamento", "saída"]]);
+      });
+
+      teste("quem recebe sem dizer o que recebe é apontado", () => {
+        state = semente();
+        state.processos = [
+          proc({ id: "a", nome: "Orçamento", saida: "proposta aprovada", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", nome: "Análise", entrada: "" }),
+        ];
+        igual(elosFracos().map((x) => [x.nome, x.falta]), [["Análise", "entrada"]]);
+      });
+
+      teste("cadeia declarada nos dois lados não acusa nada", () => {
+        state = semente();
+        state.processos = [
+          proc({ id: "a", saida: "proposta aprovada", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", entrada: "proposta aprovada", saida: "pedido criado" }),
+        ];
+        igual(elosFracos(), []);
+      });
+
+      teste("processo solto não é cobrado de entrada nem saída", () => {
+        state = semente();
+        state.processos = [proc({ id: "sozinho" })];
+        igual(elosFracos(), []);
+      });
+
+      teste("entrada vinda de uma decisão também conta", () => {
+        state = semente();
+        state.processos = [proc({ id: "b", nome: "Análise", entrada: "" })];
+        state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial", faseId: "f-orcar",
+          proximos: [{ para: "b", rotulo: "sim" }] }];
+        igual(elosFracos().map((x) => x.falta), ["entrada"]);
+      });
+
       // ============================================================ BPMN
 
       grupo("BPMN · tradução do modelo");
