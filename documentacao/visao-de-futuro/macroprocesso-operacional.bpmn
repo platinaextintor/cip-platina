@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_CIP" targetNamespace="https://cip.grupoplatina/processos">
+  <bpmn:process id="Processo_Macro_CIP" name="Macroprocesso Operacional — Comercial ao Recebimento" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Comercial" name="Comercial"><bpmn:flowNodeRef>StartEvent_1</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Proposta</bpmn:flowNodeRef><bpmn:flowNodeRef>Gateway_Cliente</bpmn:flowNodeRef><bpmn:flowNodeRef>End_Proposta</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Pedido</bpmn:flowNodeRef><bpmn:flowNodeRef>Gateway_Modalidade</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Financeiro" name="Financeiro"><bpmn:flowNodeRef>Task_Credito</bpmn:flowNodeRef><bpmn:flowNodeRef>Gateway_Credito</bpmn:flowNodeRef><bpmn:flowNodeRef>End_Credito</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Compras" name="Compras"><bpmn:flowNodeRef>Task_Requisicao</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Compra</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Logistica" name="Logística"><bpmn:flowNodeRef>Task_Agenda</bpmn:flowNodeRef><bpmn:flowNodeRef>Gateway_Compra</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Entrega</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Conferencia</bpmn:flowNodeRef><bpmn:flowNodeRef>End_Operacional</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Producao" name="Produção"><bpmn:flowNodeRef>Task_Programar</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Produzir</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Inspecoes" name="Inspeções"><bpmn:flowNodeRef>Task_Cronograma</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Visita</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_EnviarManutencao</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Devolver</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Relatorio</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Faturamento" name="Faturamento"><bpmn:flowNodeRef>Task_Faturar</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent_1" name="Solicitação recebida"><bpmn:outgoing>F1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:subProcess id="Task_Proposta" name="Elaborar e enviar proposta"><bpmn:incoming>F1</bpmn:incoming><bpmn:outgoing>F2</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:exclusiveGateway id="Gateway_Cliente" name="Cliente aprovou?"><bpmn:incoming>F2</bpmn:incoming><bpmn:outgoing>F3</bpmn:outgoing><bpmn:outgoing>F4</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_Proposta" name="Proposta não aprovada"><bpmn:incoming>F3</bpmn:incoming></bpmn:endEvent>
+    <bpmn:subProcess id="Task_Credito" name="Analisar crédito e forma de pagamento"><bpmn:incoming>F4</bpmn:incoming><bpmn:outgoing>F5</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:exclusiveGateway id="Gateway_Credito" name="Cliente aprovado?"><bpmn:incoming>F5</bpmn:incoming><bpmn:outgoing>F6</bpmn:outgoing><bpmn:outgoing>F7</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_Credito" name="Não aprovado pelo Financeiro"><bpmn:incoming>F6</bpmn:incoming></bpmn:endEvent>
+    <bpmn:subProcess id="Task_Pedido" name="Criar pedido no CAD"><bpmn:incoming>F7</bpmn:incoming><bpmn:outgoing>F8</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:inclusiveGateway id="Gateway_Modalidade" name="Modalidade do atendimento"><bpmn:incoming>F8</bpmn:incoming><bpmn:outgoing>F9</bpmn:outgoing><bpmn:outgoing>F10</bpmn:outgoing></bpmn:inclusiveGateway>
+    <bpmn:subProcess id="Task_Agenda" name="Consultar estoque e definir cronograma de entrega/coleta"><bpmn:incoming>F9</bpmn:incoming><bpmn:incoming>F14</bpmn:incoming><bpmn:outgoing>F11</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:exclusiveGateway id="Gateway_Compra" name="Há necessidade de compra?"><bpmn:incoming>F11</bpmn:incoming><bpmn:outgoing>F12</bpmn:outgoing><bpmn:outgoing>F15</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:subProcess id="Task_Requisicao" name="Abrir requisição, cotar e aprovar"><bpmn:incoming>F12</bpmn:incoming><bpmn:outgoing>F13</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Compra" name="Comprar e acompanhar"><bpmn:incoming>F13</bpmn:incoming><bpmn:outgoing>F14</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Programar" name="Programar produção"><bpmn:incoming>F15</bpmn:incoming><bpmn:incoming>F20</bpmn:incoming><bpmn:outgoing>F16</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Produzir" name="Executar e sinalizar conclusão"><bpmn:incoming>F16</bpmn:incoming><bpmn:outgoing>F17</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Faturar" name="Emitir NF e boleto"><bpmn:incoming>F17</bpmn:incoming><bpmn:incoming>F23</bpmn:incoming><bpmn:outgoing>F18</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Entrega" name="Separar, carregar e realizar entrega"><bpmn:incoming>F18</bpmn:incoming><bpmn:outgoing>F19</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Conferencia" name="Conferir canhoto/cilindros e atualizar CAD"><bpmn:incoming>F19</bpmn:incoming><bpmn:outgoing>F24</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Cronograma" name="Montar cronograma de inspeções"><bpmn:incoming>F10</bpmn:incoming><bpmn:outgoing>F21</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Visita" name="Executar visita e recolher vencidos"><bpmn:incoming>F21</bpmn:incoming><bpmn:outgoing>F22</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_EnviarManutencao" name="Enviar itens para manutenção"><bpmn:incoming>F22</bpmn:incoming><bpmn:outgoing>F20</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Devolver" name="Devolver itens no mês seguinte"><bpmn:incoming>F23</bpmn:incoming><bpmn:outgoing>F25</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:subProcess id="Task_Relatorio" name="Emitir relatório de inspeção"><bpmn:incoming>F25</bpmn:incoming><bpmn:outgoing>F26</bpmn:outgoing></bpmn:subProcess>
+    <bpmn:endEvent id="End_Operacional" name="Ciclo operacional concluído"><bpmn:incoming>F24</bpmn:incoming><bpmn:incoming>F26</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="F1" sourceRef="StartEvent_1" targetRef="Task_Proposta"/><bpmn:sequenceFlow id="F2" sourceRef="Task_Proposta" targetRef="Gateway_Cliente"/>
+    <bpmn:sequenceFlow id="F3" name="Não" sourceRef="Gateway_Cliente" targetRef="End_Proposta"/><bpmn:sequenceFlow id="F4" name="Sim" sourceRef="Gateway_Cliente" targetRef="Task_Credito"/>
+    <bpmn:sequenceFlow id="F5" sourceRef="Task_Credito" targetRef="Gateway_Credito"/><bpmn:sequenceFlow id="F6" name="Não" sourceRef="Gateway_Credito" targetRef="End_Credito"/>
+    <bpmn:sequenceFlow id="F7" name="Sim" sourceRef="Gateway_Credito" targetRef="Task_Pedido"/><bpmn:sequenceFlow id="F8" sourceRef="Task_Pedido" targetRef="Gateway_Modalidade"/>
+    <bpmn:sequenceFlow id="F9" name="Venda/recarga" sourceRef="Gateway_Modalidade" targetRef="Task_Agenda"/><bpmn:sequenceFlow id="F10" name="Contrato" sourceRef="Gateway_Modalidade" targetRef="Task_Cronograma"/>
+    <bpmn:sequenceFlow id="F11" sourceRef="Task_Agenda" targetRef="Gateway_Compra"/><bpmn:sequenceFlow id="F12" name="Sim" sourceRef="Gateway_Compra" targetRef="Task_Requisicao"/>
+    <bpmn:sequenceFlow id="F13" sourceRef="Task_Requisicao" targetRef="Task_Compra"/><bpmn:sequenceFlow id="F14" sourceRef="Task_Compra" targetRef="Task_Agenda"/>
+    <bpmn:sequenceFlow id="F15" name="Não / materiais disponíveis" sourceRef="Gateway_Compra" targetRef="Task_Programar"/><bpmn:sequenceFlow id="F16" sourceRef="Task_Programar" targetRef="Task_Produzir"/>
+    <bpmn:sequenceFlow id="F17" sourceRef="Task_Produzir" targetRef="Task_Faturar"/><bpmn:sequenceFlow id="F18" sourceRef="Task_Faturar" targetRef="Task_Entrega"/>
+    <bpmn:sequenceFlow id="F19" sourceRef="Task_Entrega" targetRef="Task_Conferencia"/><bpmn:sequenceFlow id="F20" sourceRef="Task_EnviarManutencao" targetRef="Task_Programar"/>
+    <bpmn:sequenceFlow id="F21" sourceRef="Task_Cronograma" targetRef="Task_Visita"/><bpmn:sequenceFlow id="F22" sourceRef="Task_Visita" targetRef="Task_EnviarManutencao"/>
+    <bpmn:sequenceFlow id="F23" sourceRef="Task_Produzir" targetRef="Task_Devolver"/><bpmn:sequenceFlow id="F24" sourceRef="Task_Conferencia" targetRef="End_Operacional"/>
+    <bpmn:sequenceFlow id="F25" sourceRef="Task_Devolver" targetRef="Task_Relatorio"/><bpmn:sequenceFlow id="F26" sourceRef="Task_Relatorio" targetRef="End_Operacional"/>
+  </bpmn:process>
+</bpmn:definitions>

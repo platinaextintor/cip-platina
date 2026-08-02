@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__visualize__show_widget",
+      "mcp__027f0751-74e2-4588-91d7-755e2acf6984__get_publishable_keys",
+      "Bash(python3 -c \"import sys,json; print\\(json.dumps\\(sys.stdin.read\\(\\)\\)[:80], '... total chars:', len\\(sys.stdin.read\\(\\) or ''\\)\\)\")",
+      "mcp__027f0751-74e2-4588-91d7-755e2acf6984__deploy_edge_function",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST \"https://zxbjluzxmucpzvgwtkns.supabase.co/functions/v1/cip-ia\" -H \"content-type: application/json\" -d '{\"acao\":\"processo\",\"entrada\":\"teste\"}')",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST https://zxbjluzxmucpzvgwtkns.supabase.co/functions/v1/cip-ia -H 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4YmpsdXp4bXVjcHp2Z3d0a25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTU2MjgsImV4cCI6MjEwMDgzMTYyOH0.2R4zTbSupwt7n3i5PMciG_paRmJNuV9L4QW3qVVlcHk' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4YmpsdXp4bXVjcHp2Z3d0a25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTU2MjgsImV4cCI6MjEwMDgzMTYyOH0.2R4zTbSupwt7n3i5PMciG_paRmJNuV9L4QW3qVVlcHk' -H 'content-type: application/json' -d '{\"acao\":\"processo\",\"entrada\":\"teste curto\"}')",
+      "Bash(node --check app.js)",
+      "Bash(curl -s -i -X OPTIONS https://zxbjluzxmucpzvgwtkns.supabase.co/functions/v1/cip-ia -H 'Origin: http://127.0.0.1:8777' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization, apikey, content-type')",
+      "Bash(pkill -f \"http.server 8777\")",
+      "Bash(python3 -m http.server 8777 --directory \"/Users/ericvichileite/Documents/CIP Platina Extintores\" --bind 127.0.0.1)",
+      "Bash(node --check bpmn.js)",
+      "Bash(awk 'NR>=1560 && NR<=1580' app.js)",
+      "Bash(awk '/^function inspetorDesenho/,/^}/' app.js)",
+      "Bash(time curl -s --max-time 180 -X POST https://zxbjluzxmucpzvgwtkns.supabase.co/functions/v1/cip-ia -H 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4YmpsdXp4bXVjcHp2Z3d0a25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTU2MjgsImV4cCI6MjEwMDgzMTYyOH0.2R4zTbSupwt7n3i5PMciG_paRmJNuV9L4QW3qVVlcHk' -H 'content-type: application/json' -d '{\"acao\":\"documento\",\"entrada\":\"Documento: Regimento interno\\\\nCategoria atual: —\\\\nVale para: —\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -)",
+      "Bash(curl -s http://127.0.0.1:8777/index.html)",
+      "mcp__claude-in-chrome__computer",
+      "mcp__027f0751-74e2-4588-91d7-755e2acf6984__execute_sql",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -o /dev/null -w \"servidor local: HTTP %{http_code}\\\\n\" --max-time 5 http://127.0.0.1:8777/index.html)",
+      "Bash(node --check nuvem.js)",
+      "Bash(curl -s -o /dev/null -w \"diagnostico.html: HTTP %{http_code}\\\\n\" --max-time 5 http://127.0.0.1:8777/diagnostico.html)",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "Bash(cd \"/Users/ericvichileite/Downloads\" *)",
+      "Bash(mkdir -p documentacao/visao-de-futuro)",
+      "Bash(cp \"/Users/ericvichileite/Downloads/CIP_Dossie_Completo_Integrado_v2_Processos_Auxiliares_Agentes_IA.html\" documentacao/visao-de-futuro/dossie-cip-blocos-1-a-9.html)",
+      "Bash(cp \"/Users/ericvichileite/Downloads/CIP_Macroprocesso_Operacional.bpmn\" documentacao/visao-de-futuro/macroprocesso-operacional.bpmn)",
+      "Bash(command -v gh)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(gh api *)"
+    ]
+  }
+}

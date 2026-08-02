@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CIP · Platina Extintores</title>
+    <meta name="description" content="Central Inteligente de Processos da Platina Extintores." />
+    <link rel="stylesheet" href="./styles.css?v=16" />
+  </head>
+  <body>
+    <header class="topbar">
+      <button class="brand" data-go="organograma" type="button">
+        <span class="brand-mark">CIP</span>
+        <span class="brand-text">
+          <strong>Central Inteligente de Processos</strong>
+          <small>Platina Extintores</small>
+        </span>
+      </button>
+
+      <nav class="tabs" id="tabs" aria-label="Telas da CIP">
+        <button class="tab" data-go="organograma" type="button">Organograma</button>
+        <button class="tab" data-go="fluxo" type="button">Fluxo macro</button>
+        <button class="tab" data-go="biblioteca" type="button">Biblioteca</button>
+      </nav>
+
+      <div class="topbar-right">
+        <span class="presenca" id="presenca" hidden></span>
+        <span class="estado-nuvem" id="estadoNuvem"></span>
+        <div class="progress-chip" id="progressChip"></div>
+        <button class="icon-btn" id="openData" type="button" aria-label="Dados do projeto" title="Dados do projeto"></button>
+        <button class="icon-btn" id="sairBotao" type="button" aria-label="Sair" title="Sair">↪</button>
+      </div>
+    </header>
+
+    <main id="main"></main>
+
+    <div class="drawer-scrim" id="scrim" hidden></div>
+    <aside class="drawer" id="drawer" hidden aria-label="Detalhes"></aside>
+
+    <div class="portao" id="portao" hidden>
+      <form class="portao-cartao" id="formEntrar">
+        <div class="portao-marca">
+          <span class="brand-mark">CIP</span>
+          <span>
+            <strong>Central Inteligente de Processos</strong>
+            <small>Platina Extintores</small>
+          </span>
+        </div>
+        <p class="portao-sub">Acesso restrito à equipe da Platina. <span id="carimboVersao" style="color:var(--ink-3)"></span></p>
+
+        <div class="field">
+          <label for="entrarEmail">E-mail</label>
+          <input id="entrarEmail" type="email" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="entrarSenha">Senha</label>
+          <input id="entrarSenha" type="password" autocomplete="current-password" required />
+        </div>
+
+        <p class="portao-erro" id="portaoErro" hidden></p>
+
+        <button class="btn btn-primary" type="submit" id="botaoEntrar">Entrar</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="esqueciSenha">Esqueci minha senha</button>
+      </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="./bpmn.js?v=16"></script>
+    <script src="./nuvem.js?v=16"></script>
+    <script src="./app.js?v=16"></script>
+  </body>
+</html>

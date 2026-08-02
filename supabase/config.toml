@@ -1,0 +1,6 @@
+# Projeto Supabase do CIP. A integração com o GitHub lê esta pasta:
+# migrations/ é aplicado no banco, functions/ é implantado.
+project_id = "zxbjluzxmucpzvgwtkns"
+
+[functions.cip-ia]
+verify_jwt = true

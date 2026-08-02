@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Diagnóstico do CIP</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f6f7fa;
+        color: #0e1729;
+        font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        padding: 24px;
+      }
+      .caixa {
+        max-width: 640px;
+        margin: 0 auto;
+        border: 1px solid #e4e8ef;
+        border-radius: 12px;
+        background: #fff;
+        padding: 24px;
+      }
+      h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+      p.sub { margin: 0 0 20px; color: #40506b; font-size: 14px; }
+      .linha {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        border-top: 1px solid #eef1f6;
+        padding: 10px 0;
+      }
+      .linha:first-of-type { border-top: 0; }
+      .marca { flex: none; width: 22px; font-size: 16px; }
+      .ok { color: #0c7048; }
+      .ruim { color: #bf1f2c; }
+      .nome { font-weight: 600; }
+      .detalhe { color: #40506b; font-size: 13px; word-break: break-word; }
+      label { display: block; margin-top: 6px; color: #737f95; font-size: 12px; }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 4px;
+        border: 1px solid #ccd4e0;
+        border-radius: 8px;
+        padding: 9px 11px;
+        font: inherit;
+      }
+      button {
+        margin-top: 14px;
+        border: 0;
+        border-radius: 8px;
+        background: #16295e;
+        padding: 10px 16px;
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .aviso { margin-top: 18px; border-left: 3px solid #ccd4e0; background: #f9fafc; padding: 10px 12px; color: #40506b; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div class="caixa">
+      <h1>Diagnóstico do CIP</h1>
+      <p class="sub">Roda os testes um por um e escreve o que deu certo e o que não deu.</p>
+
+      <div id="resultado"></div>
+
+      <form id="formTeste">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" autocomplete="username" required />
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" autocomplete="current-password" required />
+        <button type="submit">Testar o login também</button>
+      </form>
+
+      <p class="aviso">
+        A senha vai direto para o Supabase, igual à tela normal de login.
+        Esta página não guarda nem envia nada para nenhum outro lugar.
+      </p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script>
+      const URL_SUPABASE = "https://zxbjluzxmucpzvgwtkns.supabase.co";
+      const CHAVE =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4YmpsdXp4bXVjcHp2Z3d0a25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTU2MjgsImV4cCI6MjEwMDgzMTYyOH0.2R4zTbSupwt7n3i5PMciG_paRmJNuV9L4QW3qVVlcHk";
+
+      const alvo = document.getElementById("resultado");
+
+      function anotar(nome, ok, detalhe = "") {
+        const linha = document.createElement("div");
+        linha.className = "linha";
+        linha.innerHTML = `
+          <span class="marca ${ok ? "ok" : "ruim"}">${ok ? "✔" : "✕"}</span>
+          <span>
+            <span class="nome">${nome}</span>
+            ${detalhe ? `<br><span class="detalhe">${detalhe}</span>` : ""}
+          </span>`;
+        alvo.appendChild(linha);
+      }
+
+      let sb = null;
+
+      async function rodar() {
+        anotar("Navegador", true, navigator.userAgent);
+
+        const temLib = typeof supabase !== "undefined";
+        anotar("Biblioteca do Supabase carregou", temLib, temLib ? "" : "O CDN não respondeu. Sem internet ou bloqueado.");
+        if (!temLib) return;
+
+        try {
+          sb = supabase.createClient(URL_SUPABASE, CHAVE);
+          anotar("Cliente criado", true);
+        } catch (e) {
+          return anotar("Cliente criado", false, e.message);
+        }
+
+        try {
+          const r = await fetch(`${URL_SUPABASE}/auth/v1/health`, { headers: { apikey: CHAVE } });
+          anotar("Servidor do Supabase respondeu", r.ok, `HTTP ${r.status}`);
+        } catch (e) {
+          anotar("Servidor do Supabase respondeu", false, e.message);
+        }
+
+        try {
+          const { data } = await sb.auth.getSession();
+          const u = data?.session?.user;
+          anotar("Sessão já salva neste navegador", !!u, u ? u.email : "nenhuma — precisa entrar");
+        } catch (e) {
+          anotar("Sessão já salva neste navegador", false, e.message);
+        }
+
+        try {
+          localStorage.setItem("cip-teste", "1");
+          localStorage.removeItem("cip-teste");
+          anotar("Navegador permite guardar dados", true);
+        } catch (e) {
+          anotar("Navegador permite guardar dados", false, "Modo privado ou cookies bloqueados: " + e.message);
+        }
+
+        try {
+          const { data, error } = await sb.from("pecas").select("id");
+          if (error) anotar("Leitura da tabela sem login", false, error.message + " (esperado se não estiver logado)");
+          else anotar("Leitura da tabela", true, `${data.length} peça(s) — já está logado`);
+        } catch (e) {
+          anotar("Leitura da tabela", false, e.message);
+        }
+      }
+
+      document.getElementById("formTeste").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const email = document.getElementById("email").value.trim();
+        const senha = document.getElementById("senha").value;
+        try {
+          const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+          if (error) return anotar("Login", false, error.message);
+          anotar("Login", true, data.user.email);
+
+          const { data: pecas, error: erroLeitura } = await sb.from("pecas").select("id, tipo");
+          if (erroLeitura) anotar("Ler as peças depois do login", false, erroLeitura.message);
+          else anotar("Ler as peças depois do login", true, `${pecas.length} peça(s): ${pecas.map((p) => p.id).join(", ")}`);
+
+          const { error: erroEscrita } = await sb
+            .from("pecas")
+            .upsert({ id: "teste-diagnostico", tipo: "estrutura", dados: { teste: true }, sessao: "diagnostico" });
+          if (erroEscrita) anotar("Gravar no banco", false, erroEscrita.message);
+          else {
+            anotar("Gravar no banco", true);
+            await sb.from("pecas").delete().eq("id", "teste-diagnostico");
+          }
+        } catch (e) {
+          anotar("Login", false, e.message);
+        }
+      });
+
+      rodar();
+    </script>
+  </body>
+</html>

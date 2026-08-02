@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CIP Platina Extintores</title>
+    <meta name="description" content="Central Inteligente de Processos da Platina Extintores." />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <button class="brand" data-view="mapa" type="button">
+        <span class="brand-mark">CIP</span>
+        <span>
+          <strong>Central Inteligente de Processos</strong>
+          <small>Platina Extintores</small>
+        </span>
+      </button>
+
+      <nav class="tabs" aria-label="Módulos da CIP">
+        <button class="tab is-active" data-view="mapa" type="button">Mapa</button>
+        <button class="tab" data-view="processos" type="button">Processos</button>
+        <button class="tab" data-view="cargos" type="button">Cargos e trilhas</button>
+        <button class="tab" data-view="documentos" type="button">Documentos</button>
+        <button class="tab" data-view="comunicados" type="button">Comunicados</button>
+      </nav>
+
+      <div class="save-state" id="saveState">salvo localmente</div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="library">
+        <section class="library-block intro">
+          <span class="eyebrow">Painel de construção</span>
+          <h1>Desenhe a operação da Platina</h1>
+          <p>Monte setores, cargos, processos, trilhas e documentos. Depois a CIP vira a fonte oficial para consultar e escalar o padrão.</p>
+        </section>
+
+        <section class="library-block">
+          <h2>Criar peça</h2>
+          <div class="action-grid">
+            <button class="tool-button" id="addSector" type="button">
+              <span>Setor</span>
+              <small>área da empresa</small>
+            </button>
+            <button class="tool-button" id="addRole" type="button">
+              <span>Cargo</span>
+              <small>função e expectativa</small>
+            </button>
+            <button class="tool-button" id="addProcess" type="button">
+              <span>Processo</span>
+              <small>fluxo oficial</small>
+            </button>
+            <button class="tool-button" id="addDocument" type="button">
+              <span>Documento</span>
+              <small>RH, regra, política</small>
+            </button>
+            <button class="tool-button" id="addAnnouncement" type="button">
+              <span>Comunicado</span>
+              <small>mudança e alerta</small>
+            </button>
+          </div>
+        </section>
+
+        <section class="library-block">
+          <h2>Resumo</h2>
+          <div class="stats">
+            <div><strong id="statSectors">0</strong><span>setores</span></div>
+            <div><strong id="statRoles">0</strong><span>cargos</span></div>
+            <div><strong id="statProcesses">0</strong><span>processos</span></div>
+            <div><strong id="statDocs">0</strong><span>documentos</span></div>
+          </div>
+        </section>
+
+        <section class="library-block ai-builder">
+          <h2>Assistente IA</h2>
+          <textarea id="aiPrompt" placeholder="Descreva uma rotina, cargo ou regra para a IA estruturar..."></textarea>
+          <button class="primary-action" id="aiCreateProcess" type="button">Gerar processo rascunho</button>
+        </section>
+
+        <section class="library-block">
+          <h2>Dados do projeto</h2>
+          <div class="data-actions">
+            <button class="secondary-action" id="exportWorkspace" type="button">Exportar JSON</button>
+            <label class="secondary-action file-action" for="importWorkspace">Importar JSON</label>
+            <input id="importWorkspace" type="file" accept="application/json,.json" />
+          </div>
+        </section>
+
+        <button class="danger-action" id="resetWorkspace" type="button">Começar do zero</button>
+      </aside>
+
+      <section class="workspace">
+        <section class="view is-active" data-view-panel="mapa">
+          <div class="view-head">
+            <div>
+              <span class="eyebrow">Mapa operacional</span>
+              <h2>Visão macro da empresa</h2>
+              <p>Clique em qualquer peça para editar. Setores organizam cargos; cargos se conectam a processos e trilhas.</p>
+            </div>
+          </div>
+          <div class="canvas-wrap">
+            <div class="canvas" id="mapCanvas"></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="processos">
+          <div class="view-head">
+            <div>
+              <span class="eyebrow">Processos</span>
+              <h2>Biblioteca oficial de processos</h2>
+              <p>Cada processo tem cargos envolvidos, fluxograma, regra escrita, vídeos e documentos.</p>
+            </div>
+          </div>
+          <div class="module-grid" id="processModule"></div>
+        </section>
+
+        <section class="view" data-view-panel="cargos">
+          <div class="view-head">
+            <div>
+              <span class="eyebrow">Cargos e trilhas</span>
+              <h2>O que cada função precisa saber</h2>
+              <p>A trilha do cargo combina processos obrigatórios, conhecimentos internos, cursos externos e documentos.</p>
+            </div>
+          </div>
+          <div class="module-grid" id="roleModule"></div>
+        </section>
+
+        <section class="view" data-view-panel="documentos">
+          <div class="view-head">
+            <div>
+              <span class="eyebrow">Documentos gerais</span>
+              <h2>RH, regras e políticas</h2>
+              <p>Regimento interno, políticas comerciais, manuais e materiais de apoio ficam centralizados aqui.</p>
+            </div>
+          </div>
+          <div class="module-grid" id="documentModule"></div>
+        </section>
+
+        <section class="view" data-view-panel="comunicados">
+          <div class="view-head">
+            <div>
+              <span class="eyebrow">Comunicados</span>
+              <h2>Mudanças e alertas oficiais</h2>
+              <p>Registre mudanças de processo e deixe claro quem precisa saber.</p>
+            </div>
+          </div>
+          <div class="module-grid" id="announcementModule"></div>
+        </section>
+      </section>
+
+      <aside class="inspector">
+        <div class="inspector-head">
+          <span class="eyebrow">Propriedades</span>
+          <h2 id="inspectorTitle">Selecione uma peça</h2>
+          <p id="inspectorSubtitle">Tudo é editável neste painel de construção.</p>
+        </div>
+        <div id="inspectorBody" class="inspector-body"></div>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

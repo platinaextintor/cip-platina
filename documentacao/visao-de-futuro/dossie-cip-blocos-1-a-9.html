@@ -1,0 +1,1355 @@
+
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>CIP — Dossiê Integrado com Processos Auxiliares e Agentes de IA</title>
+<style>
+:root{
+  --bg:#0b1020; --panel:#121a2f; --panel2:#18233e; --text:#eaf0ff; --muted:#9fb0d0;
+  --line:#2b3b63; --accent:#ff3b3b; --accent2:#4cc9f0; --green:#37d67a; --yellow:#ffcc4d;
+  --orange:#ff8a3d; --purple:#a78bfa; --white:#fff; --shadow:0 16px 40px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#09101f,#0e1730 42%,#0b1020);color:var(--text);line-height:1.55}
+a{color:inherit}
+header.hero{padding:48px 28px 30px;border-bottom:1px solid var(--line);background:
+radial-gradient(circle at 85% 15%,rgba(255,59,59,.18),transparent 30%),
+radial-gradient(circle at 20% 0%,rgba(76,201,240,.15),transparent 35%)}
+.hero-inner{max-width:1280px;margin:auto}
+.kicker{font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent2);font-size:.78rem}
+h1{font-size:clamp(2.2rem,5vw,4.4rem);line-height:1.02;margin:.4rem 0 1rem}
+.subtitle{max-width:930px;color:var(--muted);font-size:1.1rem}
+.notice{margin-top:22px;padding:16px 18px;border:1px solid #6f5b1f;background:rgba(255,204,77,.08);border-radius:14px;color:#ffe9a6}
+.toolbar{position:sticky;top:0;z-index:20;background:rgba(9,16,31,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.toolbar-inner{max-width:1280px;margin:auto;padding:12px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.search{flex:1;min-width:250px;background:#0f1730;border:1px solid var(--line);color:var(--text);padding:11px 14px;border-radius:10px}
+button,.navbtn{border:1px solid var(--line);background:#141f39;color:var(--text);padding:10px 12px;border-radius:10px;cursor:pointer}
+button:hover,.navbtn:hover{border-color:var(--accent2)}
+main{max-width:1280px;margin:auto;padding:28px 24px 80px}
+section{scroll-margin-top:88px;margin:0 0 46px}
+h2{font-size:1.9rem;margin:0 0 14px}
+h3{font-size:1.2rem;margin:0 0 10px}
+p{margin:.45rem 0 1rem}
+.muted{color:var(--muted)}
+.grid{display:grid;gap:18px}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:linear-gradient(180deg,var(--panel),#10182b);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.card.soft{background:var(--panel2)}
+.badge{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:5px 10px;font-size:.78rem;font-weight:800;margin-right:6px}
+.b-defined{background:rgba(55,214,122,.12);color:#8df0b5;border:1px solid rgba(55,214,122,.35)}
+.b-hyp{background:rgba(255,204,77,.12);color:#ffe27d;border:1px solid rgba(255,204,77,.35)}
+.b-open{background:rgba(255,138,61,.12);color:#ffb27d;border:1px solid rgba(255,138,61,.35)}
+.b-future{background:rgba(167,139,250,.12);color:#cbbcff;border:1px solid rgba(167,139,250,.35)}
+.timeline{display:grid;gap:12px}
+.titem{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start}
+.dot{width:18px;height:18px;border-radius:50%;margin-top:5px;background:var(--accent2);box-shadow:0 0 0 5px rgba(76,201,240,.12)}
+.tbody{border-left:2px solid var(--line);padding:0 0 18px 18px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.node{padding:12px 14px;background:#182744;border:1px solid #3a4f7a;border-radius:12px;min-width:150px;text-align:center;font-weight:700}
+.node.red{border-color:#a53c46;background:#2a1720}
+.node.green{border-color:#2f7c56;background:#13291f}
+.node.yellow{border-color:#8d7524;background:#2a2615}
+.arrow{font-size:1.45rem;color:var(--muted)}
+.lanes{border:1px solid var(--line);border-radius:16px;overflow:auto;background:#0e1730}
+.lane{min-width:980px;display:grid;grid-template-columns:150px 1fr;border-bottom:1px solid var(--line)}
+.lane:last-child{border-bottom:none}
+.lane-title{padding:18px;font-weight:900;background:#121d35;border-right:1px solid var(--line);display:flex;align-items:center}
+.lane-body{padding:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.smallnode{padding:8px 10px;background:#172640;border:1px solid #395078;border-radius:10px;font-size:.88rem}
+.decision{transform:rotate(45deg);width:70px;height:70px;border:1px solid #8c6c2a;background:#2c2511;display:flex;align-items:center;justify-content:center;margin:10px 22px}
+.decision span{transform:rotate(-45deg);font-size:.72rem;text-align:center}
+details{background:#10182b;border:1px solid var(--line);border-radius:14px;padding:13px 16px;margin:10px 0}
+summary{cursor:pointer;font-weight:850}
+ul{padding-left:20px}
+li{margin:.35rem 0}
+table{width:100%;border-collapse:collapse;overflow:hidden;border-radius:14px}
+th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+th{background:#17233e}
+td{background:#10182b}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:9px 12px;border-radius:999px}
+.tab.active{background:var(--accent);border-color:var(--accent)}
+.tabpane{display:none}
+.tabpane.active{display:block}
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:12px;overflow:auto;padding-bottom:8px}
+.kcol{background:#0e1730;border:1px solid var(--line);border-radius:15px;min-height:290px;padding:12px}
+.khead{display:flex;justify-content:space-between;align-items:center;font-weight:900;margin-bottom:10px}
+.kcard{background:#172540;border:1px solid #38507a;border-radius:12px;padding:11px;margin-bottom:9px}
+.metric{font-size:2rem;font-weight:900}
+.legend{display:flex;gap:10px;flex-wrap:wrap}
+.callout{border-left:4px solid var(--accent2);padding:12px 14px;background:rgba(76,201,240,.07);border-radius:0 12px 12px 0}
+.print-only{display:none}
+.footer{color:var(--muted);text-align:center;padding:40px 20px;border-top:1px solid var(--line)}
+.hidden{display:none!important}
+svg text{font-family:Inter,Segoe UI,Arial,sans-serif}
+@media(max-width:720px){.lane{min-width:800px}.toolbar-inner{padding:10px}.hero{padding:34px 18px}main{padding:22px 14px}.kanban{grid-template-columns:repeat(6,240px)}}
+
+.bpmn-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.bpmn-toolbar button{font-weight:800}
+.bpmn-frame{position:relative;border:1px solid var(--line);border-radius:16px;background:#0d1528;overflow:hidden}
+.bpmn-scroll{overflow:auto;max-height:78vh;padding:10px;cursor:grab}
+.bpmn-scroll.dragging{cursor:grabbing;user-select:none}
+.bpmn-canvas{transform-origin:top left;transition:transform .15s ease;display:block}
+.bpmn-hint{color:var(--muted);font-size:.88rem;margin-left:auto}
+.bpmn-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+.bpmn-legend-item{display:flex;align-items:center;gap:7px;font-size:.88rem;color:var(--muted)}
+.bpmn-symbol-task{width:30px;height:18px;border-radius:5px;border:2px solid #5c79a7;background:#172a49}
+.bpmn-symbol-start{width:20px;height:20px;border-radius:50%;border:3px solid #37d67a;background:#10291f}
+.bpmn-symbol-end{width:20px;height:20px;border-radius:50%;border:5px double #37d67a;background:#10291f}
+.bpmn-symbol-gateway{width:20px;height:20px;transform:rotate(45deg);border:2px solid #ffcc4d;background:#332811}
+
+@media print{
+  body{background:white;color:#111}
+  .toolbar{display:none}
+  .card,.kcol,.kcard,details,td,th,.lanes{box-shadow:none;background:white;color:#111;border-color:#bbb}
+  .node,.smallnode{background:#f5f5f5;color:#111}
+  .muted{color:#555}
+  .print-only{display:block}
+  section{break-inside:avoid}
+}
+
+.blocks-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:18px}
+.block-card{background:linear-gradient(180deg,var(--panel),#10182b);border:1px solid var(--line);border-radius:16px;padding:17px;position:relative}
+.block-card .num{display:inline-flex;width:34px;height:34px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent);font-weight:900;margin-bottom:10px}
+.block-card h3{margin:.1rem 0 .55rem}
+.block-card a{display:inline-block;margin-top:8px;color:var(--accent2);font-weight:800;text-decoration:none}
+.block-linkline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0}
+.block-pill{padding:8px 11px;border-radius:999px;background:#172540;border:1px solid #38507a;font-size:.85rem;font-weight:800}
+.block-detail{border-top:1px solid var(--line);padding-top:22px;margin-top:28px}
+.block-detail:first-child{border-top:none;padding-top:0}
+.block-detail h3{font-size:1.45rem}
+.block-origin{font-size:.82rem;color:var(--muted);margin-bottom:10px}
+.block-subsections{display:grid;gap:14px}
+.block-subsections section{margin:0}
+.block-subsections h2{font-size:1.25rem;margin:0 0 8px}
+.block-subsections .toolbar,.block-subsections header,.block-subsections footer{display:none}
+.block-subsections .card{box-shadow:none}
+.integration-matrix td:first-child,.integration-matrix th:first-child{white-space:nowrap}
+
+.aux-grid,.agent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:14px;margin-top:16px}
+.aux-card,.agent-card{background:#10182b;border:1px solid var(--line);border-radius:15px;padding:16px}
+.aux-card h3,.agent-card h3{margin:.1rem 0 .5rem}
+.agent-card .agent-name{display:inline-block;padding:5px 9px;border-radius:999px;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.36);color:#d8ceff;font-size:.8rem;font-weight:900;margin-bottom:9px}
+.aux-flow{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:18px 0}
+.aux-pill{padding:9px 12px;border-radius:999px;background:#172540;border:1px solid #38507a;font-weight:800;font-size:.86rem}
+</style>
+</head>
+<body>
+<header class="hero">
+<div class="hero-inner">
+<div class="kicker">CIP — Central Inteligente de Processos</div>
+<h1>Dossiê completo e integrado do CIP</h1>
+<p class="subtitle">Transcrição organizada e ampliada das ideias construídas sobre a arquitetura operacional da Platina, agora conectada à visão dos Blocos 1 a 9 do CIP.</p>
+<div class="notice"><strong>Natureza deste documento:</strong> este material não é uma especificação definitiva. Ele registra o raciocínio, as decisões provisórias, as hipóteses e as possibilidades discutidas até aqui, para que nenhuma ideia se perca antes da fase formal de definição.</div>
+</div>
+</header>
+<div class="toolbar">
+<div class="toolbar-inner">
+<input class="search" id="search" placeholder="Buscar no dossiê: produção, Clara, inspeção, kanban..."/>
+<a class="navbtn" href="#evolucao">Evolução</a>
+<a class="navbtn" href="#processos">Processos</a>
+<a class="navbtn" href="#jornada-operacional">Jornada</a>
+<a class="navbtn" href="#passos-por-setor">Setores</a>
+<a class="navbtn" href="#cip">CIP</a><a class="navbtn" href="#blocos">Blocos CIP</a>
+<a class="navbtn" href="#orquestracao">Orquestração</a>
+<a class="navbtn" href="#inspecao-app">App inspeção</a>
+<a class="navbtn" href="#pendencias">Pendências</a>
+<button onclick="window.print()">Imprimir / PDF</button>
+<a class="navbtn" href="#processos-auxiliares">Processos auxiliares</a><a class="navbtn" href="#agentes-ia">Agentes IA</a></div>
+</div>
+<main id="content">
+<section id="resumo">
+<h2>1. Resumo executivo da ideia</h2>
+<div class="grid grid-3">
+<div class="card"><span class="badge b-defined">Definido na conversa</span><h3>O processo vem antes do software</h3><p>A prioridade é mapear e documentar como a Platina funciona antes de expandir o ERP, CRM, produção, logística ou inteligência artificial.</p></div>
+<div class="card"><span class="badge b-hyp">Hipótese forte</span><h3>O CIP como coração do negócio</h3><p>O CIP pode evoluir de um modelador de processos para uma plataforma operacional que conecta pessoas, dados, eventos, indicadores e automações.</p></div>
+<div class="card"><span class="badge b-future">Visão futura</span><h3>Orquestração da empresa</h3><p>Pedidos, inspeções, compras, produção, faturamento e entregas podem ser coordenados por uma agenda operacional e por eventos confiáveis vindos do ERP.</p></div>
+</div>
+<div class="callout"><strong>Frase central:</strong> o ERP registra o que aconteceu; o CIP modela como a empresa funciona, coordena o que deve acontecer depois e mostra como melhorar continuamente.</div>
+<div class="card" style="margin-top:18px">
+<span class="badge b-future">Complemento da arquitetura</span>
+<h3>Processos auxiliares e agentes de IA</h3>
+<p>O CIP também considera processos de apoio e agentes especializados, para que nenhuma capacidade transversal fique fora do desenho.</p>
+</div></section>
+<section id="evolucao">
+<h2>2. Como a ideia evoluiu durante a conversa</h2>
+<div class="timeline">
+<div class="titem"><div class="dot"></div><div class="tbody"><h3>Começo: um fluxograma BPMN</h3><p>O objetivo inicial era transformar a explicação do fluxo comercial, financeiro, compras, produção, logística, faturamento e inspeções em um macroprocesso com raias.</p></div></div>
+<div class="titem"><div class="dot"></div><div class="tbody"><h3>Ampliação: arquitetura de processos</h3><p>O fluxo passou a ser visto como parte de uma arquitetura maior, separando processos estratégicos, principais e de apoio, com RH e Marketing fora do fluxo operacional direto.</p></div></div>
+<div class="titem"><div class="dot"></div><div class="tbody"><h3>Ampliação: sistema de processos</h3><p>O sistema deixou de ser entendido como um repositório de fluxogramas e passou a incluir biblioteca de processos, fichas de atividades, POPs, RACI, regras, KPIs, versões, riscos e melhorias.</p></div></div>
+<div class="titem"><div class="dot"></div><div class="tbody"><h3>Ampliação: Kanban vivo</h3><p>Os processos em execução passaram a ser visualizados como cartões que se movimentam automaticamente conforme os eventos do ERP, revelando gargalos e o estado da empresa.</p></div></div>
+<div class="titem"><div class="dot"></div><div class="tbody"><h3>Ampliação: plataforma CIP</h3><p>O CIP passou a ser pensado como uma plataforma com motor de processos, módulos especializados, agentes de IA, dashboards, eventos e integrações.</p></div></div>
+<div class="titem"><div class="dot"></div><div class="tbody"><h3>Ampliação: orquestração operacional</h3><p>A visão mais profunda é coordenar produção, compras, logística, inspeções e faturamento a partir de compromissos de entrega, capacidade, estoque e prioridades.</p></div></div>
+</div>
+</section>
+<section id="processos">
+<h2>3. Arquitetura de processos construída</h2>
+<div class="grid grid-3">
+<div class="card"><h3>Estratégicos</h3><p>Diretoria, planejamento, indicadores, orçamento, prioridades e expansão.</p></div>
+<div class="card"><h3>Principais</h3><p>Comercial, Financeiro, Compras, Produção, Logística, Inspeções e Faturamento.</p></div>
+<div class="card"><h3>Apoio</h3><p>RH, Marketing, TI, Qualidade, Jurídico e Administrativo.</p></div>
+</div>
+<h3 style="margin-top:28px">Raias do macroprocesso operacional</h3>
+<div class="legend">
+<span class="badge b-defined">Comercial</span><span class="badge b-defined">Financeiro</span><span class="badge b-defined">Compras</span><span class="badge b-defined">Logística</span><span class="badge b-defined">Produção</span><span class="badge b-defined">Inspeções</span><span class="badge b-defined">Faturamento</span>
+</div>
+<h3 style="margin-top:24px">Macroprocesso BPMN — Comercial ao Recebimento</h3>
+<p class="muted">Visão de nível macro. As atividades representam subprocessos que serão detalhados em diagramas próprios. Passe o mouse sobre os elementos para ver observações.</p>
+<div class="bpmn-toolbar">
+<button id="bpmnZoomOut" type="button">− Reduzir</button>
+<button id="bpmnZoomReset" type="button">Ajustar à tela</button>
+<button id="bpmnZoomIn" type="button">+ Ampliar</button>
+<button id="bpmnOpenFull" type="button">Abrir em destaque</button>
+<span class="viz-badge" id="bpmnZoomLabel">100%</span>
+<span class="bpmn-hint">Use a roda do mouse com Ctrl ou arraste horizontalmente.</span>
+</div>
+<div class="bpmn-frame" id="bpmnFrame">
+<div class="bpmn-scroll" id="bpmnScroll">
+<svg aria-label="Macroprocesso BPMN renderizado do Grupo Platina" class="bpmn-canvas" height="1020" id="bpmnCanvas" role="img" viewbox="0 0 2380 1020" width="2380">
+<defs>
+<marker id="bpmnArrow" markerheight="10" markerunits="strokeWidth" markerwidth="10" orient="auto" refx="9" refy="3"><path d="M0,0 L10,3 L0,6 z" fill="#b5c4df"></path></marker>
+<filter id="glow"><fedropshadow dx="0" dy="3" flood-opacity=".28" stddeviation="3"></fedropshadow></filter>
+</defs>
+<rect fill="#0d1528" height="990" rx="14" stroke="#51658b" stroke-width="2" width="2360" x="10" y="10"></rect>
+<rect fill="#111c34" height="990" stroke="#51658b" stroke-width="2" width="70" x="10" y="10"></rect>
+<text fill="#fff" font-size="18" font-weight="800" text-anchor="middle" transform="rotate(-90 45 530)" x="45" y="530">GRUPO PLATINA — MACROPROCESSO OPERACIONAL</text>
+<!-- lanes -->
+<g fill="#101a30" stroke="#33486f" stroke-width="1.5">
+<rect height="135" width="2290" x="80" y="10"></rect><rect height="125" width="2290" x="80" y="145"></rect>
+<rect height="125" width="2290" x="80" y="270"></rect><rect height="140" width="2290" x="80" y="395"></rect>
+<rect height="140" width="2290" x="80" y="535"></rect><rect height="155" width="2290" x="80" y="675"></rect>
+<rect height="170" width="2290" x="80" y="830"></rect>
+</g>
+<g fill="#172540" stroke="#33486f" stroke-width="1.5">
+<rect height="135" width="160" x="80" y="10"></rect><rect height="125" width="160" x="80" y="145"></rect>
+<rect height="125" width="160" x="80" y="270"></rect><rect height="140" width="160" x="80" y="395"></rect>
+<rect height="140" width="160" x="80" y="535"></rect><rect height="155" width="160" x="80" y="675"></rect>
+<rect height="170" width="160" x="80" y="830"></rect>
+</g>
+<g fill="#fff" font-size="18" font-weight="800" text-anchor="middle">
+<text x="160" y="84">COMERCIAL</text><text x="160" y="215">FINANCEIRO</text><text x="160" y="340">COMPRAS</text>
+<text x="160" y="470">LOGÍSTICA</text><text x="160" y="610">PRODUÇÃO</text><text x="160" y="755">INSPEÇÕES</text><text x="160" y="920">FATURAMENTO</text>
+</g>
+<!-- sequence flows behind -->
+<g fill="none" marker-end="url(#bpmnArrow)" stroke="#b5c4df" stroke-width="3">
+<path d="M292 78 H350"></path><path d="M500 78 H535"></path><path d="M685 78 H720"></path><path d="M790 78 H850"></path>
+<path d="M755 113 V207 H860"></path><path d="M1010 207 H1045"></path><path d="M1115 207 V78 H1160"></path>
+<path d="M1310 78 H1345"></path><path d="M1415 78 H1480"></path>
+<path d="M1515 113 V470 H1540"></path><path d="M1515 113 V750 H1540"></path>
+<path d="M1690 470 H1725"></path><path d="M1795 470 H1840"></path>
+<path d="M1875 505 V600 H1900"></path><path d="M2050 600 H2085"></path>
+<path d="M2120 635 V915 H2140"></path><path d="M2260 915 H2300"></path>
+<path d="M1690 750 H1725"></path><path d="M1875 750 H1910"></path><path d="M2060 750 H2095"></path>
+<path d="M2130 715 V600 H2085"></path>
+<path d="M2190 750 H2225"></path><path d="M2260 785 V915 H2260"></path>
+<path d="M1580 435 V340 H1450"></path><path d="M1300 340 H1265"></path><path d="M1195 340 H1120 V470 H1540"></path>
+<path d="M1760 435 V340 H1770"></path><path d="M1920 340 H1955 V470 H1840"></path>
+<path d="M2210 915 V470 H2215"></path><path d="M2250 470 H2300"></path>
+</g>
+<!-- reject flows -->
+<g fill="none" marker-end="url(#bpmnArrow)" stroke="#ff7070" stroke-width="3">
+<path d="M755 43 V28 H815"></path><path d="M1080 172 V158 H1140"></path>
+</g>
+<!-- start/end events -->
+<g filter="url(#glow)"><circle cx="270" cy="78" fill="#10291f" r="22" stroke="#37d67a" stroke-width="4"></circle><title>Evento de início: recebimento de uma solicitação comercial.</title></g>
+<text fill="#9fb0d0" font-size="13" text-anchor="middle" x="270" y="117">Solicitação recebida</text>
+<g><circle cx="840" cy="28" fill="#2c151b" r="20" stroke="#ff6262" stroke-width="5"></circle><circle cx="840" cy="28" fill="none" r="15" stroke="#ff6262" stroke-width="2"></circle><title>Fim: proposta não aprovada.</title></g>
+<text fill="#fff" font-size="10" text-anchor="middle" x="840" y="20">FIM</text>
+<g><circle cx="1165" cy="158" fill="#2c151b" r="20" stroke="#ff6262" stroke-width="5"></circle><circle cx="1165" cy="158" fill="none" r="15" stroke="#ff6262" stroke-width="2"></circle><title>Fim: cliente não aprovado pelo Financeiro.</title></g>
+<text fill="#fff" font-size="10" text-anchor="middle" x="1165" y="150">FIM</text>
+<g><circle cx="2325" cy="470" fill="#10291f" r="24" stroke="#37d67a" stroke-width="6"></circle><circle cx="2325" cy="470" fill="none" r="17" stroke="#37d67a" stroke-width="2"></circle><title>Fim do ciclo operacional após entrega, atualização de status e encaminhamento ao contas a receber.</title></g>
+<text fill="#9fb0d0" font-size="13" text-anchor="middle" x="2325" y="512">Ciclo operacional concluído</text>
+<!-- tasks function helper rendered manually -->
+<g fill="#172a49" filter="url(#glow)" stroke="#5c79a7" stroke-width="2">
+<rect height="70" rx="12" width="150" x="350" y="43"></rect><rect height="70" rx="12" width="150" x="535" y="43"></rect>
+<rect height="70" rx="12" width="160" x="850" y="172"></rect><rect height="70" rx="12" width="150" x="1160" y="43"></rect>
+<rect height="70" rx="12" width="210" x="1480" y="435"></rect><rect height="70" rx="12" width="210" x="1840" y="435"></rect>
+<rect height="70" rx="12" width="150" x="1900" y="565"></rect><rect height="70" rx="12" width="150" x="2085" y="565"></rect>
+<rect height="80" rx="12" width="120" x="2140" y="875"></rect><rect height="70" rx="12" width="150" x="1540" y="715"></rect>
+<rect height="70" rx="12" width="150" x="1725" y="715"></rect><rect height="70" rx="12" width="150" x="1910" y="715"></rect>
+<rect height="70" rx="12" width="130" x="2095" y="715"></rect><rect height="70" rx="12" width="130" x="2225" y="715"></rect>
+<rect height="70" rx="12" width="150" x="1300" y="305"></rect><rect height="70" rx="12" width="150" x="1770" y="305"></rect>
+<rect height="70" rx="12" width="95" x="2215" y="435"></rect>
+</g>
+<g fill="#fff" font-size="14" font-weight="700" text-anchor="middle">
+<text x="425" y="72"><tspan x="425">Elaborar e enviar</tspan><tspan dy="19" x="425">proposta</tspan></text>
+<text x="610" y="72"><tspan x="610">Aguardar decisão</tspan><tspan dy="19" x="610">do cliente</tspan></text>
+<text x="930" y="201"><tspan x="930">Analisar crédito e</tspan><tspan dy="19" x="930">forma de pagamento</tspan></text>
+<text x="1235" y="72"><tspan x="1235">Criar pedido</tspan><tspan dy="19" x="1235">no CAD</tspan></text>
+<text x="1585" y="463"><tspan x="1585">Consultar estoque e definir</tspan><tspan dy="19" x="1585">cronograma de entrega/coleta</tspan></text>
+<text x="1945" y="463"><tspan x="1945">Separar, carregar e</tspan><tspan dy="19" x="1945">realizar entrega</tspan></text>
+<text x="1975" y="593"><tspan x="1975">Programar</tspan><tspan dy="19" x="1975">produção</tspan></text>
+<text x="2160" y="593"><tspan x="2160">Executar e sinalizar</tspan><tspan dy="19" x="2160">conclusão</tspan></text>
+<text x="2200" y="909"><tspan x="2200">Emitir NF</tspan><tspan dy="19" x="2200">e boleto</tspan></text>
+<text x="1615" y="743"><tspan x="1615">Montar cronograma</tspan><tspan dy="19" x="1615">de inspeções</tspan></text>
+<text x="1800" y="743"><tspan x="1800">Executar visita e</tspan><tspan dy="19" x="1800">recolher vencidos</tspan></text>
+<text x="1985" y="743"><tspan x="1985">Enviar itens para</tspan><tspan dy="19" x="1985">manutenção</tspan></text>
+<text x="2160" y="743"><tspan x="2160">Devolver no</tspan><tspan dy="19" x="2160">mês seguinte</tspan></text>
+<text x="2290" y="743"><tspan x="2290">Emitir</tspan><tspan dy="19" x="2290">relatório</tspan></text>
+<text x="1375" y="333"><tspan x="1375">Abrir requisição,</tspan><tspan dy="19" x="1375">cotar e aprovar</tspan></text>
+<text x="1845" y="333"><tspan x="1845">Comprar e</tspan><tspan dy="19" x="1845">acompanhar</tspan></text>
+<text x="2262" y="463"><tspan x="2262">Conferir e</tspan><tspan dy="19" x="2262">atualizar CAD</tspan></text>
+</g>
+<!-- gateways -->
+<g filter="url(#glow)">
+<polygon fill="#332811" points="755,43 790,78 755,113 720,78" stroke="#ffcc4d" stroke-width="3"></polygon><text fill="#ffdf78" font-size="28" text-anchor="middle" x="755" y="84">×</text><title>Gateway exclusivo: cliente aprovou a proposta?</title>
+<polygon fill="#332811" points="1080,172 1115,207 1080,242 1045,207" stroke="#ffcc4d" stroke-width="3"></polygon><text fill="#ffdf78" font-size="28" text-anchor="middle" x="1080" y="213">×</text><title>Gateway exclusivo: cliente aprovado pelo Financeiro?</title>
+<polygon fill="#162b3e" points="1380,43 1415,78 1380,113 1345,78" stroke="#4cc9f0" stroke-width="3"></polygon><circle cx="1380" cy="78" fill="none" r="16" stroke="#9ae7ff" stroke-width="3"></circle><title>Gateway inclusivo: o pedido pode conter equipamentos, recarga ou ambos. Contratos seguem ramo próprio.</title>
+<polygon fill="#332811" points="1760,435 1795,470 1760,505 1725,470" stroke="#ffcc4d" stroke-width="3"></polygon><text fill="#ffdf78" font-size="28" text-anchor="middle" x="1760" y="476">×</text><title>Gateway exclusivo: há necessidade de compra?</title>
+</g>
+<g fill="#d7e3f7" font-size="13" font-weight="700">
+<text x="716" y="38">Não</text><text x="788" y="132">Sim</text><text x="1040" y="166">Não</text><text x="1115" y="130">Sim</text>
+<text x="1430" y="62">Venda/recarga</text><text x="1430" y="98">Contrato</text>
+<text x="1710" y="428">Sim</text><text x="1800" y="428">Não</text>
+</g>
+<!-- annotations -->
+<g fill="#9fb0d0" font-size="12">
+<text x="1510" y="523">Na recarga no mesmo cilindro, a coleta entra na mesma rota.</text>
+<text x="1890" y="655">A Produção é programada conforme a agenda da Logística ou de Inspeções.</text>
+<text x="1540" y="808">Inspeções não passam pela Logística.</text>
+<text x="2140" y="974">Após a entrega, o título segue para Contas a Receber no Financeiro.</text>
+</g>
+</svg>
+</div>
+</div>
+<div aria-label="Legenda BPMN" class="bpmn-legend">
+<div class="bpmn-legend-item"><span class="bpmn-symbol-start"></span> Evento de início</div>
+<div class="bpmn-legend-item"><span class="bpmn-symbol-task"></span> Atividade ou subprocesso</div>
+<div class="bpmn-legend-item"><span class="bpmn-symbol-gateway"></span> Gateway / decisão</div>
+<div class="bpmn-legend-item"><span class="bpmn-symbol-end"></span> Evento de fim</div>
+</div>
+<div class="grid grid-2" style="margin-top:14px">
+<div class="callout"><strong>Leitura BPMN:</strong> os retângulos arredondados são atividades/subprocessos; losangos com “×” são decisões exclusivas; o losango com círculo representa escolhas inclusivas, pois um pedido pode ter equipamentos e recarga ao mesmo tempo.</div>
+<div class="callout"><strong>Arquivo editável:</strong> o diagrama também foi gerado em BPMN 2.0 para importação em modeladores compatíveis. <a download="" href="CIP_Macroprocesso_Operacional.bpmn" style="color:#7de3ff;font-weight:800">Baixar BPMN 2.0</a>.</div>
+</div>
+<details open=""><summary>Regras de negócio consolidadas</summary>
+<ul>
+<li>O Financeiro analisa o cliente somente depois de a proposta ter sido aprovada.</li>
+<li>Se o cliente não for aprovado pelo Financeiro, o processo padrão é encerrado.</li>
+<li>Um mesmo pedido pode conter equipamentos novos e recargas simultaneamente.</li>
+<li>Quando não houver estoque, o Comercial solicita ao Supervisor Comercial a abertura de requisição de compra.</li>
+<li>Compras cota; a Diretoria aprova; Compras executa e acompanha.</li>
+<li>A Logística define a data de entrega; a Produção monta sua programação a partir dessa data.</li>
+<li>Na recarga no mesmo cilindro, a coleta é encaixada na rota de entrega; não existe uma agenda separada de coleta.</li>
+<li>Contratos de inspeção não passam pela Logística; inspetores e auxiliares fazem coleta e devolução.</li>
+<li>A Produção atende tanto a agenda da Logística quanto a agenda das Inspeções.</li>
+<li>Após a entrega avulsa, a Logística confere canhoto, cilindros de base de troca e altera o status no CAD.</li>
+</ul>
+</details>
+</section>
+<section id="jornada-operacional">
+<h2>Jornada operacional da Platina</h2>
+<div class="card">
+<p>
+      O macroprocesso operacional da Platina começa quando um cliente entra em contato com a empresa por meio de um anúncio do Google, indicação, prospecção realizada pelo Ramper, WhatsApp ou e-mail. Esse cliente pode estar buscando uma compra pontual de extintores ou equipamentos de combate a incêndio, uma recarga de extintores, uma solução para revenda ou um contrato recorrente de inspeção.
+    </p>
+<p>
+      O primeiro atendimento é realizado pelo setor Comercial, que identifica o perfil do cliente, entende a necessidade e prepara a proposta correspondente. O cliente recebe a proposta e pode aprová-la ou não. Quando a proposta não é aprovada, a oportunidade é encerrada naquele momento e o cliente permanece na base comercial para possíveis ações futuras. Quando a proposta é aprovada, o fluxo segue para o Financeiro.
+    </p>
+<p>
+      O Financeiro analisa a condição de pagamento e o risco de crédito do cliente. Essa análise acontece somente depois da aprovação da proposta comercial. Se o cliente não for aprovado, o processo é encerrado. Se for aprovado, o resultado retorna ao Comercial, que transforma a proposta em um Pedido de Venda no CAD.
+    </p>
+<p>
+      A partir da criação do pedido, o fluxo passa a variar conforme o tipo de atendimento. Um mesmo pedido pode conter equipamentos novos e recargas de extintores ao mesmo tempo. Quando existem equipamentos novos, é necessário verificar a disponibilidade em estoque. Se os itens estiverem disponíveis, eles são reservados. Se não estiverem, o Comercial solicita ao Supervisor Comercial a abertura de uma requisição de compra. A requisição segue para Compras, que realiza as cotações, submete a aquisição à aprovação da Diretoria e, após a aprovação, efetua a compra e acompanha o recebimento do material.
+    </p>
+<p>
+      Nos pedidos de venda de equipamentos, recarga avulsa ou recarga em base de troca, a Logística define a data de entrega e organiza a rota. Quando a recarga será feita no mesmo cilindro do cliente, a coleta é encaixada nessa mesma programação de rota. Não existe uma agenda separada somente para coleta. A data definida pela Logística passa a orientar a programação da Produção.
+    </p>
+<p>
+      A Produção não trabalha apenas por ordem de chegada. Ela organiza sua programação com base nas datas de entrega definidas pela Logística e, no caso dos contratos de inspeção, com base no cronograma do setor de Inspeções. O responsável pela Produção analisa o que precisa estar pronto para cada data, coloca os equipamentos em produção e acompanha a conclusão dos serviços.
+    </p>
+<p>
+      Quando a produção é concluída, a Produção comunica a Logística. A Logística então encaminha o pedido para o Faturamento. O Faturamento emite a nota fiscal e o boleto, quando aplicável, e devolve o pedido para a sequência operacional.
+    </p>
+<p>
+      Na data programada, a Logística realiza a separação dos equipamentos, inclui tanto os itens novos quanto os equipamentos recarregados, carrega o veículo e executa a entrega ao cliente. Após a entrega, os entregadores retornam com o canhoto da nota fiscal assinado e, nos casos de base de troca, com a conferência dos cilindros recebidos do cliente.
+    </p>
+<p>
+      Depois dessa conferência, a Logística altera o status do pedido no CAD, liberando o encerramento da etapa operacional. A partir desse momento, o pedido passa a representar principalmente uma obrigação financeira em aberto. O Financeiro acompanha o contas a receber até o vencimento e registra o pagamento do cliente, encerrando o ciclo.
+    </p>
+<p>
+      Nos contratos de inspeção, o fluxo possui uma particularidade importante. Após o fechamento comercial e a aprovação financeira, a demanda é direcionada diretamente ao setor de Inspeções. O coordenador monta o cronograma mensal e organiza as visitas das equipes. Inspetores e auxiliares vão até as empresas, realizam as inspeções e identificam os extintores que estão próximos do vencimento ou que necessitam de manutenção.
+    </p>
+<p>
+      Esses equipamentos são recolhidos pela própria equipe de Inspeções e levados para a Platina. Esse fluxo não passa pela Logística. Como a inspeção trabalha sempre com recarga no mesmo cilindro, os próprios inspetores e auxiliares devolvem os equipamentos manutenidos ao cliente na visita do mês seguinte.
+    </p>
+<p>
+      A Produção utiliza o cronograma de Inspeções para programar a manutenção desses equipamentos. Depois da visita, a Auxiliar de Inspeções prepara o relatório correspondente, registrando as condições encontradas, os equipamentos recolhidos, as pendências e as informações necessárias para o acompanhamento do contrato.
+    </p>
+</div>
+</section>
+<section id="passos-por-setor">
+<h2>Passos de cada setor</h2>
+<div class="grid grid-2">
+<div class="card">
+<h3>Comercial</h3>
+<ol>
+<li>Receber o contato do cliente.</li>
+<li>Identificar o perfil e a necessidade.</li>
+<li>Elaborar e enviar a proposta.</li>
+<li>Aguardar a aprovação do cliente.</li>
+<li>Encerrar a oportunidade quando não houver aprovação.</li>
+<li>Encaminhar para análise financeira quando houver aprovação.</li>
+<li>Criar o Pedido de Venda no CAD após a liberação financeira.</li>
+<li>Solicitar requisição de compra quando não houver material disponível.</li>
+</ol>
+</div>
+<div class="card">
+<h3>Financeiro</h3>
+<ol>
+<li>Receber a solicitação de análise após a aprovação da proposta.</li>
+<li>Analisar o cliente e a forma de pagamento.</li>
+<li>Aprovar ou reprovar o crédito.</li>
+<li>Encerrar o processo quando o cliente for reprovado.</li>
+<li>Informar a aprovação ao Comercial.</li>
+<li>Acompanhar o contas a receber após a entrega.</li>
+<li>Registrar o pagamento e encerrar o ciclo financeiro.</li>
+</ol>
+</div>
+<div class="card">
+<h3>Compras</h3>
+<ol>
+<li>Receber a requisição de compra.</li>
+<li>Realizar cotações.</li>
+<li>Submeter a compra à aprovação da Diretoria.</li>
+<li>Efetuar a compra após a aprovação.</li>
+<li>Acompanhar o fornecedor e o prazo.</li>
+<li>Garantir o recebimento do material necessário.</li>
+</ol>
+</div>
+<div class="card">
+<h3>Logística</h3>
+<ol>
+<li>Consultar e reservar o estoque.</li>
+<li>Definir a data de entrega.</li>
+<li>Organizar a rota.</li>
+<li>Encaixar a coleta na mesma rota, quando houver recarga no mesmo cilindro.</li>
+<li>Informar a programação que orientará a Produção.</li>
+<li>Receber a sinalização de conclusão da Produção.</li>
+<li>Encaminhar o pedido para Faturamento.</li>
+<li>Separar e carregar os equipamentos.</li>
+<li>Realizar a entrega ao cliente.</li>
+<li>Receber e conferir o canhoto assinado.</li>
+<li>Conferir os cilindros nos casos de base de troca.</li>
+<li>Alterar o status do pedido no CAD.</li>
+</ol>
+</div>
+<div class="card">
+<h3>Produção</h3>
+<ol>
+<li>Receber a programação da Logística ou de Inspeções.</li>
+<li>Planejar a produção conforme as datas de entrega.</li>
+<li>Executar a manutenção e preparação dos equipamentos.</li>
+<li>Acompanhar os serviços em andamento.</li>
+<li>Concluir os equipamentos dentro do prazo necessário.</li>
+<li>Sinalizar a conclusão para a Logística ou para Inspeções.</li>
+</ol>
+</div>
+<div class="card">
+<h3>Inspeções</h3>
+<ol>
+<li>Receber a demanda de contrato fechada pelo Comercial.</li>
+<li>Montar o cronograma mensal.</li>
+<li>Programar as equipes de inspetores e auxiliares.</li>
+<li>Realizar as visitas nas empresas.</li>
+<li>Inspecionar os equipamentos.</li>
+<li>Recolher os extintores que precisam de manutenção.</li>
+<li>Encaminhar os equipamentos para a Produção.</li>
+<li>Retirar os equipamentos concluídos da Produção.</li>
+<li>Devolver os cilindros ao cliente no mês seguinte.</li>
+<li>Elaborar o relatório de inspeção.</li>
+</ol>
+</div>
+<div class="card">
+<h3>Faturamento</h3>
+<ol>
+<li>Receber o pedido liberado pela operação.</li>
+<li>Emitir a nota fiscal.</li>
+<li>Emitir o boleto, quando aplicável.</li>
+<li>Disponibilizar os documentos para a continuidade da entrega.</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="hierarquia">
+<h2>4. Níveis de documentação imaginados</h2>
+<div class="flow">
+<div class="node">Nível 0<br/><span class="muted">Arquitetura da empresa</span></div><div class="arrow">→</div>
+<div class="node">Nível 1<br/><span class="muted">Macroprocessos</span></div><div class="arrow">→</div>
+<div class="node">Nível 2<br/><span class="muted">Subprocessos BPMN</span></div><div class="arrow">→</div>
+<div class="node">Nível 3<br/><span class="muted">POPs e instruções</span></div><div class="arrow">→</div>
+<div class="node">Nível 4<br/><span class="muted">KPIs, riscos e IA</span></div>
+</div>
+<p class="muted">Essa hierarquia ainda é uma proposta de organização, não uma taxonomia final homologada.</p>
+</section>
+<section id="cip">
+<h2>5. CIP: visão de plataforma</h2>
+<div class="card">
+<svg aria-label="Arquitetura conceitual do CIP" role="img" viewbox="0 0 1000 490" width="100%">
+<defs><marker id="a" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4"><path d="M0,0 L8,4 L0,8 z" fill="#9fb0d0"></path></marker></defs>
+<rect fill="#30161d" height="70" rx="18" stroke="#ff3b3b" stroke-width="2" width="240" x="380" y="20"></rect>
+<text fill="#fff" font-size="24" font-weight="800" text-anchor="middle" x="500" y="52">CIP</text>
+<text fill="#ffb4b4" font-size="14" text-anchor="middle" x="500" y="75">Central Inteligente de Processos</text>
+<rect fill="#122940" height="70" rx="18" stroke="#4cc9f0" stroke-width="2" width="300" x="350" y="130"></rect>
+<text fill="#fff" font-size="21" font-weight="800" text-anchor="middle" x="500" y="160">Motor de Processos</text>
+<text fill="#a9def2" font-size="13" text-anchor="middle" x="500" y="183">modela, relaciona e futuramente executa</text>
+<line marker-end="url(#a)" stroke="#9fb0d0" stroke-width="2" x1="500" x2="500" y1="90" y2="130"></line>
+<g font-size="15" font-weight="700">
+<rect fill="#172540" height="62" rx="14" stroke="#38507a" width="145" x="30" y="260"></rect><text fill="#fff" text-anchor="middle" x="102" y="295">Comercial / CRM</text>
+<rect fill="#172540" height="62" rx="14" stroke="#38507a" width="145" x="190" y="260"></rect><text fill="#fff" text-anchor="middle" x="262" y="295">RH</text>
+<rect fill="#172540" height="62" rx="14" stroke="#38507a" width="145" x="350" y="260"></rect><text fill="#fff" text-anchor="middle" x="422" y="295">Produção</text>
+<rect fill="#172540" height="62" rx="14" stroke="#38507a" width="145" x="510" y="260"></rect><text fill="#fff" text-anchor="middle" x="582" y="295">Logística</text>
+<rect fill="#172540" height="62" rx="14" stroke="#38507a" width="145" x="670" y="260"></rect><text fill="#fff" text-anchor="middle" x="742" y="295">Financeiro</text>
+<rect fill="#172540" height="62" rx="14" stroke="#38507a" width="145" x="830" y="260"></rect><text fill="#fff" text-anchor="middle" x="902" y="295">Inspeções</text>
+</g>
+<g marker-end="url(#a)" stroke="#9fb0d0" stroke-width="2">
+<line x1="500" x2="102" y1="200" y2="260"></line><line x1="500" x2="262" y1="200" y2="260"></line><line x1="500" x2="422" y1="200" y2="260"></line>
+<line x1="500" x2="582" y1="200" y2="260"></line><line x1="500" x2="742" y1="200" y2="260"></line><line x1="500" x2="902" y1="200" y2="260"></line>
+</g>
+<rect fill="#171e34" height="62" rx="16" stroke="#a78bfa" stroke-width="2" width="480" x="260" y="390"></rect>
+<text fill="#fff" font-size="19" font-weight="800" text-anchor="middle" x="500" y="418">Inteligência e Central de Operações</text>
+<text fill="#cbbcff" font-size="13" text-anchor="middle" x="500" y="440">Kanban • KPIs • Alertas • IA • Simulações</text>
+<g marker-end="url(#a)" stroke="#9fb0d0" stroke-width="2">
+<line x1="422" x2="430" y1="322" y2="390"></line><line x1="582" x2="570" y1="322" y2="390"></line>
+</g>
+</svg>
+</div>
+<div class="grid grid-2" style="margin-top:18px">
+<div class="card"><span class="badge b-defined">Já iniciado</span><h3>Modelador de Processos</h3><p>Organograma, fluxograma macro, subprocessos detalhados, responsabilidades, descrição de cargos e trilhas de conhecimento.</p></div>
+<div class="card"><span class="badge b-defined">Já iniciado</span><h3>Comercial — Clara</h3><p>Primeira parte do futuro CRM: atendimento via WhatsApp, pré-atendimento, identificação, cadastro e direcionamento.</p></div>
+<div class="card"><span class="badge b-hyp">Estrutura proposta</span><h3>Módulo RH</h3><p>Organograma, descrição de cargos, trilha de conhecimento, onboarding, treinamento, avaliação e desenvolvimento.</p></div>
+<div class="card"><span class="badge b-future">Futuro</span><h3>Demais módulos</h3><p>Produção, Financeiro, Logística, Compras, Inspeções e Gerencial/Inteligência.</p></div>
+</div>
+<h3 style="margin-top:26px">Divisão do projeto em blocos</h3>
+<table>
+<tr><th>Bloco</th><th>Finalidade imaginada</th><th>Status na conversa</th></tr>
+<tr><td>0 — Plataforma</td><td>Usuários, permissões, eventos, integrações, logs, notificações, documentos e infraestrutura comum.</td><td><span class="badge b-hyp">Hipótese</span></td></tr>
+<tr><td>1 — Modelador</td><td>Arquitetura, BPMN, subprocessos, regras, responsáveis, POPs, cargos e trilhas.</td><td><span class="badge b-defined">Em desenvolvimento</span></td></tr>
+<tr><td>2 — Comercial</td><td>CRM, Clara, WhatsApp, e-mail, pipeline, propostas, follow-up e clientes.</td><td><span class="badge b-defined">Iniciado parcialmente</span></td></tr>
+<tr><td>3 — Produção</td><td>Capacidade, ordens, planejamento, filas, máquinas, produtividade e gargalos.</td><td><span class="badge b-future">Futuro</span></td></tr>
+<tr><td>4 — Logística</td><td>Agenda, rotas, coletas, entregas, veículos, base de troca e confirmação.</td><td><span class="badge b-future">Futuro</span></td></tr>
+<tr><td>5 — Inspeções</td><td>Contratos, cronogramas, visitas, QR Code, relatórios, coleta, devolução e app mobile.</td><td><span class="badge b-future">Conceito iniciado</span></td></tr>
+<tr><td>6 — Financeiro</td><td>Crédito, contas a receber, contas a pagar, fluxo de caixa e indicadores.</td><td><span class="badge b-future">Futuro</span></td></tr>
+<tr><td>7 — Compras</td><td>Requisições, cotações, aprovações, pedidos, recebimento e fornecedores.</td><td><span class="badge b-future">Futuro</span></td></tr>
+<tr><td>8 — RH</td><td>Pessoas, estrutura, competências, treinamentos, avaliações e documentos.</td><td><span class="badge b-hyp">Parcialmente dentro do Modelador</span></td></tr>
+<tr><td>9 — Inteligência</td><td>Dashboards, KPIs, alertas, simulações, IA, mapa de calor e gestão de gargalos.</td><td><span class="badge b-future">Visão futura</span></td></tr>
+</table>
+</section><section id="blocos">
+<h2>Arquitetura integrada dos blocos do CIP</h2>
+<p>
+    O CIP foi organizado, neste estágio exploratório, em nove blocos funcionais. O Bloco 1 descreve a empresa;
+    os Blocos 2 a 8 executam ou sustentam os processos; e o Bloco 9 consolida a visão gerencial e a inteligência.
+    Os blocos não são sistemas isolados: compartilham processos, responsabilidades, eventos, dados e documentos.
+  </p>
+<div class="callout">
+<strong>Lógica de conexão:</strong> a Modelagem Organizacional define como o trabalho deve acontecer;
+    os módulos operacionais registram o que está acontecendo; e o bloco de Inteligência transforma esses fatos
+    em visão, alertas, recomendações e decisões.
+  </div>
+<div aria-label="Fluxo conceitual dos blocos" class="block-linkline">
+<span class="block-pill">1. Modelagem</span><span class="arrow">→</span>
+<span class="block-pill">2. Comercial</span><span class="arrow">→</span>
+<span class="block-pill">6. Financeiro</span><span class="arrow">→</span>
+<span class="block-pill">7. Compras</span><span class="arrow">→</span>
+<span class="block-pill">3. Produção</span><span class="arrow">→</span>
+<span class="block-pill">4. Logística / 5. Inspeções</span><span class="arrow">→</span>
+<span class="block-pill">9. Inteligência</span>
+</div>
+<div class="blocks-map">
+<article class="block-card"><span class="num">1</span><h3>Modelagem Organizacional</h3><p>Estrutura, processos, cargos, responsabilidades, conhecimento e governança.</p><a href="#bloco-1">Ver bloco</a></article>
+<article class="block-card"><span class="num">2</span><h3>Comercial</h3><p>CRM, Clara, WhatsApp, e-mail, pipeline, propostas, clientes e pedidos.</p><a href="#bloco-2">Ver bloco</a></article>
+<article class="block-card"><span class="num">3</span><h3>Produção</h3><p>Ordens, programação, capacidade, execução, qualidade e rastreabilidade.</p><a href="#bloco-3">Ver bloco</a></article>
+<article class="block-card"><span class="num">4</span><h3>Logística</h3><p>Agenda, rotas, separação, entrega, coleta, frota e base de troca.</p><a href="#bloco-4">Ver bloco</a></article>
+<article class="block-card"><span class="num">5</span><h3>Inspeções</h3><p>Contratos, cronograma, app mobile, QR Code, equipamentos e relatórios.</p><a href="#bloco-5">Ver bloco</a></article>
+<article class="block-card"><span class="num">6</span><h3>Financeiro</h3><p>Crédito, receber, pagar, cobrança, caixa, orçamento e rentabilidade.</p><a href="#bloco-6">Ver bloco</a></article>
+<article class="block-card"><span class="num">7</span><h3>Compras</h3><p>Requisições, cotações, aprovações, fornecedores e recebimento.</p><a href="#bloco-7">Ver bloco</a></article>
+<article class="block-card"><span class="num">8</span><h3>RH e Gestão de Pessoas</h3><p>Pessoas, recrutamento, onboarding, desempenho, trilhas e segurança.</p><a href="#bloco-8">Ver bloco</a></article>
+<article class="block-card"><span class="num">9</span><h3>Inteligência e Gestão</h3><p>Central de Operações, Kanban vivo, KPIs, alertas, simulações e IA.</p><a href="#bloco-9">Ver bloco</a></article>
+</div>
+<h3 style="margin-top:28px">Como os blocos se conectam ao macroprocesso</h3>
+<table class="integration-matrix">
+<tr><th>Etapa ou capacidade</th><th>Bloco principal</th><th>Blocos conectados</th></tr>
+<tr><td>Desenhar regras, cargos e processos</td><td>1 — Modelagem</td><td>Todos</td></tr>
+<tr><td>Captar, atender e vender</td><td>2 — Comercial</td><td>1, 6, 7 e 9</td></tr>
+<tr><td>Analisar crédito e receber</td><td>6 — Financeiro</td><td>2, 4, 5, 7 e 9</td></tr>
+<tr><td>Garantir material</td><td>7 — Compras</td><td>2, 3, 4, 6 e 9</td></tr>
+<tr><td>Planejar e executar manutenção</td><td>3 — Produção</td><td>1, 4, 5, 7 e 9</td></tr>
+<tr><td>Entregar e coletar pedidos avulsos</td><td>4 — Logística</td><td>2, 3, 6, 7 e 9</td></tr>
+<tr><td>Executar contratos recorrentes</td><td>5 — Inspeções</td><td>2, 3, 6, 8 e 9</td></tr>
+<tr><td>Garantir pessoas capacitadas</td><td>8 — RH</td><td>1 e todos os módulos operacionais</td></tr>
+<tr><td>Monitorar e coordenar a empresa</td><td>9 — Inteligência</td><td>Todos</td></tr>
+</table>
+</section><section id="processos-auxiliares">
+<h2>Processos auxiliares e de sustentação</h2>
+<p>
+    Além dos processos principais, o funcionamento do CIP depende de processos auxiliares que não aparecem
+    necessariamente no fluxo ponta a ponta do cliente, mas sustentam, controlam e melhoram toda a operação.
+    Eles precisam ser lembrados desde o início para não ficarem fora da arquitetura.
+  </p>
+<div class="callout">
+<strong>Importante:</strong> processos auxiliares não são menos importantes. Eles existem para garantir que
+    os processos principais tenham pessoas, informação, infraestrutura, conformidade, comunicação e governança.
+  </div>
+<div class="aux-grid">
+<article class="aux-card">
+<h3>RH e Gestão de Pessoas</h3>
+<p>Recrutamento, admissão, integração, treinamento, avaliação, desenvolvimento, documentação, saúde e segurança.</p>
+</article>
+<article class="aux-card">
+<h3>Marketing</h3>
+<p>Geração de demanda, campanhas, conteúdo, marca, catálogos, comunicação institucional e apoio ao Comercial.</p>
+</article>
+<article class="aux-card">
+<h3>TI e Infraestrutura</h3>
+<p>Usuários, acessos, equipamentos, redes, segurança, integrações, disponibilidade e suporte aos sistemas.</p>
+</article>
+<article class="aux-card">
+<h3>Qualidade</h3>
+<p>Padronização, auditorias, não conformidades, controles, melhoria contínua e gestão documental.</p>
+</article>
+<article class="aux-card">
+<h3>Jurídico e Compliance</h3>
+<p>Contratos, riscos legais, proteção de dados, obrigações regulatórias, políticas e suporte à Diretoria.</p>
+</article>
+<article class="aux-card">
+<h3>Administrativo</h3>
+<p>Serviços gerais, documentos, patrimônio, fornecedores administrativos e suporte transversal às áreas.</p>
+</article>
+<article class="aux-card">
+<h3>Diretoria e Governança</h3>
+<p>Planejamento, prioridades, aprovações, orçamento, indicadores, riscos e decisões estratégicas.</p>
+</article>
+<article class="aux-card">
+<h3>Gestão de Documentos</h3>
+<p>Versões, publicação, validade, acesso, evidências, histórico e relacionamento com processos e cargos.</p>
+</article>
+<article class="aux-card">
+<h3>Gestão de Melhorias</h3>
+<p>Sugestões, análise, plano de ação, alteração de processo, comunicação, treinamento e medição do resultado.</p>
+</article>
+<article class="aux-card">
+<h3>Gestão de Dados</h3>
+<p>Cadastros mestres, qualidade da informação, identificadores, regras de origem e responsabilidade pelos dados.</p>
+</article>
+<article class="aux-card">
+<h3>Segurança da Informação</h3>
+<p>Perfis, permissões, auditoria, logs, proteção de dados, recuperação e continuidade.</p>
+</article>
+<article class="aux-card">
+<h3>Comunicação Interna</h3>
+<p>Comunicados, políticas, mudanças de processo, orientações e alinhamento entre áreas.</p>
+</article>
+</div>
+<h3 style="margin-top:26px">Relação com os processos principais</h3>
+<div class="aux-flow">
+<span class="aux-pill">RH prepara pessoas</span><span class="arrow">→</span>
+<span class="aux-pill">TI mantém sistemas</span><span class="arrow">→</span>
+<span class="aux-pill">Qualidade padroniza</span><span class="arrow">→</span>
+<span class="aux-pill">Jurídico protege</span><span class="arrow">→</span>
+<span class="aux-pill">Diretoria governa</span>
+</div>
+<table>
+<tr><th>Processo auxiliar</th><th>O que entrega aos blocos</th></tr>
+<tr><td>RH</td><td>Pessoas, cargos, competências, treinamentos e disponibilidade.</td></tr>
+<tr><td>Marketing</td><td>Leads, campanhas, materiais e posicionamento.</td></tr>
+<tr><td>TI</td><td>Infraestrutura, acesso, segurança e integração.</td></tr>
+<tr><td>Qualidade</td><td>Padrões, controles, auditoria e melhoria.</td></tr>
+<tr><td>Jurídico/Compliance</td><td>Contratos, regras legais, políticas e mitigação de risco.</td></tr>
+<tr><td>Diretoria</td><td>Prioridades, alçadas, orçamento e decisões.</td></tr>
+<tr><td>Gestão de Dados</td><td>Cadastros confiáveis e regras de responsabilidade.</td></tr>
+<tr><td>Gestão Documental</td><td>Documentos vigentes, rastreáveis e vinculados aos processos.</td></tr>
+</table>
+</section><section id="agentes-ia">
+<h2>Agentes de IA por bloco</h2>
+<p>
+    Cada bloco pode possuir um ou mais agentes especializados. Eles não substituem o processo, o responsável ou o ERP.
+    Sua função é interpretar informações, apoiar decisões, executar tarefas de baixo risco e manter o usuário dentro das
+    regras oficiais definidas no Bloco 1.
+  </p>
+<div class="callout">
+<strong>Princípio de governança:</strong> todo agente deve operar com base em processos aprovados, regras vigentes,
+    permissões do usuário, documentos oficiais e registros auditáveis.
+  </div>
+<div class="agent-grid">
+<article class="agent-card">
+<span class="agent-name">Agente de Processos</span>
+<h3>Bloco 1 — Modelagem Organizacional</h3>
+<p>Ajuda a estruturar processos, detectar lacunas, sugerir responsabilidades, comparar versões e localizar regras, POPs e dependências.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Clara / Agente Comercial</span>
+<h3>Bloco 2 — Comercial</h3>
+<p>Atende, identifica cliente, coleta dados, classifica demanda, distribui para vendedores, acompanha follow-up e apoia e-mails e propostas.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de Planejamento</span>
+<h3>Bloco 3 — Produção</h3>
+<p>Sugere prioridades, sequenciamento, capacidade, riscos de atraso, materiais faltantes e replanejamento da fila.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente Logístico</span>
+<h3>Bloco 4 — Logística</h3>
+<p>Sugere agrupamento de entregas, identifica conflitos de rota, verifica pendências de separação e aponta riscos de prazo.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de Inspeções</span>
+<h3>Bloco 5 — Inspeções</h3>
+<p>Apoia cronograma, orienta checklists, identifica pendências, confere consistência dos relatórios e acompanha retirada e devolução.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente Financeiro</span>
+<h3>Bloco 6 — Financeiro</h3>
+<p>Resume risco, acompanha vencimentos, sugere cobrança, explica variações de caixa e alerta sobre exposição financeira.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de Compras</span>
+<h3>Bloco 7 — Compras</h3>
+<p>Compara cotações, acompanha prazos, identifica fornecedores críticos e relaciona atrasos de compra com pedidos impactados.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de RH</span>
+<h3>Bloco 8 — RH e Gestão de Pessoas</h3>
+<p>Apoia triagem, onboarding, trilhas, avaliações, documentos vencidos e identificação de lacunas de competência.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente Gerencial</span>
+<h3>Bloco 9 — Inteligência e Gestão</h3>
+<p>Explica indicadores, detecta gargalos, correlaciona eventos, simula cenários e recomenda ações para gestores.</p>
+</article>
+</div>
+<h3 style="margin-top:28px">Agentes transversais</h3>
+<div class="agent-grid">
+<article class="agent-card">
+<span class="agent-name">Agente de Documentos</span>
+<p>Localiza, resume, classifica e verifica validade de documentos ligados aos processos.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de Qualidade</span>
+<p>Relaciona não conformidades, causas, ações e processos impactados.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de Dados</span>
+<p>Identifica inconsistências cadastrais, duplicidades e informações faltantes.</p>
+</article>
+<article class="agent-card">
+<span class="agent-name">Agente de Governança</span>
+<p>Controla permissões, rastreabilidade, aprovações e limites de autonomia dos demais agentes.</p>
+</article>
+</div>
+<h3 style="margin-top:28px">Níveis de atuação dos agentes</h3>
+<table>
+<tr><th>Nível</th><th>Atuação</th><th>Exemplo</th></tr>
+<tr><td>1 — Consultar</td><td>Responder e localizar informações.</td><td>Encontrar o POP correto.</td></tr>
+<tr><td>2 — Analisar</td><td>Interpretar dados e apontar risco.</td><td>Identificar pedido com risco de atraso.</td></tr>
+<tr><td>3 — Sugerir</td><td>Recomendar ação ao responsável.</td><td>Sugerir prioridade de produção.</td></tr>
+<tr><td>4 — Preparar</td><td>Gerar rascunhos, tarefas ou propostas de ação.</td><td>Montar e-mail ou requisição.</td></tr>
+<tr><td>5 — Executar controlado</td><td>Executar ações de baixo risco e previamente autorizadas.</td><td>Criar alerta ou tarefa automática.</td></tr>
+</table>
+</section>
+<section id="sistema-processos">
+<h2>6. O que o módulo de processos pode conter</h2>
+<div class="tabs">
+<button class="tab active" data-tab="modelo">Modelo</button>
+<button class="tab" data-tab="atividade">Ficha da atividade</button>
+<button class="tab" data-tab="governanca">Governança</button>
+<button class="tab" data-tab="conhecimento">Conhecimento</button>
+</div>
+<div class="tabpane active card" id="modelo">
+<div class="grid grid-3">
+<div><h3>Arquitetura</h3><p>Cadeia de valor, processos estratégicos, principais e de apoio.</p></div>
+<div><h3>BPMN navegável</h3><p>Fluxogramas macro e detalhados com atividades clicáveis.</p></div>
+<div><h3>Dependências</h3><p>Quais processos alimentam, dependem ou são impactados por outros.</p></div>
+</div>
+</div>
+<div class="tabpane card" id="atividade">
+<table><tr><th>Campo</th><th>Exemplo</th></tr><tr><td>Objetivo</td><td>Transformar proposta aprovada em pedido válido.</td></tr><tr><td>Entrada</td><td>Proposta aprovada e cliente aprovado.</td></tr><tr><td>Saída</td><td>Pedido criado no CAD.</td></tr><tr><td>Responsável</td><td>Comercial.</td></tr><tr><td>Sistema</td><td>CAD / CIP.</td></tr><tr><td>Regras</td><td>RN-001, RN-002...</td></tr><tr><td>Documentos</td><td>POP, checklist, vídeo e modelos.</td></tr><tr><td>Indicadores</td><td>Tempo médio, erros e retrabalho.</td></tr></table>
+</div>
+<div class="tabpane card" id="governanca">
+<ul><li>Controle de versão.</li><li>Histórico de alterações.</li><li>Dono do processo.</li><li>Matriz RACI.</li><li>Regras de negócio identificadas.</li><li>Riscos e controles.</li><li>Não conformidades e plano de ação.</li><li>Aprovação antes de publicar.</li></ul>
+</div>
+<div class="tabpane card" id="conhecimento">
+<ul><li>Descrição de cargos vinculada às atividades.</li><li>Competências exigidas por cargo.</li><li>Trilha de conhecimento.</li><li>POPs, vídeos, normas e checklists.</li><li>Treinamentos obrigatórios e validades.</li><li>Agentes de IA treinados nos documentos corretos.</li></ul>
+</div>
+</section>
+<section id="orquestracao">
+<h2>7. Ideia de orquestração operacional</h2>
+<p>O passo mais profundo da visão é sair de “documentar como fazer” para “coordenar o que precisa acontecer agora”.</p>
+<div class="flow">
+<div class="node">Pedido / contrato</div><div class="arrow">→</div>
+<div class="node">Instância de processo</div><div class="arrow">→</div>
+<div class="node">Eventos confiáveis</div><div class="arrow">→</div>
+<div class="node">Regras e agenda</div><div class="arrow">→</div>
+<div class="node green">Execução coordenada</div>
+</div>
+<div class="grid grid-2" style="margin-top:22px">
+<div class="card"><h3>ERP como fonte da verdade</h3><p>Pedidos, estoque, compras, produção, notas, títulos e pagamentos precisam estar corretos e com status confiáveis.</p></div>
+<div class="card"><h3>CIP como orquestrador</h3><p>O CIP interpreta eventos, identifica o próximo passo, atualiza o Kanban, aciona responsáveis e calcula impactos.</p></div>
+</div>
+<h3 style="margin-top:26px">Objeto central: instância de processo</h3>
+<div class="card soft">
+<div class="grid grid-3">
+<div><div class="muted">Processo</div><div class="metric">#58471</div></div>
+<div><div class="muted">Tipo</div><strong>Venda + recarga</strong></div>
+<div><div class="muted">Status atual</div><strong>Produção</strong></div>
+<div><div class="muted">Cliente</div><strong>Cliente industrial</strong></div>
+<div><div class="muted">Próxima etapa</div><strong>Faturamento</strong></div>
+<div><div class="muted">Risco atual</div><strong>Material pendente</strong></div>
+</div>
+<p class="muted">Tudo se conecta a essa instância: pedido, cliente, documentos, NF, fotos, inspeções, aprovações, comentários, eventos, responsáveis e indicadores.</p>
+</div>
+<h3 style="margin-top:26px">Agenda operacional</h3>
+<div class="card">
+<p>A conversa chegou à hipótese de uma agenda única capaz de derivar necessidades para vários setores:</p>
+<div class="flow">
+<div class="node red">Entrega em 05/08</div><div class="arrow">→</div>
+<div class="node">Separação em 04/08</div><div class="arrow">→</div>
+<div class="node">Produção até 03/08</div><div class="arrow">→</div>
+<div class="node">Compra até 30/07</div>
+</div>
+<p class="muted">As datas são apenas ilustração do conceito. As regras reais de lead time ainda precisam ser definidas.</p>
+</div>
+<h3 style="margin-top:26px">Níveis de autonomia imaginados</h3>
+<div class="grid grid-3">
+<div class="card"><span class="badge b-defined">1</span><h3>Informar</h3><p>Mostrar situação, gargalos, riscos, atrasos e indicadores.</p></div>
+<div class="card"><span class="badge b-hyp">2</span><h3>Sugerir</h3><p>Recomendar prioridades, sequenciamento, compras, consolidação de rotas e ações.</p></div>
+<div class="card"><span class="badge b-future">3</span><h3>Executar</h3><p>Automatizar ações de baixo risco e previamente autorizadas.</p></div>
+</div>
+</section>
+<section id="kanban">
+<h2>8. Central de Operações em Kanban</h2>
+<p>O Kanban imaginado não é um quadro de tarefas manuais. Ele representa o estado real da empresa e é atualizado pelos eventos do sistema.</p>
+<div class="kanban">
+<div class="kcol"><div class="khead">Comercial <span>🟢</span></div><div class="kcard"><strong>Lead #1204</strong><br/><span class="muted">Aguardando proposta</span></div><div class="kcard"><strong>Cliente A</strong><br/><span class="muted">Proposta aprovada</span></div></div>
+<div class="kcol"><div class="khead">Financeiro <span>🟡</span></div><div class="kcard"><strong>Pedido #58471</strong><br/><span class="muted">Análise de crédito</span></div></div>
+<div class="kcol"><div class="khead">Compras <span>🟢</span></div><div class="kcard"><strong>Requisição #220</strong><br/><span class="muted">Cotação em andamento</span></div></div>
+<div class="kcol"><div class="khead">Produção <span>🟡</span></div><div class="kcard"><strong>OP #882</strong><br/><span class="muted">Entrega prevista: 05/08</span></div><div class="kcard"><strong>Lote inspeção</strong><br/><span class="muted">12 cilindros</span></div></div>
+<div class="kcol"><div class="khead">Logística <span>🔴</span></div><div class="kcard"><strong>Rota Sorocaba</strong><br/><span class="muted">Conflito de capacidade</span></div></div>
+<div class="kcol"><div class="khead">Faturamento <span>🟢</span></div><div class="kcard"><strong>Pedido #58111</strong><br/><span class="muted">NF pendente</span></div></div>
+</div>
+<div class="callout"><strong>Princípio:</strong> o usuário não deveria arrastar cartões para “fingir” que o processo andou. O cartão muda quando um evento real e auditável acontece.</div>
+</section>
+<section id="inspecao-app">
+<h2>9. Aplicativo mobile de inspeções</h2>
+<div class="grid grid-2">
+<div class="card">
+<span class="badge b-hyp">Conceito validado</span>
+<h3>Função</h3>
+<p>Ser o braço mobile do Módulo de Inspeções, trabalhando offline, lendo QR Code, registrando inspeções, fotos, retirada e devolução.</p>
+</div>
+<div class="card">
+<span class="badge b-open">Ainda a definir</span>
+<h3>Tecnologia</h3>
+<p>A conversa sugeriu aplicativo próprio, possivelmente Flutter + SQLite + API do CIP, desenvolvido com apoio de Codex ou Claude Code.</p>
+</div>
+</div>
+<div class="flow" style="margin-top:22px">
+<div class="node">Sincronizar rota</div><div class="arrow">→</div>
+<div class="node">Trabalhar offline</div><div class="arrow">→</div>
+<div class="node">Ler QR Code</div><div class="arrow">→</div>
+<div class="node">Inspecionar</div><div class="arrow">→</div>
+<div class="node">Registrar retirada</div><div class="arrow">→</div>
+<div class="node">Sincronizar CIP</div>
+</div>
+<details><summary>Dados imaginados por equipamento</summary><ul><li>Identificador CIP.</li><li>Cliente, unidade, setor e localização.</li><li>Tipo, capacidade, fabricante, número de série e ano.</li><li>Última manutenção e próximo vencimento.</li><li>Status: instalado, retirado, em manutenção, reserva ou descartado.</li><li>Histórico completo de eventos.</li></ul></details>
+<details><summary>Pontos críticos do offline</summary><ul><li>Quais dados são baixados antes da rota.</li><li>Controle de itens ainda não sincronizados.</li><li>Envio confiável de fotos.</li><li>Tratamento de conflitos.</li><li>Recuperação após falha do aplicativo.</li><li>Auditoria de usuário, horário e dispositivo.</li></ul></details>
+</section>
+<section id="decisoes">
+<h2>10. Registro de decisões, hipóteses e fronteiras</h2>
+<table>
+<tr><th>Tema</th><th>Entendimento atual</th><th>Classificação</th></tr>
+<tr><td>Processos primeiro</td><td>Antes de expandir o sistema, mapear e documentar profundamente os processos.</td><td><span class="badge b-defined">Definido</span></td></tr>
+<tr><td>RH e Marketing</td><td>São processos de apoio e não pertencem ao macrofluxo operacional de venda até recebimento.</td><td><span class="badge b-defined">Definido</span></td></tr>
+<tr><td>CIP</td><td>Pode se tornar a camada central que conecta processos e módulos.</td><td><span class="badge b-hyp">Hipótese forte</span></td></tr>
+<tr><td>ERP</td><td>Precisa ser fonte confiável dos fatos operacionais.</td><td><span class="badge b-defined">Diretriz</span></td></tr>
+<tr><td>Kanban</td><td>Representa instâncias reais e deve ser alimentado automaticamente.</td><td><span class="badge b-hyp">Conceito</span></td></tr>
+<tr><td>Motor de eventos</td><td>Eventos conectariam módulos e atualizariam processos, KPIs e IA.</td><td><span class="badge b-future">Visão futura</span></td></tr>
+<tr><td>Agenda operacional</td><td>Pode orquestrar produção, compras, logística e inspeções.</td><td><span class="badge b-future">A validar</span></td></tr>
+<tr><td>App inspeção</td><td>Aplicativo próprio, offline e integrado ao CIP parece viável.</td><td><span class="badge b-hyp">Hipótese técnica</span></td></tr>
+<tr><td>Arquitetura em blocos</td><td>O CIP foi organizado conceitualmente em nove blocos conectados, com Modelagem como base e Inteligência como camada transversal.</td><td><span class="badge b-hyp">Estrutura proposta</span></td></tr><tr><td>Processos auxiliares</td><td>RH, Marketing, TI, Qualidade, Jurídico, Administrativo, Governança, Dados, Documentos e Melhorias devem ser mantidos na arquitetura.</td><td><span class="badge b-defined">Incluídos</span></td></tr><tr><td>Agentes de IA</td><td>Cada bloco pode possuir agentes especializados, operando sob regras, permissões e processos oficiais.</td><td><span class="badge b-hyp">Estrutura proposta</span></td></tr></table>
+</section>
+<section id="detalhamento-blocos"><h2>Detalhamento conceitual dos Blocos 1 a 9</h2><p>As seções abaixo consolidam, em um único documento, o que se espera de cada bloco. O conteúdo permanece conceitual e exploratório, servindo como base para definição futura.</p><article class="block-detail" id="bloco-1"><h3>Bloco 1 — Modelagem Organizacional</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-1-visao">
+<h2>1. Definição do Bloco 1</h2>
+<div class="callout">
+<strong>Pergunta central:</strong> quem faz o quê, dentro de qual processo, seguindo quais regras, utilizando quais conhecimentos e entregando qual resultado?
+  </div>
+<div class="grid grid-3" style="margin-top:18px">
+<div class="card"><span class="badge b-base">Estrutura</span><h3>Quem existe na organização?</h3><p>Empresas, setores, equipes, cargos, hierarquia e pessoas ocupantes.</p></div>
+<div class="card"><span class="badge b-core">Processo</span><h3>Como o trabalho acontece?</h3><p>Macroprocessos, subprocessos, atividades, entradas, saídas, decisões e dependências.</p></div>
+<div class="card"><span class="badge b-mvp">Conhecimento</span><h3>O que cada pessoa precisa saber?</h3><p>Competências, trilhas, POPs, vídeos, normas, checklists e requisitos por cargo.</p></div>
+</div>
+</section><section id="bloco-1-mapa">
+<h2>2. O Bloco 1 como mapa oficial da empresa</h2>
+<p>O objetivo é eliminar informações espalhadas em documentos, planilhas e conhecimento informal. Tudo deve estar conectado em uma única arquitetura.</p>
+<div class="flow">
+<div class="node">Setor</div><div class="arrow">→</div>
+<div class="node">Cargo</div><div class="arrow">→</div>
+<div class="node">Atividade</div><div class="arrow">→</div>
+<div class="node">Processo</div><div class="arrow">→</div>
+<div class="node">Regra</div><div class="arrow">→</div>
+<div class="node">Documento</div><div class="arrow">→</div>
+<div class="node">Indicador</div>
+</div>
+<p class="muted">Ao clicar em qualquer elemento, o usuário deve conseguir navegar para os elementos relacionados.</p>
+</section><section id="bloco-1-estrutura">
+<h2>3. Estrutura geral do Bloco 1</h2>
+<div class="grid grid-2">
+<div class="card"><h3>Arquitetura da empresa</h3><p>Processos estratégicos, principais e de apoio, cadeia de valor, macroprocessos, empresas do grupo e mapa de dependências.</p></div>
+<div class="card"><h3>Estrutura organizacional</h3><p>Organograma vivo, setores, equipes, cargos, pessoas, vagas, substituições e posições planejadas.</p></div>
+<div class="card"><h3>Biblioteca de processos</h3><p>Cadastro de macroprocessos, subprocessos, atividades, objetivos, responsáveis, entradas, saídas e indicadores.</p></div>
+<div class="card"><h3>Modelador BPMN</h3><p>Desenho navegável com pools, raias, eventos, tarefas, gateways, fluxos e subprocessos clicáveis.</p></div>
+<div class="card"><h3>Cargos e responsabilidades</h3><p>Descrição de cargos, missão, responsabilidades, autoridade, limites, competências e indicadores.</p></div>
+<div class="card"><h3>Conhecimento</h3><p>Trilhas, documentos, POPs, vídeos, normas, checklists, avaliações e pré-requisitos.</p></div>
+<div class="card"><h3>Governança</h3><p>Versões, aprovação, publicação, histórico, maturidade, riscos, controles e melhorias.</p></div>
+<div class="card"><h3>Conexões</h3><p>Integração com RH, Comercial, Produção, Logística, Inteligência e agentes de IA.</p></div>
+</div>
+</section><section id="bloco-1-arquitetura">
+<h2>4. Arquitetura da empresa</h2>
+<div class="arch">
+<div class="pillar"><h3>Processos Estratégicos</h3><p>Diretoria, planejamento, indicadores, orçamento, expansão e decisões estruturais.</p></div>
+<div class="center"><div class="node">Arquitetura<br/>Organizacional</div></div>
+<div class="pillar"><h3>Processos de Apoio</h3><p>RH, Marketing, TI, Jurídico, Qualidade e Administrativo.</p></div>
+</div>
+<div class="card" style="margin-top:18px">
+<h3>Processos Principais</h3>
+<div class="flow">
+<div class="node">Comercial</div><div class="arrow">→</div>
+<div class="node">Financeiro</div><div class="arrow">→</div>
+<div class="node">Compras</div><div class="arrow">→</div>
+<div class="node">Produção</div><div class="arrow">→</div>
+<div class="node">Logística / Inspeções</div><div class="arrow">→</div>
+<div class="node">Faturamento</div>
+</div>
+</div>
+</section><section id="bloco-1-organograma">
+<h2>5. Estrutura organizacional e organograma</h2>
+<p>O organograma deve ser vivo, alimentado pelo cadastro real da organização.</p>
+<div class="grid grid-2">
+<div class="card"><h3>O que deve mostrar</h3><ul><li>Empresas do grupo.</li><li>Diretorias e setores.</li><li>Equipes e cargos.</li><li>Hierarquia e liderança.</li><li>Cargos vagos.</li><li>Pessoas ocupantes.</li><li>Substituições temporárias.</li><li>Posições planejadas.</li></ul></div>
+<div class="card"><h3>Navegação esperada</h3><ul><li>Clicar no cargo abre a ficha do cargo.</li><li>Clicar na pessoa abre o perfil no RH.</li><li>Clicar no setor abre os processos do setor.</li><li>Clicar na posição vaga abre a necessidade de contratação.</li></ul></div>
+</div>
+</section><section id="bloco-1-processos">
+<h2>6. Biblioteca de processos</h2>
+<p>Cada processo deve possuir uma ficha própria e padronizada.</p>
+<table>
+<tr><th>Grupo</th><th>Informações esperadas</th></tr>
+<tr><td>Identificação</td><td>Código, nome, versão, status e data de publicação.</td></tr>
+<tr><td>Objetivo</td><td>Resultado que o processo deve produzir.</td></tr>
+<tr><td>Escopo</td><td>Onde começa, onde termina e o que não faz parte.</td></tr>
+<tr><td>Entradas e saídas</td><td>Dados, documentos, materiais, decisões e entregas.</td></tr>
+<tr><td>Responsabilidade</td><td>Dono do processo, setores e cargos envolvidos.</td></tr>
+<tr><td>Gestão</td><td>Indicadores, riscos, controles, regras e maturidade.</td></tr>
+<tr><td>Relacionamentos</td><td>Subprocessos, dependências, sistemas e documentos.</td></tr>
+</table>
+</section><section id="bloco-1-bpmn">
+<h2>7. Modelador BPMN</h2>
+<div class="grid grid-2">
+<div class="card"><h3>Elementos necessários</h3><ul><li>Pools e raias.</li><li>Eventos de início, fim e intermediários.</li><li>Tarefas e subprocessos.</li><li>Gateways.</li><li>Fluxos de sequência e mensagem.</li><li>Anotações e documentos associados.</li></ul></div>
+<div class="card"><h3>Comportamento esperado</h3><ul><li>Atividades clicáveis.</li><li>Gateways ligados a regras.</li><li>Subprocessos abrindo seus próprios diagramas.</li><li>Raias ligadas aos setores.</li><li>Validação básica do desenho.</li></ul></div>
+</div>
+<div class="callout" style="margin-top:16px"><strong>Princípio:</strong> o BPMN não deve ser apenas uma imagem bonita. Ele deve ser a interface visual para navegar pela estrutura operacional.</div>
+</section><section id="bloco-1-atividade">
+<h2>8. Ficha detalhada da atividade</h2>
+<div class="card">
+<h3>Exemplo: Criar Pedido de Venda</h3>
+<table>
+<tr><th>Campo</th><th>Exemplo</th></tr>
+<tr><td>Processo</td><td>Comercial ao Recebimento.</td></tr>
+<tr><td>Setor</td><td>Comercial.</td></tr>
+<tr><td>Cargo responsável</td><td>Vendedor.</td></tr>
+<tr><td>Objetivo</td><td>Transformar proposta aprovada e cliente liberado em pedido formal.</td></tr>
+<tr><td>Entradas</td><td>Proposta aprovada, cadastro, condição de pagamento, itens e prazo.</td></tr>
+<tr><td>Saídas</td><td>Pedido criado, número do pedido e demanda liberada.</td></tr>
+<tr><td>Regras</td><td>Não criar antes da aprovação financeira; conferir dados e restrições.</td></tr>
+<tr><td>Sistemas</td><td>CAD, CRM e CIP.</td></tr>
+<tr><td>Documentos</td><td>POP, vídeo, checklist e política comercial.</td></tr>
+<tr><td>Indicadores</td><td>Tempo médio, erros e retrabalho.</td></tr>
+<tr><td>Riscos</td><td>Item, endereço, prazo ou condição incorretos.</td></tr>
+</table>
+</div>
+</section><section id="bloco-1-setores">
+<h2>9. Descrição dos setores</h2>
+<p>Cada setor deve possuir uma página própria, conectada aos processos e cargos.</p>
+<div class="grid grid-3">
+<div class="card"><h3>Objetivo</h3><p>Por que o setor existe e qual resultado deve produzir.</p></div>
+<div class="card"><h3>Responsabilidades</h3><p>Quais entregas e decisões pertencem ao setor.</p></div>
+<div class="card"><h3>Entradas e saídas</h3><p>O que recebe, o que entrega e para quem.</p></div>
+<div class="card"><h3>Processos</h3><p>Quais processos e atividades executa.</p></div>
+<div class="card"><h3>Relacionamentos</h3><p>De quais setores depende e quais alimenta.</p></div>
+<div class="card"><h3>Indicadores</h3><p>Como seu desempenho será acompanhado.</p></div>
+</div>
+</section><section id="bloco-1-cargos">
+<h2>10. Descrição de cargos</h2>
+<div class="grid grid-2">
+<div class="card"><h3>Identificação e estrutura</h3><ul><li>Nome e código.</li><li>Setor.</li><li>Nível hierárquico.</li><li>Superior imediato.</li><li>Subordinados.</li><li>Missão do cargo.</li></ul></div>
+<div class="card"><h3>Execução e autoridade</h3><ul><li>Responsabilidades.</li><li>Atividades executadas.</li><li>Processos dos quais participa.</li><li>Autoridade.</li><li>Limites de decisão.</li></ul></div>
+<div class="card"><h3>Competências</h3><ul><li>Conhecimentos técnicos.</li><li>Competências comportamentais.</li><li>Requisitos.</li><li>Sistemas utilizados.</li></ul></div>
+<div class="card"><h3>Gestão</h3><ul><li>Indicadores.</li><li>Documentos acessados.</li><li>Trilha de conhecimento.</li><li>Treinamentos obrigatórios.</li></ul></div>
+</div>
+</section><section id="bloco-1-raci">
+<h2>11. Matriz de responsabilidades</h2>
+<p>O sistema deve gerar uma matriz RACI a partir dos processos e cargos cadastrados.</p>
+<table>
+<tr><th>Atividade</th><th>Comercial</th><th>Financeiro</th><th>Compras</th><th>Produção</th><th>Logística</th></tr>
+<tr><td>Criar pedido</td><td>R/A</td><td>I</td><td>I</td><td>I</td><td>I</td></tr>
+<tr><td>Aprovar crédito</td><td>C</td><td>R/A</td><td>I</td><td>I</td><td>I</td></tr>
+<tr><td>Programar entrega</td><td>I</td><td>I</td><td>I</td><td>C</td><td>R/A</td></tr>
+<tr><td>Programar produção</td><td>I</td><td>I</td><td>I</td><td>R/A</td><td>C</td></tr>
+</table>
+</section><section id="bloco-1-conhecimento">
+<h2>12. Trilha de conhecimento e biblioteca</h2>
+<div class="grid grid-2">
+<div class="card"><h3>Trilha por cargo</h3><ol><li>Integração.</li><li>Conhecimentos básicos.</li><li>Produtos e serviços.</li><li>Processos.</li><li>Sistemas.</li><li>Autonomia.</li></ol></div>
+<div class="card"><h3>Biblioteca conectada</h3><ul><li>POPs.</li><li>Instruções de trabalho.</li><li>Políticas.</li><li>Vídeos.</li><li>Normas.</li><li>Checklists.</li><li>Formulários.</li><li>Prompts de IA.</li></ul></div>
+</div>
+<div class="linkbox" style="margin-top:16px">
+    Cada conteúdo deve estar ligado ao processo, atividade, setor, cargo, versão, responsável, validade e nível de acesso.
+  </div>
+</section><section id="bloco-1-regras">
+<h2>13. Regras de negócio</h2>
+<p>As regras devem possuir cadastro próprio, e não ficar escondidas dentro de textos.</p>
+<div class="card">
+<h3>Exemplo: RN-001</h3>
+<p><strong>Título:</strong> Análise financeira após aprovação comercial.</p>
+<p><strong>Regra:</strong> a análise financeira somente pode ser iniciada depois que o cliente aprovar formalmente a proposta.</p>
+<p><strong>Aplicação:</strong> processo Comercial ao Recebimento.</p>
+<p><strong>Atividades impactadas:</strong> aprovação da proposta, análise financeira e criação do pedido.</p>
+<p><strong>Exceções:</strong> ainda não definidas.</p>
+</div>
+</section><section id="bloco-1-dependencias">
+<h2>14. Entradas, saídas e dependências</h2>
+<div class="grid grid-2">
+<div class="card"><h3>O que cada processo recebe</h3><ul><li>Dados.</li><li>Documentos.</li><li>Materiais.</li><li>Decisões.</li><li>Eventos.</li></ul></div>
+<div class="card"><h3>O que cada processo entrega</h3><ul><li>Pedido.</li><li>Produto.</li><li>Relatório.</li><li>Aprovação.</li><li>Nota fiscal.</li><li>Informação.</li></ul></div>
+</div>
+<div class="flow" style="margin-top:18px">
+<div class="node">Comercial</div><div class="arrow">→</div>
+<div class="node">Logística</div><div class="arrow">→</div>
+<div class="node">Produção</div><div class="arrow">→</div>
+<div class="node">Faturamento</div>
+</div>
+</section><section id="bloco-1-sistemas">
+<h2>15. Sistemas utilizados</h2>
+<p>Cada processo e atividade deve apontar para os sistemas envolvidos.</p>
+<div class="grid grid-3">
+<div class="card"><h3>Operacionais</h3><p>CAD, ERP, CRM, aplicativo de inspeção e CIP.</p></div>
+<div class="card"><h3>Comunicação</h3><p>WhatsApp, e-mail e notificações.</p></div>
+<div class="card"><h3>Controles paralelos</h3><p>Planilhas, documentos manuais e controles temporários.</p></div>
+</div>
+</section><section id="bloco-1-indicadores">
+<h2>16. Indicadores por processo</h2>
+<div class="grid grid-3">
+<div class="card"><h3>Comercial</h3><p>Tempo de atendimento, conversão, proposta, erros e oportunidades paradas.</p></div>
+<div class="card"><h3>Produção</h3><p>Tempo médio, produtividade, retrabalho, fila, capacidade e atraso.</p></div>
+<div class="card"><h3>Logística</h3><p>Entregas no prazo, ocupação, coletas, devoluções e entregas incompletas.</p></div>
+</div>
+</section><section id="bloco-1-governanca">
+<h2>17. Governança do conteúdo</h2>
+<div class="grid grid-2">
+<div class="card"><h3>Controle de versões</h3><ul><li>Rascunho.</li><li>Em revisão.</li><li>Aprovado.</li><li>Publicado.</li><li>Obsoleto.</li></ul></div>
+<div class="card"><h3>Histórico</h3><ul><li>Autor.</li><li>Aprovador.</li><li>Data.</li><li>Motivo da alteração.</li><li>Comparação com versão anterior.</li></ul></div>
+<div class="card"><h3>Riscos e controles</h3><p>Registrar risco, consequência, controle, responsável e evidência.</p></div>
+<div class="card"><h3>Melhorias</h3><p>Sugestão, avaliação, aprovação, alteração, nova versão, comunicação e treinamento.</p></div>
+</div>
+</section><section id="bloco-1-maturidade">
+<h2>18. Nível de maturidade</h2>
+<div class="maturity">
+<div class="level"><strong>0</strong>Inexistente</div>
+<div class="level"><strong>1</strong>Informal</div>
+<div class="level"><strong>2</strong>Descrito</div>
+<div class="level"><strong>3</strong>Padronizado</div>
+<div class="level"><strong>4</strong>Medido</div>
+<div class="level"><strong>5</strong>Automatizado</div>
+</div>
+</section><section id="bloco-1-painel">
+<h2>19. Painel do Bloco 1</h2>
+<div class="grid grid-3">
+<div class="card"><span class="badge b-base">Processos</span><h3>42 cadastrados</h3><p>31 publicados, 7 em revisão e 4 em rascunho.</p></div>
+<div class="card"><span class="badge b-mvp">Cargos</span><h3>28 cadastrados</h3><p>5 sem trilha completa.</p></div>
+<div class="card"><span class="badge b-future">Documentos</span><h3>116 ativos</h3><p>12 próximos da revisão e 3 vencidos.</p></div>
+</div>
+</section><section id="bloco-1-integracoes">
+<h2>20. Conexão com os demais módulos</h2>
+<table>
+<tr><th>Módulo</th><th>O que recebe do Bloco 1</th></tr>
+<tr><td>RH</td><td>Organograma, cargos, competências, trilhas e responsabilidades.</td></tr>
+<tr><td>Comercial</td><td>Processos, regras, atividades, documentos e responsabilidades.</td></tr>
+<tr><td>Produção</td><td>Fluxos, POPs, regras, indicadores e conhecimentos necessários.</td></tr>
+<tr><td>Inteligência</td><td>Indicadores, dependências, tempos, riscos e maturidade.</td></tr>
+<tr><td>IA</td><td>Processos aprovados, regras vigentes, documentos oficiais e exceções.</td></tr>
+</table>
+</section><section id="bloco-1-mvp">
+<h2>21. MVP recomendado</h2>
+<div class="grid grid-2">
+<div class="card"><span class="badge b-mvp">Arquitetura</span><ul><li>Processos estratégicos, principais e de apoio.</li><li>Mapa macro navegável.</li></ul></div>
+<div class="card"><span class="badge b-mvp">Organograma</span><ul><li>Empresas, setores, cargos, pessoas e hierarquia.</li></ul></div>
+<div class="card"><span class="badge b-mvp">Processos</span><ul><li>Objetivo, entradas, saídas, responsáveis, regras e documentos.</li></ul></div>
+<div class="card"><span class="badge b-mvp">BPMN</span><ul><li>Fluxograma macro, subprocessos e atividades clicáveis.</li></ul></div>
+<div class="card"><span class="badge b-mvp">Cargos</span><ul><li>Descrição, responsabilidades, competências e trilhas.</li></ul></div>
+<div class="card"><span class="badge b-mvp">Governança básica</span><ul><li>Versão, rascunho, revisão e publicação.</li></ul></div>
+</div>
+</section><section id="bloco-1-fora">
+<h2>22. O que não precisa entrar agora</h2>
+<div class="card">
+<ul>
+<li>Execução automática de BPMN.</li>
+<li>Motor complexo de eventos.</li>
+<li>Simulação operacional.</li>
+<li>Indicadores em tempo real.</li>
+<li>IA avançada.</li>
+<li>Controle completo de não conformidades.</li>
+<li>Integrações com todos os sistemas.</li>
+</ul>
+</div>
+</section><section id="bloco-1-final">
+<h2>23. Definição final</h2>
+<div class="callout">
+    O Bloco 1 — Modelagem Organizacional deve ser o local onde a Platina registra oficialmente como está organizada, como trabalha, quem é responsável, quais regras devem ser seguidas e qual conhecimento é necessário para executar cada atividade.
+  </div>
+<div class="flow" style="margin-top:18px">
+<div class="node">Cargo</div><div class="arrow">→</div>
+<div class="node">Atividade</div><div class="arrow">→</div>
+<div class="node">Processo</div><div class="arrow">→</div>
+<div class="node">Regra</div><div class="arrow">→</div>
+<div class="node">Sistema</div><div class="arrow">→</div>
+<div class="node">Conhecimento</div><div class="arrow">→</div>
+<div class="node">Resultado</div>
+</div>
+</section></div></article><article class="block-detail" id="bloco-2"><h3>Bloco 2 — Comercial</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-2-visao"><h2>1. Visão geral</h2><div class="callout">Transformar contatos em oportunidades bem qualificadas, vendas formalizadas e dados comerciais confiáveis para toda a operação.</div><div class="flow" style="margin-top:18px"><div class="node">Contato</div><div class="arrow">→</div><div class="node">Oportunidade</div><div class="arrow">→</div><div class="node">Venda</div><div class="arrow">→</div><div class="node">Pedido</div></div></section><section id="bloco-2-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>CRM</h3><p>Leads, contatos, contas, oportunidades, propostas, pedidos e histórico.</p></div>
+<div class="card"><h3>Clara</h3><p>Atendimento inicial, cadastro, triagem, distribuição e registro via WhatsApp.</p></div>
+<div class="card"><h3>E-mail</h3><p>Cadências, automações, caixa compartilhada, templates e rastreamento.</p></div>
+<div class="card"><h3>Pipeline</h3><p>Etapas comerciais, probabilidade, previsão e motivos de perda.</p></div>
+<div class="card"><h3>Propostas</h3><p>Modelos, versões, aprovações, follow-up e conversão em pedido.</p></div>
+<div class="card"><h3>Clientes</h3><p>Visão 360°, contratos, unidades, contatos, histórico e potencial.</p></div></div></section><section id="bloco-2-jornada"><h2>3. Jornada comercial</h2><div class="flow"><div class="node">Lead</div><div class="arrow">→</div><div class="node">Qualificação</div><div class="arrow">→</div><div class="node">Proposta</div><div class="arrow">→</div><div class="node">Aprovação</div><div class="arrow">→</div><div class="node">Crédito</div><div class="arrow">→</div><div class="node">Pedido</div></div></section><section id="bloco-2-dados"><h2>4. Dados e entidades</h2><div class="card"><ul><li>Lead</li><li>Contato</li><li>Conta/cliente</li><li>Unidade</li><li>Oportunidade</li><li>Proposta</li><li>Pedido</li><li>Atividade</li><li>Interação</li><li>Campanha</li><li>Origem</li><li>Motivo de perda</li></ul></div></section><section id="bloco-2-automacoes"><h2>5. Automações esperadas</h2><div class="grid grid-2"><div class="card"><h3>WhatsApp</h3><p>Respostas iniciais, coleta de dados, leitura de orçamento, identificação de vendedor e escalonamento.</p></div>
+<div class="card"><h3>E-mail</h3><p>Sequências, lembretes, follow-ups, reativação e confirmação.</p></div>
+<div class="card"><h3>Tarefas</h3><p>Criação automática por mudança de etapa, atraso ou ausência de retorno.</p></div>
+<div class="card"><h3>Alertas</h3><p>Oportunidades paradas, propostas sem resposta, cliente sem cadastro completo e SLA vencido.</p></div></div></section><section id="bloco-2-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>Aquisição</h3><p>Leads por origem, custo e qualidade.</p></div>
+<div class="card"><h3>Conversão</h3><p>Por vendedor, canal, produto e segmento.</p></div>
+<div class="card"><h3>Velocidade</h3><p>Tempo de atendimento, proposta e fechamento.</p></div>
+<div class="card"><h3>Previsão</h3><p>Pipeline ponderado, forecast e receita esperada.</p></div>
+<div class="card"><h3>Qualidade</h3><p>Erros de pedido, cadastros incompletos e retrabalho.</p></div>
+<div class="card"><h3>Retenção</h3><p>Recompra, contratos e reativação.</p></div></div></section><section id="bloco-2-integracoes"><h2>7. Integrações</h2><table><tr><th>Integração</th><th>Finalidade</th></tr><tr><td>Modelagem Organizacional</td><td>Regras, responsáveis, scripts, POPs e competências.</td></tr><tr><td>ERP/CAD</td><td>Clientes, produtos, propostas aprovadas e pedidos.</td></tr><tr><td>Financeiro</td><td>Análise de crédito e condições.</td></tr><tr><td>Marketing</td><td>Origem, campanhas e nutrição.</td></tr><tr><td>Clara</td><td>Atendimento e distribuição via WhatsApp.</td></tr></table></section><section id="bloco-2-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>CRM básico</h3><p>Leads, clientes, oportunidades, pipeline e histórico.</p></div>
+<div class="card"><h3>Clara integrada</h3><p>WhatsApp, cadastro, triagem e distribuição.</p></div>
+<div class="card"><h3>Propostas</h3><p>Criação, envio, status e conversão.</p></div>
+<div class="card"><h3>E-mail básico</h3><p>Templates, registro e follow-up.</p></div></div></section><section id="bloco-2-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Forecast avançado</li><li>Lead scoring por IA</li><li>Automação omnichannel completa</li><li>Campanhas complexas</li><li>Comissionamento avançado</li></ul></div></section></div></article><article class="block-detail" id="bloco-3"><h3>Bloco 3 — Produção</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-3-visao"><h2>1. Visão geral</h2><div class="callout">Orquestrar a execução produtiva com base em prazo, capacidade, qualidade, materiais e prioridades reais da operação.</div><div class="flow" style="margin-top:18px"><div class="node">Agenda</div><div class="arrow">→</div><div class="node">OP</div><div class="arrow">→</div><div class="node">Execução</div><div class="arrow">→</div><div class="node">Liberação</div></div></section><section id="bloco-3-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Ordens de Produção</h3><p>Criação, fila, prioridade, status e vínculo com pedido ou inspeção.</p></div>
+<div class="card"><h3>Planejamento</h3><p>Sequenciamento por prazo, capacidade, recurso e restrição.</p></div>
+<div class="card"><h3>Capacidade</h3><p>Pessoas, máquinas, turnos, gargalos e disponibilidade.</p></div>
+<div class="card"><h3>Execução</h3><p>Apontamento de início, pausa, conclusão, perdas e retrabalho.</p></div>
+<div class="card"><h3>Qualidade</h3><p>Checklists, inspeções, não conformidades e liberação.</p></div>
+<div class="card"><h3>Rastreabilidade</h3><p>Cilindros, lotes, componentes, selos, testes e histórico.</p></div></div></section><section id="bloco-3-fluxo"><h2>3. Fluxo produtivo</h2><div class="flow"><div class="node">Demanda</div><div class="arrow">→</div><div class="node">Programação</div><div class="arrow">→</div><div class="node">Execução</div><div class="arrow">→</div><div class="node">Qualidade</div><div class="arrow">→</div><div class="node">Liberação</div></div></section><section id="bloco-3-planejamento"><h2>4. Planejamento esperado</h2><div class="grid grid-2"><div class="card"><h3>Agenda puxada pela entrega</h3><p>Produção recebe prioridades da Logística e de Inspeções.</p></div>
+<div class="card"><h3>Capacidade finita</h3><p>O sistema considera pessoas, máquinas, materiais e tempo disponível.</p></div>
+<div class="card"><h3>Prioridades</h3><p>Prazo, cliente estratégico, contrato, risco e material disponível.</p></div>
+<div class="card"><h3>Replanejamento</h3><p>Atrasos, quebra, falta de material e urgências geram nova sugestão.</p></div></div></section><section id="bloco-3-dados"><h2>5. Dados e entidades</h2><div class="card"><ul><li>Ordem de produção</li><li>Operação</li><li>Roteiro</li><li>Máquina</li><li>Posto de trabalho</li><li>Colaborador</li><li>Material</li><li>Cilindro</li><li>Lote</li><li>Teste</li><li>Inspeção de qualidade</li><li>Apontamento</li><li>Motivo de parada</li></ul></div></section><section id="bloco-3-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>Prazo</h3><p>OTD, atraso e aderência ao plano.</p></div>
+<div class="card"><h3>Produtividade</h3><p>Unidades/hora, capacidade e ocupação.</p></div>
+<div class="card"><h3>Qualidade</h3><p>Retrabalho, refugo e não conformidade.</p></div>
+<div class="card"><h3>Fila</h3><p>WIP, idade das ordens e gargalos.</p></div>
+<div class="card"><h3>Paradas</h3><p>Causa, duração e impacto.</p></div>
+<div class="card"><h3>Rastreabilidade</h3><p>Ordens sem apontamento ou sem vínculo completo.</p></div></div></section><section id="bloco-3-integracoes"><h2>7. Integrações</h2><table><tr><th>Módulo</th><th>Dependência</th></tr><tr><td>Logística</td><td>Data de entrega e prioridade.</td></tr><tr><td>Inspeções</td><td>Cronograma e cilindros recolhidos.</td></tr><tr><td>Compras</td><td>Material e previsão de chegada.</td></tr><tr><td>Faturamento</td><td>Liberação de pedido concluído.</td></tr><tr><td>Modelagem</td><td>POPs, responsabilidades e regras.</td></tr></table></section><section id="bloco-3-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Ordens</h3><p>Fila, prioridade, status e vínculo.</p></div>
+<div class="card"><h3>Programação</h3><p>Agenda diária e semanal.</p></div>
+<div class="card"><h3>Apontamento</h3><p>Início, conclusão e responsável.</p></div>
+<div class="card"><h3>Qualidade</h3><p>Checklist e liberação.</p></div></div></section><section id="bloco-3-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>APS avançado</li><li>OEE completo</li><li>Simulação de capacidade</li><li>Manutenção preditiva</li><li>Otimização por IA</li></ul></div></section></div></article><article class="block-detail" id="bloco-4"><h3>Bloco 4 — Logística</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-4-visao"><h2>1. Visão geral</h2><div class="callout">Planejar e executar entregas e coletas com segurança, rastreabilidade, produtividade e alinhamento direto com Produção e Faturamento.</div><div class="flow" style="margin-top:18px"><div class="node">Agenda</div><div class="arrow">→</div><div class="node">Rota</div><div class="arrow">→</div><div class="node">Carga</div><div class="arrow">→</div><div class="node">Entrega</div></div></section><section id="bloco-4-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Agenda</h3><p>Entregas, coletas, prioridades e janelas.</p></div>
+<div class="card"><h3>Rotas</h3><p>Agrupamento geográfico, veículos e sequência.</p></div>
+<div class="card"><h3>Separação</h3><p>Romaneio, conferência, embalagem e carregamento.</p></div>
+<div class="card"><h3>Entrega</h3><p>Comprovação, canhoto, ocorrências e devoluções.</p></div>
+<div class="card"><h3>Base de troca</h3><p>Controle de cilindros entregues e recebidos.</p></div>
+<div class="card"><h3>Frota</h3><p>Veículos, motoristas, capacidade, manutenção e documentos.</p></div></div></section><section id="bloco-4-fluxo"><h2>3. Fluxo logístico</h2><div class="flow"><div class="node">Pedido pronto</div><div class="arrow">→</div><div class="node">Roteirização</div><div class="arrow">→</div><div class="node">Separação</div><div class="arrow">→</div><div class="node">Entrega</div><div class="arrow">→</div><div class="node">Conferência</div></div></section><section id="bloco-4-regras"><h2>4. Regras importantes</h2><div class="card"><ul><li>A coleta no mesmo cilindro é encaixada na rota existente.</li><li>A data de entrega orienta a Produção.</li><li>Equipamentos novos e recarregados devem convergir para a mesma separação.</li><li>Canhotos e cilindros de base de troca devem ser conferidos antes da mudança de status.</li><li>Inspeções não passam pela Logística.</li></ul></div></section><section id="bloco-4-dados"><h2>5. Dados e entidades</h2><div class="card"><ul><li>Rota</li><li>Parada</li><li>Entrega</li><li>Coleta</li><li>Veículo</li><li>Motorista</li><li>Ajudante</li><li>Romaneio</li><li>Canhoto</li><li>Ocorrência</li><li>Base de troca</li><li>Janela de atendimento</li><li>Capacidade</li></ul></div></section><section id="bloco-4-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>OTIF</h3><p>Entrega completa e no prazo.</p></div>
+<div class="card"><h3>Capacidade</h3><p>Ocupação de veículo e rota.</p></div>
+<div class="card"><h3>Produtividade</h3><p>Entregas por rota e por equipe.</p></div>
+<div class="card"><h3>Ocorrências</h3><p>Atraso, recusa, falta e avaria.</p></div>
+<div class="card"><h3>Base de troca</h3><p>Diferença de cilindros e pendências.</p></div>
+<div class="card"><h3>Comprovação</h3><p>Canhotos e evidências pendentes.</p></div></div></section><section id="bloco-4-integracoes"><h2>7. Integrações</h2><table><tr><th>Módulo</th><th>Finalidade</th></tr><tr><td>Produção</td><td>Prioridade e conclusão.</td></tr><tr><td>Faturamento</td><td>NF, boleto e documentos.</td></tr><tr><td>Comercial</td><td>Endereço, restrições e contato.</td></tr><tr><td>Financeiro</td><td>Status após entrega.</td></tr><tr><td>Compras/Estoque</td><td>Disponibilidade e reserva.</td></tr></table></section><section id="bloco-4-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Agenda de entregas</h3><p>Datas, clientes e prioridades.</p></div>
+<div class="card"><h3>Rotas</h3><p>Veículo, equipe e sequência.</p></div>
+<div class="card"><h3>Separação</h3><p>Romaneio e conferência.</p></div>
+<div class="card"><h3>Comprovação</h3><p>Canhoto, ocorrência e mudança de status.</p></div></div></section><section id="bloco-4-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Roteirização automática</li><li>Telemetria</li><li>App de motorista completo</li><li>Otimização dinâmica</li><li>Torre de controle avançada</li></ul></div></section></div></article><article class="block-detail" id="bloco-5"><h3>Bloco 5 — Inspeções</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-5-visao"><h2>1. Visão geral</h2><div class="callout">Garantir rastreabilidade completa do equipamento desde a visita no cliente até a manutenção e devolução no mesmo cilindro.</div><div class="flow" style="margin-top:18px"><div class="node">Cliente</div><div class="arrow">→</div><div class="node">Visita</div><div class="arrow">→</div><div class="node">QR Code</div><div class="arrow">→</div><div class="node">Produção</div><div class="arrow">→</div><div class="node">Relatório</div></div></section><section id="bloco-5-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Contratos</h3><p>Clientes, unidades, periodicidade, escopo e vigência.</p></div>
+<div class="card"><h3>Cronograma</h3><p>Planejamento mensal por equipe e cliente.</p></div>
+<div class="card"><h3>App mobile</h3><p>Offline, QR Code, checklist, fotos e sincronização.</p></div>
+<div class="card"><h3>Equipamentos</h3><p>Cadastro individual, localização, histórico e vencimento.</p></div>
+<div class="card"><h3>Movimentação</h3><p>Retirada, produção, devolução e pendências.</p></div>
+<div class="card"><h3>Relatórios</h3><p>Inspeção, evidências, não conformidades e acompanhamento.</p></div></div></section><section id="bloco-5-fluxo"><h2>3. Jornada da inspeção</h2><div class="flow"><div class="node">Contrato</div><div class="arrow">→</div><div class="node">Cronograma</div><div class="arrow">→</div><div class="node">Visita</div><div class="arrow">→</div><div class="node">Retirada</div><div class="arrow">→</div><div class="node">Produção</div><div class="arrow">→</div><div class="node">Devolução</div></div></section><section id="bloco-5-mobile"><h2>4. Aplicativo mobile</h2><div class="grid grid-2"><div class="card"><h3>Offline first</h3><p>Rota e cadastros baixados antes da visita; dados preservados sem internet.</p></div>
+<div class="card"><h3>QR Code</h3><p>Identificador único por equipamento.</p></div>
+<div class="card"><h3>Checklist</h3><p>Campos por tipo de equipamento e resultado.</p></div>
+<div class="card"><h3>Evidências</h3><p>Fotos, observações, assinatura e localização lógica.</p></div>
+<div class="card"><h3>Sincronização</h3><p>Fila de envio, status e tratamento de erro.</p></div>
+<div class="card"><h3>Auditoria</h3><p>Usuário, horário, dispositivo e histórico.</p></div></div></section><section id="bloco-5-dados"><h2>5. Dados e entidades</h2><div class="card"><ul><li>Contrato</li><li>Cliente</li><li>Unidade</li><li>Local</li><li>Equipamento</li><li>QR Code</li><li>Visita</li><li>Inspeção</li><li>Item de inspeção</li><li>Foto</li><li>Retirada</li><li>Devolução</li><li>Pendência</li><li>Relatório</li><li>Equipe</li></ul></div></section><section id="bloco-5-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>Cobertura</h3><p>Visitas realizadas versus planejadas.</p></div>
+<div class="card"><h3>Produtividade</h3><p>Equipamentos por equipe e por dia.</p></div>
+<div class="card"><h3>Pendências</h3><p>Equipamentos não localizados ou não devolvidos.</p></div>
+<div class="card"><h3>Prazo</h3><p>Tempo entre retirada, produção e devolução.</p></div>
+<div class="card"><h3>Qualidade</h3><p>Erros de relatório e reincidências.</p></div>
+<div class="card"><h3>Contrato</h3><p>Aderência, renovação e rentabilidade.</p></div></div></section><section id="bloco-5-integracoes"><h2>7. Integrações</h2><table><tr><th>Módulo</th><th>Finalidade</th></tr><tr><td>Produção</td><td>Demanda de manutenção e devolução.</td></tr><tr><td>Comercial</td><td>Contrato, escopo e renovação.</td></tr><tr><td>Financeiro</td><td>Faturamento recorrente.</td></tr><tr><td>Modelagem</td><td>Checklists, POPs e competências.</td></tr><tr><td>Gerencial</td><td>Indicadores e riscos.</td></tr></table></section><section id="bloco-5-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Contratos e cronograma</h3><p>Clientes, unidades, periodicidade e equipe.</p></div>
+<div class="card"><h3>Cadastro de equipamentos</h3><p>QR Code, localização e vencimento.</p></div>
+<div class="card"><h3>App offline</h3><p>Inspeção, foto, retirada e sincronização.</p></div>
+<div class="card"><h3>Relatório</h3><p>Geração e histórico.</p></div></div></section><section id="bloco-5-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Roteirização automática</li><li>Assinatura avançada</li><li>IA para análise de foto</li><li>Portal do cliente</li><li>Previsão de renovação</li></ul></div></section></div></article><article class="block-detail" id="bloco-6"><h3>Bloco 6 — Financeiro</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-6-visao"><h2>1. Visão geral</h2><div class="callout">Garantir que cada operação comercial e operacional seja financeiramente viável, registrada, recebida e analisada.</div><div class="flow" style="margin-top:18px"><div class="node">Crédito</div><div class="arrow">→</div><div class="node">Faturamento</div><div class="arrow">→</div><div class="node">Título</div><div class="arrow">→</div><div class="node">Recebimento</div></div></section><section id="bloco-6-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Crédito</h3><p>Análise, limite, condição e histórico.</p></div>
+<div class="card"><h3>Contas a receber</h3><p>Títulos, vencimentos, baixa e cobrança.</p></div>
+<div class="card"><h3>Contas a pagar</h3><p>Fornecedores, compromissos e aprovação.</p></div>
+<div class="card"><h3>Tesouraria</h3><p>Caixa, bancos, conciliação e posição diária.</p></div>
+<div class="card"><h3>Orçamento</h3><p>Centro de custo, empresa e previsão.</p></div>
+<div class="card"><h3>Indicadores</h3><p>Inadimplência, margem, caixa e necessidade de capital.</p></div></div></section><section id="bloco-6-fluxo"><h2>3. Fluxo financeiro</h2><div class="flow"><div class="node">Proposta aprovada</div><div class="arrow">→</div><div class="node">Crédito</div><div class="arrow">→</div><div class="node">Pedido</div><div class="arrow">→</div><div class="node">Faturamento</div><div class="arrow">→</div><div class="node">Recebimento</div></div></section><section id="bloco-6-credito"><h2>4. Crédito e cobrança</h2><div class="grid grid-2"><div class="card"><h3>Política de crédito</h3><p>Critérios, limites, exceções e responsáveis.</p></div>
+<div class="card"><h3>Análise</h3><p>Cadastro, histórico, documentos e risco.</p></div>
+<div class="card"><h3>Cobrança</h3><p>Cadência, contatos, promessas e ocorrências.</p></div>
+<div class="card"><h3>Exceções</h3><p>Aprovação especial, pagamento antecipado e garantias.</p></div></div></section><section id="bloco-6-dados"><h2>5. Dados e entidades</h2><div class="card"><ul><li>Cliente financeiro</li><li>Limite</li><li>Condição de pagamento</li><li>Análise de crédito</li><li>Título</li><li>Parcela</li><li>Baixa</li><li>Cobrança</li><li>Fornecedor</li><li>Conta bancária</li><li>Centro de custo</li><li>Fluxo de caixa</li></ul></div></section><section id="bloco-6-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>Inadimplência</h3><p>Valor e percentual vencido.</p></div>
+<div class="card"><h3>DSO</h3><p>Prazo médio de recebimento.</p></div>
+<div class="card"><h3>Caixa</h3><p>Saldo, projeção e necessidade.</p></div>
+<div class="card"><h3>Crédito</h3><p>Tempo de análise e reprovação.</p></div>
+<div class="card"><h3>Cobrança</h3><p>Recuperação e promessas.</p></div>
+<div class="card"><h3>Rentabilidade</h3><p>Margem e contribuição por cliente/processo.</p></div></div></section><section id="bloco-6-integracoes"><h2>7. Integrações</h2><table><tr><th>Módulo</th><th>Finalidade</th></tr><tr><td>Comercial</td><td>Crédito e condições.</td></tr><tr><td>Faturamento</td><td>Títulos e documentos fiscais.</td></tr><tr><td>Compras</td><td>Contas a pagar.</td></tr><tr><td>Gerencial</td><td>Caixa, margem e indicadores.</td></tr><tr><td>ERP</td><td>Fonte oficial dos lançamentos.</td></tr></table></section><section id="bloco-6-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Crédito</h3><p>Aprovação, limite e condição.</p></div>
+<div class="card"><h3>Contas a receber</h3><p>Títulos, vencimento e baixa.</p></div>
+<div class="card"><h3>Cobrança</h3><p>Histórico e cadência.</p></div>
+<div class="card"><h3>Painel financeiro</h3><p>Caixa, vencidos e previsões.</p></div></div></section><section id="bloco-6-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Tesouraria avançada</li><li>Conciliação automática total</li><li>Planejamento orçamentário completo</li><li>Modelos de risco por IA</li><li>BI financeiro sofisticado</li></ul></div></section></div></article><article class="block-detail" id="bloco-7"><h3>Bloco 7 — Compras</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-7-visao"><h2>1. Visão geral</h2><div class="callout">Garantir material, serviço e fornecedor adequados, com custo, prazo e qualidade compatíveis com a necessidade operacional.</div><div class="flow" style="margin-top:18px"><div class="node">Demanda</div><div class="arrow">→</div><div class="node">Cotação</div><div class="arrow">→</div><div class="node">Aprovação</div><div class="arrow">→</div><div class="node">Recebimento</div></div></section><section id="bloco-7-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Requisições</h3><p>Origem, prioridade, justificativa e aprovação.</p></div>
+<div class="card"><h3>Cotações</h3><p>Fornecedores, preços, prazos e condições.</p></div>
+<div class="card"><h3>Aprovação</h3><p>Alçadas, orçamento e Diretoria.</p></div>
+<div class="card"><h3>Pedido de compra</h3><p>Formalização, envio e acompanhamento.</p></div>
+<div class="card"><h3>Recebimento</h3><p>Quantidade, qualidade, divergência e entrada.</p></div>
+<div class="card"><h3>Fornecedores</h3><p>Cadastro, avaliação, desempenho e documentos.</p></div></div></section><section id="bloco-7-fluxo"><h2>3. Fluxo de compras</h2><div class="flow"><div class="node">Necessidade</div><div class="arrow">→</div><div class="node">Requisição</div><div class="arrow">→</div><div class="node">Cotação</div><div class="arrow">→</div><div class="node">Aprovação</div><div class="arrow">→</div><div class="node">Compra</div><div class="arrow">→</div><div class="node">Recebimento</div></div></section><section id="bloco-7-regras"><h2>4. Regras esperadas</h2><div class="card"><ul><li>Toda compra deve nascer de uma necessidade identificada.</li><li>Requisições devem estar vinculadas a pedido, estoque, produção ou administrativo.</li><li>Aprovação segue alçada e valor.</li><li>Prazo de entrega do fornecedor deve alimentar Produção e Logística.</li><li>Divergências de recebimento devem impedir liberação automática.</li></ul></div></section><section id="bloco-7-dados"><h2>5. Dados e entidades</h2><div class="card"><ul><li>Requisição</li><li>Cotação</li><li>Fornecedor</li><li>Item</li><li>Pedido de compra</li><li>Aprovação</li><li>Recebimento</li><li>Divergência</li><li>Prazo</li><li>Condição comercial</li><li>Avaliação de fornecedor</li></ul></div></section><section id="bloco-7-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>Prazo</h3><p>Lead time e atraso de fornecedor.</p></div>
+<div class="card"><h3>Economia</h3><p>Preço cotado versus comprado.</p></div>
+<div class="card"><h3>Qualidade</h3><p>Divergência e devolução.</p></div>
+<div class="card"><h3>Cobertura</h3><p>Requisições atendidas.</p></div>
+<div class="card"><h3>Fornecedor</h3><p>OTIF e desempenho.</p></div>
+<div class="card"><h3>Urgência</h3><p>Compras emergenciais e causas.</p></div></div></section><section id="bloco-7-integracoes"><h2>7. Integrações</h2><table><tr><th>Módulo</th><th>Finalidade</th></tr><tr><td>Comercial</td><td>Demanda sem estoque.</td></tr><tr><td>Produção</td><td>Materiais e prioridades.</td></tr><tr><td>Logística/Estoque</td><td>Recebimento e reserva.</td></tr><tr><td>Financeiro</td><td>Contas a pagar e orçamento.</td></tr><tr><td>Gerencial</td><td>Risco de atraso e custo.</td></tr></table></section><section id="bloco-7-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Requisição</h3><p>Origem, item, prazo e justificativa.</p></div>
+<div class="card"><h3>Cotação</h3><p>Comparação de fornecedores.</p></div>
+<div class="card"><h3>Aprovação</h3><p>Alçada e registro.</p></div>
+<div class="card"><h3>Acompanhamento</h3><p>Pedido, prazo e recebimento.</p></div></div></section><section id="bloco-7-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Leilão reverso</li><li>Portal de fornecedor</li><li>Score avançado</li><li>Previsão automática de compra</li><li>Contratos complexos</li></ul></div></section></div></article><article class="block-detail" id="bloco-8"><h3>Bloco 8 — RH e Gestão de Pessoas</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-8-visao"><h2>1. Visão geral</h2><div class="callout">Garantir que a empresa tenha as pessoas certas, preparadas, documentadas e acompanhadas para executar os processos.</div><div class="flow" style="margin-top:18px"><div class="node">Pessoa</div><div class="arrow">→</div><div class="node">Cargo</div><div class="arrow">→</div><div class="node">Trilha</div><div class="arrow">→</div><div class="node">Desempenho</div></div></section><section id="bloco-8-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Cadastro</h3><p>Pessoas, documentos, contratos, benefícios e histórico.</p></div>
+<div class="card"><h3>Recrutamento</h3><p>Vagas, candidatos, etapas, entrevistas e aprovação.</p></div>
+<div class="card"><h3>Onboarding</h3><p>Integração, documentos, treinamentos e acompanhamento.</p></div>
+<div class="card"><h3>Desempenho</h3><p>Feedback, avaliação, PDI e plano de ação.</p></div>
+<div class="card"><h3>Treinamento</h3><p>Trilhas, cursos, validade e evidências.</p></div>
+<div class="card"><h3>Saúde e segurança</h3><p>ASO, EPI, exames, treinamentos e ocorrências.</p></div></div></section><section id="bloco-8-fluxo"><h2>3. Jornada do colaborador</h2><div class="flow"><div class="node">Vaga</div><div class="arrow">→</div><div class="node">Seleção</div><div class="arrow">→</div><div class="node">Admissão</div><div class="arrow">→</div><div class="node">Integração</div><div class="arrow">→</div><div class="node">Desenvolvimento</div><div class="arrow">→</div><div class="node">Desligamento</div></div></section><section id="bloco-8-conexao"><h2>4. Conexão com o Bloco 1</h2><div class="grid grid-2"><div class="card"><h3>Organograma</h3><p>RH usa a estrutura oficial de empresas, setores e cargos.</p></div>
+<div class="card"><h3>Descrição de cargo</h3><p>Missão, responsabilidades, autoridade e requisitos.</p></div>
+<div class="card"><h3>Trilha de conhecimento</h3><p>Cursos e conteúdos derivados das atividades do cargo.</p></div>
+<div class="card"><h3>Competências</h3><p>Técnicas e comportamentais ligadas aos processos.</p></div></div></section><section id="bloco-8-dados"><h2>5. Dados e entidades</h2><div class="card"><ul><li>Colaborador</li><li>Cargo</li><li>Setor</li><li>Contrato</li><li>Documento</li><li>Dependente</li><li>Benefício</li><li>Vaga</li><li>Candidato</li><li>Treinamento</li><li>Avaliação</li><li>PDI</li><li>ASO</li><li>EPI</li><li>Férias</li><li>Ocorrência</li></ul></div></section><section id="bloco-8-indicadores"><h2>6. Indicadores</h2><div class="grid grid-3"><div class="card"><h3>Turnover</h3><p>Entradas, saídas e causas.</p></div>
+<div class="card"><h3>Absenteísmo</h3><p>Faltas, atrasos e horas.</p></div>
+<div class="card"><h3>Recrutamento</h3><p>Tempo, custo e conversão.</p></div>
+<div class="card"><h3>Treinamento</h3><p>Conclusão, validade e avaliação.</p></div>
+<div class="card"><h3>Desempenho</h3><p>Avaliações e planos de ação.</p></div>
+<div class="card"><h3>Compliance</h3><p>Documentos, ASOs e treinamentos vencidos.</p></div></div></section><section id="bloco-8-integracoes"><h2>7. Integrações</h2><table><tr><th>Módulo</th><th>Finalidade</th></tr><tr><td>Modelagem</td><td>Cargos, trilhas e responsabilidades.</td></tr><tr><td>Produção/Logística/Inspeções</td><td>Competências, escalas e requisitos.</td></tr><tr><td>Gerencial</td><td>Indicadores de pessoas.</td></tr><tr><td>Financeiro</td><td>Custos e benefícios.</td></tr><tr><td>Documentos</td><td>Contratos, termos e evidências.</td></tr></table></section><section id="bloco-8-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Cadastro</h3><p>Pessoas, documentos, cargos e histórico.</p></div>
+<div class="card"><h3>Recrutamento</h3><p>Vagas, candidatos e etapas.</p></div>
+<div class="card"><h3>Onboarding</h3><p>Checklist, integração e experiência.</p></div>
+<div class="card"><h3>Treinamentos</h3><p>Trilhas, validade e evidências.</p></div></div></section><section id="bloco-8-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Folha completa</li><li>Ponto próprio</li><li>Pesquisa de clima avançada</li><li>People analytics por IA</li><li>Portal completo do colaborador</li></ul></div></section></div></article><article class="block-detail" id="bloco-9"><h3>Bloco 9 — Inteligência e Gestão</h3><div class="block-origin">Conteúdo conceitual consolidado do documento específico do bloco.</div><div class="block-subsections"><section id="bloco-9-visao"><h2>1. Visão geral</h2><div class="callout">Mostrar como a empresa está funcionando agora, onde estão os gargalos, o que será impactado e qual ação deve ser tomada.</div><div class="flow" style="margin-top:18px"><div class="node">Evento</div><div class="arrow">→</div><div class="node">Kanban</div><div class="arrow">→</div><div class="node">Alerta</div><div class="arrow">→</div><div class="node">Decisão</div></div></section><section id="bloco-9-escopo"><h2>2. Escopo funcional</h2><div class="grid grid-3"><div class="card"><h3>Central de Operações</h3><p>Visão ponta a ponta por processo.</p></div>
+<div class="card"><h3>Kanban vivo</h3><p>Instâncias movimentadas por eventos reais.</p></div>
+<div class="card"><h3>KPIs</h3><p>Indicadores por processo, setor e empresa.</p></div>
+<div class="card"><h3>Alertas</h3><p>Atrasos, gargalos, riscos e exceções.</p></div>
+<div class="card"><h3>Simulações</h3><p>Capacidade, cenário e impacto de decisões.</p></div>
+<div class="card"><h3>IA</h3><p>Análise, explicação, recomendação e apoio à decisão.</p></div></div></section><section id="bloco-9-fluxo"><h2>3. Arquitetura de inteligência</h2><div class="flow"><div class="node">Dados</div><div class="arrow">→</div><div class="node">Eventos</div><div class="arrow">→</div><div class="node">Processos</div><div class="arrow">→</div><div class="node">Indicadores</div><div class="arrow">→</div><div class="node">Decisão</div></div></section><section id="bloco-9-central"><h2>4. Central de Operações</h2><div class="grid grid-2"><div class="card"><h3>Modo empresa</h3><p>Situação de Comercial, Financeiro, Compras, Produção, Logística e Faturamento.</p></div>
+<div class="card"><h3>Mapa de calor</h3><p>Saudável, atenção e gargalo.</p></div>
+<div class="card"><h3>Drill-down</h3><p>Do setor para o processo, instância, pedido e evento.</p></div>
+<div class="card"><h3>Linha do tempo</h3><p>Histórico completo de cada instância.</p></div></div></section><section id="bloco-9-autonomia"><h2>5. Níveis de autonomia</h2><table><tr><th>Nível</th><th>Comportamento</th></tr><tr><td>1 — Informar</td><td>Exibe situação, risco e indicador.</td></tr><tr><td>2 — Sugerir</td><td>Recomenda prioridade, ação ou replanejamento.</td></tr><tr><td>3 — Executar</td><td>Automatiza ações de baixo risco e previamente autorizadas.</td></tr></table></section><section id="bloco-9-dados"><h2>6. Dados e entidades</h2><div class="card"><ul><li>Indicador</li><li>Meta</li><li>Evento</li><li>Alerta</li><li>Instância de processo</li><li>Gargalo</li><li>Risco</li><li>Cenário</li><li>Simulação</li><li>Recomendação</li><li>Ação automática</li><li>Responsável</li></ul></div></section><section id="bloco-9-indicadores"><h2>7. Indicadores do próprio bloco</h2><div class="grid grid-3"><div class="card"><h3>Cobertura</h3><p>Processos com dados confiáveis.</p></div>
+<div class="card"><h3>Atualidade</h3><p>Latência da informação.</p></div>
+<div class="card"><h3>Ação</h3><p>Alertas tratados.</p></div>
+<div class="card"><h3>Precisão</h3><p>Qualidade das recomendações.</p></div>
+<div class="card"><h3>Impacto</h3><p>Ganho de prazo, produtividade e custo.</p></div>
+<div class="card"><h3>Adoção</h3><p>Uso por gestores e áreas.</p></div></div></section><section id="bloco-9-integracoes"><h2>8. Integrações</h2><table><tr><th>Origem</th><th>Uso</th></tr><tr><td>Todos os módulos</td><td>Eventos, status e indicadores.</td></tr><tr><td>ERP</td><td>Fonte dos fatos transacionais.</td></tr><tr><td>Modelagem</td><td>Definição oficial dos processos.</td></tr><tr><td>IA</td><td>Análise e recomendação.</td></tr><tr><td>Usuários</td><td>Validação, decisão e feedback.</td></tr></table></section><section id="bloco-9-mvp"><h2>MVP recomendado</h2><div class="grid grid-2"><div class="card"><h3>Dashboard executivo</h3><p>Indicadores e status por processo.</p></div>
+<div class="card"><h3>Kanban vivo</h3><p>Instâncias e gargalos.</p></div>
+<div class="card"><h3>Alertas básicos</h3><p>Prazo, fila e risco.</p></div>
+<div class="card"><h3>Linha do tempo</h3><p>Histórico de eventos.</p></div></div></section><section id="bloco-9-depois"><h2>O que pode ficar para depois</h2><div class="card"><ul><li>Simulação avançada</li><li>Otimização automática</li><li>Agentes autônomos</li><li>Previsão complexa</li><li>Gêmeo digital completo</li></ul></div></section></div></article></section><section id="pendencias">
+<h2>11. O que ainda precisa ser definido antes da documentação definitiva</h2>
+<div class="grid grid-2">
+<div class="card"><h3>Arquitetura de processos</h3><ul><li>Lista oficial de macroprocessos.</li><li>Donos de processo.</li><li>Fronteiras entre setores.</li><li>Entradas e saídas.</li><li>Exceções e retrabalhos.</li><li>Indicadores por processo.</li></ul></div>
+<div class="card"><h3>Modelo de dados</h3><ul><li>Entidades centrais.</li><li>Relacionamentos.</li><li>Identificadores únicos.</li><li>Histórico e auditoria.</li><li>Estados e transições.</li></ul></div>
+<div class="card"><h3>ERP e integrações</h3><ul><li>Quais dados já existem.</li><li>Qual sistema é fonte de cada informação.</li><li>APIs disponíveis.</li><li>Status confiáveis.</li><li>Dados que hoje ficam fora do ERP.</li></ul></div>
+<div class="card"><h3>Orquestração</h3><ul><li>Lead times reais.</li><li>Capacidades e restrições.</li><li>Prioridades.</li><li>Regras de replanejamento.</li><li>Aprovações humanas.</li></ul></div>
+<div class="card"><h3>Produto CIP</h3><ul><li>Escopo de cada módulo.</li><li>O que é núcleo comum.</li><li>Permissões.</li><li>UX e navegação.</li><li>Roadmap.</li></ul></div>
+<div class="card"><h3>Governança</h3><ul><li>Quem aprova processos.</li><li>Como publicar versões.</li><li>Como medir maturidade.</li><li>Como registrar melhorias.</li><li>Como manter o conteúdo vivo.</li></ul></div>
+</div>
+</section>
+<section id="proximo">
+<h2>12. Próximo caminho sugerido</h2>
+<div class="flow">
+<div class="node red">1. Consolidar conversa</div><div class="arrow">→</div>
+<div class="node">2. Mapear macroprocessos</div><div class="arrow">→</div>
+<div class="node">3. Detalhar subprocessos</div><div class="arrow">→</div>
+<div class="node">4. Definir dados e eventos</div><div class="arrow">→</div>
+<div class="node green">5. Evoluir módulos</div>
+</div>
+<p>Este HTML representa o primeiro passo: preservar e organizar o que foi discutido, sem transformar ideias ainda abertas em requisitos rígidos.</p>
+</section>
+<section id="glossario">
+<h2>13. Glossário inicial</h2>
+<div class="grid grid-3">
+<div class="card"><h3>Processo</h3><p>Modelo que descreve como um resultado é produzido.</p></div>
+<div class="card"><h3>Instância de processo</h3><p>Execução real de um processo para um pedido, cliente, contrato ou ocorrência.</p></div>
+<div class="card"><h3>Evento</h3><p>Fato confiável que indica que algo aconteceu e pode mover o processo.</p></div>
+<div class="card"><h3>Orquestração</h3><p>Coordenação de etapas, recursos, prazos e decisões entre diferentes áreas.</p></div>
+<div class="card"><h3>CIP</h3><p>Central Inteligente de Processos; plataforma em construção para modelar e futuramente coordenar a operação.</p></div>
+<div class="card"><h3>Fonte da verdade</h3><p>Sistema oficial onde determinado dado é registrado e considerado válido.</p></div>
+</div>
+</section>
+</main>
+<footer class="footer">CIP — Dossiê Completo Integrado<br/>Documento exploratório com macroprocesso, jornada operacional e visão dos Blocos 1 a 9.</footer>
+<script>
+const search = document.getElementById('search');
+search.addEventListener('input', () => {
+  const q = search.value.trim().toLowerCase();
+  document.querySelectorAll('main section').forEach(sec => {
+    sec.classList.toggle('hidden', q && !sec.innerText.toLowerCase().includes(q));
+  });
+});
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const parent=btn.closest('section');
+    parent.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    parent.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+    parent.querySelector('#'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+const bpmnCanvas = document.getElementById('bpmnCanvas');
+const bpmnScroll = document.getElementById('bpmnScroll');
+const bpmnFrame = document.getElementById('bpmnFrame');
+const bpmnZoomLabel = document.getElementById('bpmnZoomLabel');
+let bpmnScale = 1;
+
+function applyBpmnScale() {
+  bpmnCanvas.style.transform = `scale(${bpmnScale})`;
+  bpmnCanvas.style.marginBottom = `${1020 * (bpmnScale - 1)}px`;
+  bpmnCanvas.style.marginRight = `${2380 * (bpmnScale - 1)}px`;
+  bpmnZoomLabel.textContent = `${Math.round(bpmnScale * 100)}%`;
+}
+function fitBpmn() {
+  const usable = Math.max(320, bpmnFrame.clientWidth - 22);
+  bpmnScale = Math.min(1, usable / 2380);
+  applyBpmnScale();
+  bpmnScroll.scrollTo({left:0, top:0});
+}
+document.getElementById('bpmnZoomIn').addEventListener('click', () => {
+  bpmnScale = Math.min(1.6, bpmnScale + .1); applyBpmnScale();
+});
+document.getElementById('bpmnZoomOut').addEventListener('click', () => {
+  bpmnScale = Math.max(.35, bpmnScale - .1); applyBpmnScale();
+});
+document.getElementById('bpmnZoomReset').addEventListener('click', fitBpmn);
+document.getElementById('bpmnOpenFull').addEventListener('click', () => {
+  bpmnScroll.style.maxHeight = bpmnScroll.style.maxHeight === 'none' ? '78vh' : 'none';
+  document.getElementById('bpmnOpenFull').textContent =
+    bpmnScroll.style.maxHeight === 'none' ? 'Recolher diagrama' : 'Abrir em destaque';
+});
+bpmnScroll.addEventListener('wheel', (event) => {
+  if (!event.ctrlKey) return;
+  event.preventDefault();
+  bpmnScale = Math.max(.35, Math.min(1.6, bpmnScale + (event.deltaY < 0 ? .08 : -.08)));
+  applyBpmnScale();
+}, {passive:false});
+
+let isDragging = false, dragX = 0, dragY = 0, startLeft = 0, startTop = 0;
+bpmnScroll.addEventListener('mousedown', (event) => {
+  isDragging = true; dragX = event.clientX; dragY = event.clientY;
+  startLeft = bpmnScroll.scrollLeft; startTop = bpmnScroll.scrollTop;
+  bpmnScroll.classList.add('dragging');
+});
+window.addEventListener('mousemove', (event) => {
+  if (!isDragging) return;
+  bpmnScroll.scrollLeft = startLeft - (event.clientX - dragX);
+  bpmnScroll.scrollTop = startTop - (event.clientY - dragY);
+});
+window.addEventListener('mouseup', () => {
+  isDragging = false; bpmnScroll.classList.remove('dragging');
+});
+window.addEventListener('resize', fitBpmn);
+fitBpmn();
+
+</script>
+</body>
+</html>
