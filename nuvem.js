@@ -111,6 +111,7 @@ function pecasDoEstado(st) {
   (st.processos || []).forEach((p) => pecas.push({ id: `p:${p.id}`, tipo: "processo", dados: p }));
   (st.decisoes || []).forEach((d) => pecas.push({ id: `d:${d.id}`, tipo: "decisao", dados: d }));
   (st.documentos || []).forEach((d) => pecas.push({ id: `doc:${d.id}`, tipo: "documento", dados: d }));
+  (st.sistemas || []).forEach((s) => pecas.push({ id: `sis:${s.id}`, tipo: "sistema", dados: s }));
   return pecas;
 }
 
@@ -121,6 +122,7 @@ function estadoDePecas(linhas) {
     else if (l.tipo === "processo") base.processos.push(l.dados);
     else if (l.tipo === "decisao") base.decisoes.push(l.dados);
     else if (l.tipo === "documento") base.documentos.push(l.dados);
+    else if (l.tipo === "sistema") base.sistemas.push(l.dados);
   });
   return normalizar(base);
 }

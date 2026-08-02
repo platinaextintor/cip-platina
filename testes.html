@@ -90,7 +90,7 @@
         return {
           id: "ps1", tipo: "etapa", cargoId: "", oQue: "Fazer algo", comoFazer: "",
           porque: "", armadilha: "", regra: "", imagem: "", videoUrl: "",
-          seSim: "", seNao: "", ...extra,
+          seSim: "", seNao: "", sistemaIds: [], ...extra,
         };
       }
 
@@ -98,9 +98,10 @@
 
       grupo("Domínio · estado");
 
-      teste("estadoVazio traz as sete listas do modelo", () => {
+      teste("estadoVazio traz todas as listas do modelo", () => {
         const v = estadoVazio();
-        igual(Object.keys(v).sort(), ["cargos", "decisoes", "documentos", "empresa", "fases", "processos", "setores"]);
+        igual(Object.keys(v).sort(),
+          ["cargos", "decisoes", "documentos", "empresa", "fases", "processos", "setores", "sistemas"]);
       });
 
       teste("semente traz o esqueleto e nenhum conteúdo", () => {
@@ -307,6 +308,57 @@
         state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial", faseId: "f-orcar",
           proximos: [{ para: "b", rotulo: "sim" }] }];
         igual(elosFracos().map((x) => x.falta), ["entrada"]);
+      });
+
+      grupo("Domínio · sistema como objeto");
+
+      teste("estadoVazio passa a ter a lista de sistemas", () => {
+        if (!Array.isArray(estadoVazio().sistemas)) throw new Error("sem lista de sistemas");
+      });
+
+      teste("os sistemas do processo vêm dos passos, não são guardados nele", () => {
+        state = semente();
+        state.sistemas = [{ id: "cad", nome: "CAD", descricao: "", url: "", critico: true }];
+        const p = proc({ passos: [passo({ id: "1", sistemaIds: ["cad"] }), passo({ id: "2" })] });
+        igual(sistemasDoProcesso(p).map((s) => s.nome), ["CAD"]);
+        if ("sistemaIds" in p) throw new Error("o processo não deveria guardar sistemas");
+      });
+
+      teste("o mesmo sistema em dois passos aparece uma vez só", () => {
+        state = semente();
+        state.sistemas = [{ id: "cad", nome: "CAD", descricao: "", url: "", critico: false }];
+        const p = proc({ passos: [passo({ id: "1", sistemaIds: ["cad"] }), passo({ id: "2", sistemaIds: ["cad"] })] });
+        igual(sistemasDoProcesso(p).length, 1);
+      });
+
+      teste("a pergunta inversa: o que para se o CAD cair", () => {
+        state = semente();
+        state.sistemas = [{ id: "cad", nome: "CAD", descricao: "", url: "", critico: true }];
+        state.processos = [
+          proc({ id: "a", nome: "Orçamento", passos: [passo({ id: "1", oQue: "Lançar pedido", sistemaIds: ["cad"] })] }),
+          proc({ id: "b", nome: "Inspeção", passos: [passo({ id: "2" })] }),
+          proc({ id: "c", nome: "Entrega", passos: [passo({ id: "3", sistemaIds: ["cad"] }), passo({ id: "4", sistemaIds: ["cad"] })] }),
+        ];
+        const onde = ondeApareceOSistema("cad");
+        igual(onde.map((x) => [x.processo.nome, x.passos.length]), [["Orçamento", 1], ["Entrega", 2]]);
+      });
+
+      teste("apagar o sistema limpa a referência nos passos", () => {
+        const d = normalizar({
+          empresa: {}, setores: [], cargos: [], fases: [], decisoes: [], documentos: [], sistemas: [],
+          processos: [proc({ passos: [passo({ sistemaIds: ["sumiu"] })] })],
+        });
+        igual(d.processos[0].passos[0].sistemaIds, []);
+      });
+
+      teste("sistema crítico sem nenhum passo é apontado", () => {
+        state = semente();
+        state.sistemas = [
+          { id: "cad", nome: "CAD", descricao: "", url: "", critico: true },
+          { id: "zap", nome: "WhatsApp", descricao: "", url: "", critico: false },
+        ];
+        state.processos = [proc({ passos: [passo({ sistemaIds: ["zap"] })] })];
+        igual(sistemasOrfaos().map((s) => s.nome), ["CAD"]);
       });
 
       // ============================================================ BPMN

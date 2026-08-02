@@ -67,6 +67,7 @@ function estadoVazio() {
     fases: [],
     decisoes: [],
     documentos: [],
+    sistemas: [],
     processos: [],
   };
 }
@@ -114,6 +115,14 @@ function normalizar(dados) {
   dados.documentos = Array.isArray(dados.documentos) ? dados.documentos : [];
   dados.decisoes = Array.isArray(dados.decisoes) ? dados.decisoes : [];
 
+  dados.sistemas = Array.isArray(dados.sistemas) ? dados.sistemas : [];
+  dados.sistemas.forEach((s) => {
+    s.nome = s.nome || "";
+    s.descricao = s.descricao || "";
+    s.url = s.url || "";
+    s.critico = !!s.critico;
+  });
+
   dados.setores.forEach((s) => {
     if (!CAMADAS[s.camada]) s.camada = "principal";
   });
@@ -143,7 +152,12 @@ function normalizar(dados) {
     p.entrada = p.entrada || "";
     p.saida = p.saida || "";
     p.revisado = p.revisado !== false;
-    p.passos.forEach((s) => { s.cargoId = s.cargoId || ""; });
+    p.passos.forEach((s) => {
+      s.cargoId = s.cargoId || "";
+      /* Sistema que sobrou de um apagado vira lixo silencioso. */
+      s.sistemaIds = (Array.isArray(s.sistemaIds) ? s.sistemaIds : [])
+        .filter((id) => dados.sistemas.some((x) => x.id === id));
+    });
   });
 
   /* Ligação apontando para peça apagada vira lixo silencioso. */
@@ -391,6 +405,7 @@ function novoPasso(tipo) {
     id: uid("ps"),
     tipo,
     cargoId: "",
+    sistemaIds: [],
     oQue: "",
     comoFazer: "",
     porque: "",
@@ -441,7 +456,8 @@ function aplicarNoEstado(m) {
   }
   const [prefixo, ...resto] = m.peca.split(":");
   const id = resto.join(":");
-  const lista = prefixo === "p" ? "processos" : prefixo === "d" ? "decisoes" : "documentos";
+  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas" }[prefixo];
+  if (!lista) return;
   const i = state[lista].findIndex((x) => x.id === id);
 
   /* Substitui no lugar, nunca no fim: a ordem da lista é a ordem na tela. */
@@ -462,6 +478,7 @@ const fase = (id) => state.fases.find((f) => f.id === id);
 
 const processo = (id) => state.processos.find((p) => p.id === id);
 
+const sistema = (id) => state.sistemas.find((s) => s.id === id);
 const documento = (id) => state.documentos.find((d) => d.id === id);
 
 const decisao = (id) => state.decisoes.find((d) => d.id === id);
@@ -497,4 +514,36 @@ function elosFracos(st = state) {
     }
   });
   return falhas;
+}
+
+
+/* O sistema é objeto de primeira classe, como cargo e setor: existe uma vez e é
+   referenciado. É isso que permite a pergunta inversa — e a pergunta inversa é
+   o que separa um desenhador de processos de um repositório. */
+
+/* Quais sistemas um processo toca. Não é guardado no processo: vem dos passos,
+   pela mesma regra que vale para a trilha do cargo. */
+function sistemasDoProcesso(p) {
+  const ids = [];
+  (p?.passos || []).forEach((s) => (s.sistemaIds || []).forEach((id) => {
+    if (!ids.includes(id)) ids.push(id);
+  }));
+  return ids.map(sistema).filter(Boolean);
+}
+
+/* A pergunta que justifica tudo isto: o que para se este sistema cair?
+   Devolve os processos e, dentro deles, os passos exatos que dependem. */
+function ondeApareceOSistema(sistemaId, st = state) {
+  return st.processos
+    .map((p) => ({
+      processo: p,
+      passos: (p.passos || []).filter((s) => (s.sistemaIds || []).includes(sistemaId)),
+    }))
+    .filter((x) => x.passos.length);
+}
+
+/* Sistema crítico sem nenhum passo declarado é suspeito: ou não é crítico, ou
+   o mapeamento está incompleto. Vale avisar em vez de deixar passar. */
+function sistemasOrfaos(st = state) {
+  return st.sistemas.filter((s) => s.critico && !ondeApareceOSistema(s.id, st).length);
 }

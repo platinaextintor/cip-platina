@@ -37,6 +37,7 @@ Aplicada em quatro lugares:
 | o diagrama BPMN | dos passos do processo |
 | a árvore do organograma | de `cargo.reportaA` |
 | a camada do processo | da camada do setor dele |
+| os sistemas do processo | dos sistemas dos passos dele |
 
 É o que impede o CIP de virar cópias desencontradas — o erro clássico de ferramenta caseira de processo. É também o princípio central do ARIS: cada objeto existe uma vez e é reutilizado.
 
@@ -51,6 +52,7 @@ Aplicada em quatro lugares:
   fases:      [{ id, nome }],                                  // a cadeia de valor
   decisoes:   [{ id, pergunta, setorId, faseId, proximos }],    // os losangos do macro
   documentos: [{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
+  sistemas:   [{ id, nome, descricao, url, critico }],          // onde o trabalho acontece
   processos:  [{
     id, nome, faseId, setorId, donoCargoId, cargosIds[], status, revisado, videoUrl,
     proximos: [{ para, rotulo }],
@@ -58,7 +60,7 @@ Aplicada em quatro lugares:
     porque, seErrar,
     anexos:    [{ id, titulo, url }],
     passos:    [{ id, tipo, cargoId, oQue, comoFazer, porque, armadilha, regra,
-                  imagem, videoUrl, seSim, seNao }],
+                  imagem, videoUrl, seSim, seNao, sistemaIds[] }],
     perguntas: [{ id, pergunta, resposta }],
   }],
 }
@@ -78,7 +80,8 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 6. **Alteração remota substitui no lugar**, nunca no fim — a ordem da lista é a ordem na tela.
 7. **O domínio não conhece `ui`.** Se precisar de algo da tela, recebe por parâmetro.
 8. **A camada mora no setor**, nunca no processo — o processo herda.
-9. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
+9. **O sistema é objeto, não texto.** Existe uma vez e é referenciado pelo passo — por isso `ondeApareceOSistema()` consegue responder o que para se ele cair. Apagar o sistema limpa a referência em todos os passos.
+10. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 

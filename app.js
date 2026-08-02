@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v19";
+const VERSAO = "v20";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -176,6 +176,7 @@ let ui = {
   processoId: null,
   passoIdx: 0,
   docId: null,
+  sistemaId: null,
   agrupar: "setor",
   ligando: null,
   arrastando: null,
@@ -308,7 +309,7 @@ function render() {
   const grupo = {
     organograma: "organograma", trilha: "organograma", cargoEditor: "organograma",
     fluxo: "fluxo", aula: "fluxo", editor: "fluxo", desenho: "fluxo", macro: "fluxo",
-    biblioteca: "biblioteca", docEditor: "biblioteca",
+    biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca",
   }[ui.view];
   $$(".tab").forEach((b) => b.classList.toggle("is-active", b.dataset.go === grupo));
 
@@ -321,6 +322,7 @@ function render() {
     cargoEditor: viewCargoEditor,
     biblioteca: viewBiblioteca,
     docEditor: viewDocEditor,
+    sistemaEditor: viewSistemaEditor,
     desenho: viewDesenho,
     macro: viewMacro,
   };
@@ -331,6 +333,7 @@ function render() {
   if (ui.view === "editor") ligarEditor(main);
   if (ui.view === "cargoEditor") ligarCargoEditor(main);
   if (ui.view === "docEditor") ligarDocEditor(main);
+  if (ui.view === "sistemaEditor") ligarSistemaEditor(main);
   if (ui.view === "desenho") ligarDesenho(main);
   if (ui.view === "macro") ligarMacro(main);
   if (ui.view === "fluxo") requestAnimationFrame(desenharLigacoes);
@@ -1447,6 +1450,17 @@ function telaPasso(p, s, i, totalPassos) {
       <h2 class="step-title">${esc(s.oQue || "passo sem título")}</h2>
       ${s.comoFazer?.trim() ? `<p class="step-sub">${esc(s.comoFazer)}</p>` : ""}
 
+      ${(s.sistemaIds || []).length ? `<div class="btn-row" style="margin-top:12px">
+        ${s.sistemaIds.map((id) => {
+          const sis = sistema(id);
+          if (!sis) return "";
+          const url = linkSeguro(sis.url);
+          return url
+            ? `<a class="btn btn-sm link-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${icon("link", 14)} ${esc(sis.nome)}</a>`
+            : `<span class="tag navy">${esc(sis.nome)}</span>`;
+        }).join("")}
+      </div>` : ""}
+
       ${s.imagem
         ? `<div class="shot"><img src="${esc(s.imagem)}" alt="Exemplo real do passo ${i}"></div>`
         : (s.videoUrl?.trim() ? "" : '<div class="shot"><div class="shot-empty">Sem exemplo ainda. Um print, foto ou vídeo real aqui é o que faz esse passo grudar.</div></div>')}
@@ -1690,6 +1704,16 @@ function editorPasso(s, i, total) {
             ${s.imagem ? '<button class="btn btn-sm btn-ghost" data-remover-imagem type="button">Remover</button>' : ""}
           </div>
         </div>
+
+        ${state.sistemas.length ? `
+        <div class="field">
+          <label>Onde é feito <span class="hint">— o sistema usado neste passo</span></label>
+          <div class="chips">
+            ${state.sistemas.map((sis) => `
+              <button class="chip${(s.sistemaIds || []).includes(sis.id) ? " on" : ""}" data-sistema-passo="${sis.id}" type="button">${esc(sis.nome)}</button>
+            `).join("")}
+          </div>
+        </div>` : ""}
 
         <div class="field">
           <label>Vídeo deste passo <span class="hint">— link do YouTube, opcional</span></label>
@@ -2076,8 +2100,37 @@ function viewBiblioteca() {
           <h1>RH, regras e políticas</h1>
           <p>Regimento interno, política comercial, manuais. O que vale para a empresa inteira e não cabe dentro de um processo específico.</p>
         </div>
-        <button class="btn" data-novo-doc type="button">${icon("plus")} Novo documento</button>
+        <div class="btn-row">
+          <button class="btn" data-novo-doc type="button">${icon("plus")} Novo documento</button>
+          <button class="btn" data-novo-sistema type="button">${icon("plus")} Novo sistema</button>
+        </div>
       </div>
+
+      <div class="section-title"><h3>Sistemas</h3><span class="line"></span><span class="muted">${state.sistemas.length}</span></div>
+      <p class="hint">Onde o trabalho acontece: CAD, ERP, WhatsApp, planilha. Ligando os sistemas aos passos, o CIP responde o que para quando um deles cai.</p>
+
+      ${sistemasOrfaos().length ? `<div class="filter-bar aviso" style="margin:12px 0">
+        ${icon("link", 15)} <strong>${sistemasOrfaos().length} sistema${sistemasOrfaos().length === 1 ? "" : "s"} marcado${sistemasOrfaos().length === 1 ? "" : "s"} como crítico${sistemasOrfaos().length === 1 ? "" : "s"} sem nenhum passo declarado.</strong>
+        ${esc(sistemasOrfaos().map((s) => s.nome).join(", "))} — ou não é crítico, ou falta mapear.
+      </div>` : ""}
+
+      ${state.sistemas.length ? `<div class="doc-grid" style="margin-bottom:26px">
+        ${state.sistemas.map((s) => {
+          const onde = ondeApareceOSistema(s.id);
+          const passos = onde.reduce((n, x) => n + x.passos.length, 0);
+          return `
+            <button class="doc-card" data-sistema="${s.id}" type="button">
+              <div class="btn-row">
+                ${s.critico ? '<span class="tag red">crítico</span>' : '<span class="tag">sistema</span>'}
+                <span class="tag ${passos ? "green" : "amber"}">${passos ? `${onde.length} processo${onde.length === 1 ? "" : "s"}` : "não usado ainda"}</span>
+              </div>
+              <h3>${esc(s.nome || "sem nome")}</h3>
+              <p>${esc(s.descricao)}</p>
+            </button>`;
+        }).join("")}
+      </div>` : '<div class="empty" style="margin-bottom:26px">Nenhum sistema cadastrado.</div>'}
+
+      <div class="section-title"><h3>Documentos</h3><span class="line"></span><span class="muted">${state.documentos.length}</span></div>
 
       ${state.documentos.length ? `<div class="doc-grid">
         ${state.documentos.map((d) => `
@@ -2150,6 +2203,101 @@ function viewDocEditor() {
         </div>` : ""}
     </div>
   `;
+}
+
+function viewSistemaEditor() {
+  const s = sistema(ui.sistemaId);
+  if (!s) return viewBiblioteca();
+  const onde = ondeApareceOSistema(s.id);
+  const passos = onde.reduce((n, x) => n + x.passos.length, 0);
+
+  return `
+    <div class="editor">
+      <div class="lesson-top">
+        <button class="btn btn-sm btn-ghost" data-go="biblioteca" type="button">${icon("back", 15)} Biblioteca</button>
+        <span class="spacer"></span>
+        <button class="btn btn-sm btn-danger" data-apagar-sistema type="button">${icon("trash", 15)} Apagar</button>
+      </div>
+
+      <div class="stack">
+        <div class="field">
+          <label for="sis-nome">Nome</label>
+          <input id="sis-nome" data-s-sis="nome" value="${esc(s.nome)}" placeholder="CAD, ERP, WhatsApp Business…" />
+        </div>
+        <div class="field">
+          <label for="sis-desc">Para que serve</label>
+          <textarea id="sis-desc" data-s-sis="descricao" placeholder="Em uma linha: o que a equipe faz nele.">${esc(s.descricao)}</textarea>
+        </div>
+        <div class="field">
+          <label for="sis-url">Endereço <span class="hint">— opcional</span></label>
+          <input id="sis-url" data-s-sis="url" value="${esc(s.url)}" placeholder="https://…" />
+        </div>
+        <div class="field">
+          <label>Se cair, a operação para?</label>
+          <div class="chips">
+            <button class="chip${s.critico ? " on" : ""}" data-critico type="button">${s.critico ? "Crítico" : "Não crítico"}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title"><h3>O que para se este sistema cair</h3><span class="line"></span></div>
+
+      ${onde.length ? `
+        <p class="hint">${onde.length} processo${onde.length === 1 ? "" : "s"} · ${passos} passo${passos === 1 ? "" : "s"} dependem dele.</p>
+        <div class="stack" style="margin-top:12px">
+          ${onde.map((x) => `
+            <div class="learn-item">
+              <div class="learn-head">
+                <span class="tag" style="background:${corSetor(x.processo.setorId)}1a;color:${corSetor(x.processo.setorId)}">${esc(setor(x.processo.setorId)?.nome || "sem setor")}</span>
+                <span class="muted">${esc(cargo(x.processo.donoCargoId)?.nome || "sem dono")}</span>
+              </div>
+              <h3>${esc(x.processo.nome)}</h3>
+              <ul class="lista">
+                ${x.passos.map((p) => `<li>${esc(p.oQue || "passo sem título")}${p.cargoId ? ` <span class="muted">— ${esc(cargo(p.cargoId)?.nome || "")}</span>` : ""}</li>`).join("")}
+              </ul>
+              <button class="btn btn-sm link-btn" data-processo="${x.processo.id}" type="button" style="margin-top:12px">Abrir o processo</button>
+            </div>`).join("")}
+        </div>
+      ` : `<div class="empty">Nenhum passo declara usar este sistema ainda. Marque-o nos passos, dentro do editor do processo.</div>`}
+    </div>
+  `;
+}
+
+function ligarSistemaEditor(raiz) {
+  const s = sistema(ui.sistemaId);
+  if (!s) return;
+
+  $$("[data-s-sis]", raiz).forEach((campo) => campo.addEventListener("input", () => {
+    s[campo.dataset.sSis] = campo.value;
+    salvar();
+  }));
+
+  $("[data-critico]", raiz)?.addEventListener("click", () => {
+    s.critico = !s.critico;
+    salvar(true);
+    render();
+  });
+
+  $("[data-apagar-sistema]", raiz)?.addEventListener("click", () => {
+    const onde = ondeApareceOSistema(s.id);
+    const aviso = onde.length
+      ? `"${s.nome}" é usado em ${onde.length} processo(s). Apagar tira a marcação de todos os passos.`
+      : `Apagar "${s.nome}"?`;
+    if (!confirm(aviso)) return;
+    state.sistemas = state.sistemas.filter((x) => x.id !== s.id);
+    state.processos.forEach((p) => (p.passos || []).forEach((passo) => {
+      passo.sistemaIds = (passo.sistemaIds || []).filter((id) => id !== s.id);
+    }));
+    salvar(true);
+    ir("biblioteca");
+  });
+}
+
+function novoSistema() {
+  const s = { id: uid("sis"), nome: "Novo sistema", descricao: "", url: "", critico: false };
+  state.sistemas.push(s);
+  salvar(true);
+  ir("sistemaEditor", { sistemaId: s.id });
 }
 
 function ligarDocEditor(raiz) {
@@ -2240,6 +2388,7 @@ function abrirContarProcesso() {
         id: uid("ps"),
         tipo: TIPOS[s.tipo] ? s.tipo : "etapa",
         cargoId: existe(state.cargos, s.cargoId) ? s.cargoId : "",
+        sistemaIds: [],
         oQue: s.oQue || "",
         comoFazer: s.comoFazer || "",
         porque: s.porque || "",
@@ -2313,6 +2462,7 @@ function ligarEventos(raiz) {
   $$("[data-editar-cargo]", raiz).forEach((b) => b.addEventListener("click", () => ir("cargoEditor", { cargoSel: b.dataset.editarCargo })));
   $$("[data-editar-setor]", raiz).forEach((b) => b.addEventListener("click", () => abrirDrawerSetor(b.dataset.editarSetor)));
   $$("[data-doc]", raiz).forEach((b) => b.addEventListener("click", () => ir("docEditor", { docId: b.dataset.doc })));
+  $$("[data-sistema]", raiz).forEach((b) => b.addEventListener("click", () => ir("sistemaEditor", { sistemaId: b.dataset.sistema })));
 
   $$("[data-processo]", raiz).forEach((b) => b.addEventListener("click", () => abrirAula(b.dataset.processo)));
   $$("[data-editar]", raiz).forEach((b) => b.addEventListener("click", () => ir("editor", { processoId: b.dataset.editar })));
@@ -2405,6 +2555,7 @@ function ligarEventos(raiz) {
   if (nc) nc.addEventListener("click", novoCargo);
   const nd = $("[data-novo-doc]", raiz);
   if (nd) nd.addEventListener("click", novoDocumento);
+  $("[data-novo-sistema]", raiz)?.addEventListener("click", novoSistema);
   $("[data-macro]", raiz)?.addEventListener("click", () => ir("macro"));
   const contar = $("[data-contar]", raiz);
   if (contar) contar.addEventListener("click", abrirContarProcesso);
@@ -2496,6 +2647,15 @@ function ligarEditor(raiz) {
       render();
     });
 
+    $$("[data-sistema-passo]", bloco).forEach((chip) => chip.addEventListener("click", () => {
+      const id = chip.dataset.sistemaPasso;
+      s.sistemaIds = (s.sistemaIds || []).includes(id)
+        ? s.sistemaIds.filter((x) => x !== id)
+        : [...(s.sistemaIds || []), id];
+      chip.classList.toggle("on");
+      salvar(true);
+    }));
+
     $("[data-ia-passo]", bloco)?.addEventListener("click", async (evento) => {
       if (await completarPassoComIA(evento.currentTarget, p, s)) render();
     });
@@ -2540,7 +2700,7 @@ function ligarEditor(raiz) {
   const novoPasso = $("[data-novo-passo]", raiz);
   if (novoPasso) novoPasso.addEventListener("click", () => {
     p.passos = p.passos || [];
-    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", oQue: "", comoFazer: "", porque: "", armadilha: "", regra: "", imagem: "", videoUrl: "", seSim: "", seNao: "" });
+    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", sistemaIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", regra: "", imagem: "", videoUrl: "", seSim: "", seNao: "" });
     salvar(true);
     render();
     const blocos = $$(".step-editor[data-passo-id]");
