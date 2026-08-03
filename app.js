@@ -2863,12 +2863,17 @@ function viewBiblioteca() {
       </div>` : '<div class="empty" style="margin-bottom:26px">Nenhum sistema cadastrado.</div>'}
 
       <div class="section-title"><h3>Documentos</h3><span class="line"></span><span class="muted">${state.documentos.length}</span></div>
+      <div class="note note-rule" style="margin:10px 0 14px">
+        <div class="block-label">O que entra aqui — e o que não</div>
+        <p><strong>Não coloque POP aqui.</strong> No CIP o POP é o passo a passo do processo: ele já diz o que fazer, como fazer, quem faz, por quê, onde se erra, a regra e a evidência. Precisou de POP em papel? Abra o processo e use <strong>Imprimir o passo a passo</strong> — sai com carimbo dizendo se está aprovado, por quem e quando.</p>
+        <p style="margin-top:8px">A biblioteca guarda o que <strong>vem de fora</strong> e o CIP não consegue deduzir: norma, manual do fabricante, formulário, contrato, laudo, política, material de treinamento.</p>
+      </div>
 
       ${state.documentos.length ? `<div class="doc-grid">
         ${state.documentos.map((d) => `
           <button class="doc-card" data-doc="${d.id}" type="button">
             <div class="btn-row">
-              <span class="tag red">${esc(d.categoria || "geral")}</span>
+              <span class="tag red">${esc(TIPOS_DOCUMENTO[d.categoria]?.rotulo || "outro")}</span>
               <span class="tag">${esc(d.escopo || "empresa")}</span>
             </div>
             <h3>${esc(d.titulo)}</h3>
@@ -2903,8 +2908,11 @@ function viewDocEditor() {
         </div>
         <div class="field-grid">
           <div class="field">
-            <label for="d-cat">Categoria</label>
-            <input id="d-cat" data-d="categoria" value="${esc(d.categoria)}" placeholder="RH, Comercial, Técnico..." />
+            <label for="d-cat">Que tipo de documento é</label>
+            <select id="d-cat" data-d="categoria">
+              ${Object.entries(TIPOS_DOCUMENTO).map(([k, t]) => `<option value="${k}"${d.categoria === k ? " selected" : ""}>${esc(t.rotulo)}</option>`).join("")}
+            </select>
+            <p class="hint">${esc(TIPOS_DOCUMENTO[d.categoria]?.ajuda || "")}</p>
           </div>
           <div class="field">
             <label for="d-esc">Vale para</label>
@@ -3192,11 +3200,11 @@ function ligarDocEditor(raiz) {
 
   $("[data-ia-doc]", raiz)?.addEventListener("click", async (evento) => {
     if (!d.titulo?.trim()) return alert("Escreva o título antes.");
-    const entrada = `Documento: ${d.titulo}\nCategoria atual: ${d.categoria || "—"}\nVale para: ${d.escopo || "—"}`;
+    const entrada = `Documento: ${d.titulo}\nTipo (escolha um de: ${Object.keys(TIPOS_DOCUMENTO).join(", ")}): ${d.categoria}\nVale para: ${d.escopo || "—"}`;
     const sugestao = await comEspera(evento.currentTarget, () => chamarIA("documento", entrada, contextoBase()));
     if (!sugestao) return;
     preencherVazios(d, sugestao, ["resumo"]);
-    if (sugestao.categoria && (!d.categoria || d.categoria === "Geral")) d.categoria = sugestao.categoria;
+    if (TIPOS_DOCUMENTO[sugestao.categoria] && d.categoria === "outro") d.categoria = sugestao.categoria;
     if (sugestao.escopo && !d.escopo?.trim()) d.escopo = sugestao.escopo;
     salvar(true);
     render();
@@ -3212,7 +3220,7 @@ function ligarDocEditor(raiz) {
 }
 
 function novoDocumento() {
-  const d = { id: uid("d"), titulo: "Novo documento", categoria: "Geral", escopo: "Empresa inteira", resumo: "", url: "", videoUrl: "" };
+  const d = { id: uid("d"), titulo: "Novo documento", categoria: "outro", escopo: "", resumo: "", url: "", videoUrl: "" };
   state.documentos.push(d);
   salvar(true);
   ir("docEditor", { docId: d.id });

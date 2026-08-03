@@ -64,6 +64,27 @@ const TIPOS_TRILHA = {
   documento: { rotulo: "Documento interno", classe: "green" },
 };
 
+/* O que a biblioteca guarda — e, por consequência, o que ela NÃO guarda.
+
+   Decisão do Eric em 03/08/2026: no CIP o POP é o passo a passo do processo.
+   Ele já tem o que fazer, como fazer, quem faz, por quê, onde se erra, a regra
+   e a evidência. Um POP em Word ao lado disso seria uma segunda verdade sobre
+   o mesmo trabalho, e no dia que a regra mudar uma das duas fica para trás.
+
+   Então a biblioteca é para o que o CIP NÃO consegue deduzir: o que vem de
+   fora. A lista é fechada de propósito — campo livre vira bagunça em três
+   meses, com "Técnico", "técnica" e "Téc." significando a mesma coisa. */
+const TIPOS_DOCUMENTO = {
+  norma: { rotulo: "Norma técnica", ajuda: "ABNT, Corpo de Bombeiros, exigência legal. Vem de fora e você não escreve — cumpre." },
+  manual: { rotulo: "Manual do fabricante", ajuda: "Ficha técnica, manual de equipamento, especificação de peça." },
+  formulario: { rotulo: "Formulário ou checklist", ajuda: "O papel que alguém preenche durante o trabalho." },
+  contrato: { rotulo: "Contrato ou modelo", ajuda: "Contrato, proposta padrão, termo que a empresa usa." },
+  laudo: { rotulo: "Laudo ou certificado", ajuda: "A prova emitida: laudo, certificado, ART, relatório assinado." },
+  politica: { rotulo: "Política ou regimento", ajuda: "A regra da casa escrita em prosa — o que vem antes do processo." },
+  treinamento: { rotulo: "Material de treinamento", ajuda: "Apostila, apresentação, vídeo usado para ensinar." },
+  outro: { rotulo: "Outro", ajuda: "Ainda não se encaixou em nenhum. Se muitos caírem aqui, falta um tipo." },
+};
+
 const TIPOS = {
   etapa: { rotulo: "Etapa", cor: "var(--ink-3)", classe: "" },
   decisao: { rotulo: "Decisão", cor: "var(--amber)", classe: "amber" },
@@ -119,6 +140,34 @@ function normalizarSaidas(bruto) {
 function normalizar(dados) {
   dados.empresa = dados.empresa || { nome: "Empresa" };
   dados.documentos = Array.isArray(dados.documentos) ? dados.documentos : [];
+  dados.documentos.forEach((doc) => {
+    doc.titulo = doc.titulo || "";
+    doc.resumo = doc.resumo || "";
+    doc.escopo = doc.escopo || "";
+    if (TIPOS_DOCUMENTO[doc.categoria]) return;
+
+    /* O campo era texto livre. O que dá para reconhecer vira tipo; o resto cai
+       em "outro" — e, se for descrição de a-quem-serve e não de o-que-é, migra
+       para o escopo, que é onde essa informação sempre deveria ter morado. */
+    const bruto = String(doc.categoria || "").trim();
+    const chave = bruto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const acha = (...termos) => termos.some((t) => chave.includes(t));
+
+    doc.categoria =
+      acha("norma", "nbr", "abnt", "bombeiro", "legal", "nr-", "nr ") ? "norma"
+      : acha("manual", "fabricante", "ficha tec", "especific") ? "manual"
+      : acha("formul", "checklist", "check-list", "planilha") ? "formulario"
+      : acha("contrato", "proposta", "termo", "modelo") ? "contrato"
+      : acha("laudo", "certific", "art", "relatorio") ? "laudo"
+      : acha("politic", "regiment", "regra", "manual da empresa") ? "politica"
+      : acha("treinamento", "apostila", "curso", "aula") ? "treinamento"
+      : acha("pop", "procedimento", "instrucao") ? "outro"   // POP virou o passo a passo
+      : "outro";
+
+    if (doc.categoria === "outro" && bruto && !/^geral$/i.test(bruto) && !doc.escopo.trim()) {
+      doc.escopo = bruto;
+    }
+  });
   dados.decisoes = Array.isArray(dados.decisoes) ? dados.decisoes : [];
 
   dados.sistemas = Array.isArray(dados.sistemas) ? dados.sistemas : [];
@@ -1306,7 +1355,7 @@ function pendencias(st = state) {
 
   st.documentos.forEach((d) => {
     if (!d.url?.trim() && !d.videoUrl?.trim() && !d.resumo?.trim()) {
-      põe(4, "documento", d.titulo || "sem título", "não tem arquivo, vídeo nem resumo — é um nome sem conteúdo", { view: "docEditor", extras: { documentoId: d.id } });
+      põe(4, "documento", d.titulo || "sem título", "não tem arquivo, vídeo nem resumo — é um nome sem conteúdo", { view: "docEditor", extras: { docId: d.id } });
     }
   });
 

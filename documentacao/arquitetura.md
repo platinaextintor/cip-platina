@@ -219,6 +219,20 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
+## POP é o passo a passo, não um documento
+
+Decisão do Eric em 03/08/2026, depois de perguntar o que era POP e de onde vinha.
+
+**POP — Procedimento Operacional Padrão** — vem da gestão da qualidade: política → procedimento → POP → registro. No CIP, **o POP é o passo a passo do processo**. Ele já tem o que fazer, como fazer, quem faz, por quê, onde todo mundo erra, a regra que vale, o sistema onde é feito e a evidência exigida — mais do que um POP tradicional carrega.
+
+Um POP em Word ao lado disso seria uma segunda verdade sobre o mesmo trabalho, e no dia que a regra mudar uma das duas fica para trás. Precisou de POP em papel? **Imprimir o passo a passo** — sai com carimbo dizendo se está aprovado, por quem e quando.
+
+**A biblioteca guarda o que vem de fora**, o que o CIP não consegue deduzir. A lista é fechada de propósito — campo livre vira "Técnico", "técnica" e "Téc." em três meses:
+
+`norma` · `manual` · `formulario` · `contrato` · `laudo` · `politica` · `treinamento` · `outro`
+
+A migração converte o texto livre antigo pelo que dá para reconhecer. E o que era **escopo disfarçado de categoria** ("Comercial", "RH") migra para o campo de escopo, que é onde essa informação sempre deveria ter morado.
+
 ## Impressão
 
 Processo vira papel: POP na parede da oficina, folha na mão do técnico em campo, pasta na auditoria. Sem folha de estilo de impressão, o que saía da impressora era a barra de navegação e metade de um campo cortado.

@@ -374,6 +374,54 @@
         igual(elosFracos().map((x) => x.falta), ["entrada"]);
       });
 
+      grupo("Domínio · a biblioteca guarda o que vem de fora");
+
+      function comDoc(categoria, escopo = "") {
+        state = normalizar({ ...semente(), processos: [],
+          documentos: [{ id: "d1", titulo: "X", categoria, escopo, resumo: "", url: "", videoUrl: "" }] });
+        return state.documentos[0];
+      }
+
+      teste("categoria fora da lista cai em um tipo conhecido", () => {
+        igual(Object.keys(TIPOS_DOCUMENTO).includes(comDoc("qualquer coisa").categoria), true);
+      });
+
+      teste("texto livre reconhecível vira o tipo certo", () => {
+        igual([
+          comDoc("Norma ABNT").categoria,
+          comDoc("manual do fabricante").categoria,
+          comDoc("Checklist de entrega").categoria,
+          comDoc("Contrato padrão").categoria,
+          comDoc("Laudo técnico").categoria,
+          comDoc("Política interna").categoria,
+          comDoc("Apostila de treinamento").categoria,
+        ], ["norma", "manual", "formulario", "contrato", "laudo", "politica", "treinamento"]);
+      });
+
+      /* POP não é documento no CIP: é o passo a passo do processo. Se alguém
+         cadastrar um, ele não ganha tipo próprio — cai em "outro" de propósito. */
+      teste("POP não vira tipo de documento", () => {
+        igual(comDoc("POP de inspeção").categoria, "outro");
+      });
+
+      teste("o que era escopo disfarçado de categoria migra para o escopo", () => {
+        const d = comDoc("Comercial");
+        igual([d.categoria, d.escopo], ["outro", "Comercial"]);
+      });
+
+      teste("escopo já preenchido não é sobrescrito pela migração", () => {
+        const d = comDoc("Comercial", "Só a oficina");
+        igual([d.categoria, d.escopo], ["outro", "Só a oficina"]);
+      });
+
+      teste('"Geral" era placeholder e não vira escopo', () => {
+        igual(comDoc("Geral").escopo, "");
+      });
+
+      teste("tipo válido não é remexido", () => {
+        igual(comDoc("norma").categoria, "norma");
+      });
+
       grupo("Domínio · sistema como objeto");
 
       teste("estadoVazio passa a ter a lista de sistemas", () => {
@@ -1300,10 +1348,25 @@
         igual([r.processos, r.comPassos, r.comEntradaESaida, r.comDono, r.comExecutor], [2, 1, 1, 1, 1]);
       });
 
-      teste("cada pendência sabe para onde levar", () => {
-        state = normalizar({ ...semente(), processos: [proc({ id: "a" })] });
-        const semDestino = pendencias().filter((x) => !x.ir || !x.ir.view);
-        igual(semDestino, []);
+      /* Não basta ter destino: o destino precisa levar à peça certa. A chave do
+         documento estava errada (`documentoId` em vez de `docId`) e a pendência
+         caía de volta na biblioteca — clique que não faz nada, de novo. */
+      teste("cada pendência leva à peça certa, com a chave que a tela lê", () => {
+        state = normalizar({ ...semente(),
+          regras: [{ id: "r1", titulo: "Solta", texto: "x" }],
+          sistemas: [{ id: "sis1", nome: "CAD", critico: true, descricao: "", url: "" }],
+          documentos: [{ id: "doc1", titulo: "Vazio", categoria: "outro", escopo: "", resumo: "", url: "", videoUrl: "" }],
+          processos: [proc({ id: "a", donoCargoId: "", cargosIds: [], passos: [] })],
+        });
+        const chaveDaTela = {
+          editor: "processoId", trilha: "cargoSel", regraEditor: "regraId",
+          sistemaEditor: "sistemaId", docEditor: "docId",
+        };
+        const errados = pendencias().filter((x) => {
+          const esperada = chaveDaTela[x.ir?.view];
+          return !esperada || !x.ir.extras || !x.ir.extras[esperada];
+        }).map((x) => `${x.tipo} → ${x.ir?.view}`);
+        igual(errados, [], "pendências que não levam a lugar nenhum:");
       });
 
       grupo("Ensaio geral · o ciclo inteiro de um processo");
