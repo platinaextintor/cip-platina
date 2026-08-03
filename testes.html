@@ -1401,6 +1401,19 @@
         igual(sumidas, ["p:sumido"]);
       });
 
+      /* O bug que o Eric encontrou clicando: na tela de leitura o desenho saía
+         sem `interativo`, e sem isso o bpmn.js não põe `data-bpmn-el` nas peças.
+         Desenho bonito e morto — clicar num processo não fazia nada porque não
+         havia alvo para o clique pegar. */
+      teste("peça só é clicável se o desenho sair com alvo", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "P", nome: "Clicável" })] });
+        const modelo = bpmnDoMapa();
+        const morto = bpmnDesenhar(modelo, { zoom: 1 });
+        const vivo = bpmnDesenhar(modelo, { interativo: true, zoom: 1 });
+        if (morto.includes("data-bpmn-el")) throw new Error("sem interativo não deveria ter alvo");
+        if (!vivo.includes('data-bpmn-el="P"')) throw new Error("com interativo o alvo sumiu");
+      });
+
       grupo("Tela · medir a coisa certa");
 
       /* A legenda mora dentro da mesma tela do desenho e também tem <svg>.

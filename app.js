@@ -740,7 +740,11 @@ function viewFluxo() {
         <div class="desenho-tela" id="telaFluxo">
           ${legenda(["inicio", "subprocesso", "exclusivo", "inclusivo", "fim", "fluxo"])}
           ${modelo && modelo.elementos.length
-            ? bpmnDesenhar(modelo, { zoom, selecionado: ui.macroSel })
+            /* `interativo` aqui não é para editar — é o que dá `data-bpmn-el` às
+               peças. Sem ele o desenho sai bonito e morto: clicar num processo
+               não faz nada, porque não existe alvo para o clique pegar.
+               `ligavel` fica de fora de propósito: nesta tela se lê, não se liga. */
+            ? bpmnDesenhar(modelo, { interativo: true, zoom, selecionado: ui.macroSel })
             : `<div class="empty desenho-vazio">
                  <strong>O mapa ainda está vazio.</strong>
                  <p>Use <strong>Desenhar o macro</strong> para colocar o primeiro processo.</p>
