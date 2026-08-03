@@ -1203,7 +1203,7 @@ function ligarMacro(raiz) {
         id: uid("p"), nome: apoio ? "Novo processo de apoio" : "Novo processo", setorId,
         donoCargoId: state.cargos[0]?.id || "", cargosIds: [], status: "rascunho",
         revisado: true, videoUrl: "", porque: "", seErrar: "",
-        anexos: [], passos: [], perguntas: [], proximos: [],
+        documentoIds: [], passos: [], perguntas: [], proximos: [],
       };
       state.processos.push(novo);
     }
@@ -1956,14 +1956,14 @@ function telaAbertura(p) {
         ${video(p.videoUrl, "Assistir")}
       </div>` : ""}
 
-      ${(p.anexos || []).length ? `<div class="block">
+      ${documentosDoProcesso(p).length ? `<div class="block">
         <div class="block-label">Material que você vai usar</div>
         <div class="btn-row">
-          ${p.anexos.map((a) => {
-            const url = linkSeguro(a.url);
+          ${documentosDoProcesso(p).map((doc) => {
+            const url = linkSeguro(doc.url);
             return url
-              ? `<a class="btn btn-sm link-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${icon("link", 14)} ${esc(a.titulo || "anexo")}</a>`
-              : `<span class="tag amber">${esc(a.titulo || "anexo")} — sem link ainda</span>`;
+              ? `<a class="btn btn-sm link-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${icon("link", 14)} ${esc(doc.titulo || "documento")}</a>`
+              : `<span class="tag amber">${esc(doc.titulo || "documento")} — sem arquivo ainda</span>`;
           }).join("")}
         </div>
       </div>` : ""}
@@ -2212,18 +2212,29 @@ function viewEditor() {
         </div>
       </div>
 
-      <div class="section-title"><h3>Material de apoio</h3><span class="line"></span></div>
-      <p class="hint">Modelo, planilha, tabela de preço — o que a pessoa precisa abrir enquanto executa.</p>
-      <div class="stack" style="margin-top:12px">
-        ${(p.anexos || []).map((a) => `
-          <div class="anexo-row" data-anexo-id="${a.id}">
-            <input data-a="titulo" value="${esc(a.titulo)}" placeholder="Nome do material" />
-            <input data-a="url" value="${esc(a.url || "")}" placeholder="https://..." />
-            <button class="btn btn-sm btn-ghost" data-remover-anexo type="button" aria-label="Remover">${icon("trash", 15)}</button>
-          </div>`).join("") || '<div class="empty">Nenhum material vinculado.</div>'}
-      </div>
+      <div class="section-title"><h3>Material de apoio</h3><span class="line"></span><span class="muted">${documentosDoProcesso(p).length}</span></div>
+      <p class="hint">Norma, formulário, modelo — o que a pessoa precisa abrir enquanto executa. Vem da Biblioteca: um documento, um lugar.</p>
+
+      ${documentosDoProcesso(p).length ? `<div class="stack" style="margin-top:12px">
+        ${documentosDoProcesso(p).map((doc) => `
+          <div class="saida-row" data-doc-ligado="${esc(doc.id)}">
+            <span class="saida-alvo"><strong>${esc(doc.titulo || "sem título")}</strong> <span class="muted">${esc(TIPOS_DOCUMENTO[doc.categoria]?.rotulo || "outro")}</span></span>
+            <button class="btn btn-sm btn-ghost" data-abrir-doc="${esc(doc.id)}" type="button">Abrir</button>
+            <button class="btn btn-sm btn-ghost" data-desligar-doc="${esc(doc.id)}" type="button" aria-label="Desvincular">${icon("trash", 15)}</button>
+          </div>`).join("")}
+      </div>` : '<div class="empty" style="margin-top:12px">Nenhum material vinculado.</div>'}
+
+      ${state.documentos.filter((doc) => !(p.documentoIds || []).includes(doc.id)).length ? `
+        <div class="field" style="margin-top:12px">
+          <label>Vincular da Biblioteca</label>
+          <div class="chips">
+            ${state.documentos.filter((doc) => !(p.documentoIds || []).includes(doc.id)).map((doc) => `
+              <button class="chip" data-ligar-doc="${esc(doc.id)}" type="button" title="${esc(TIPOS_DOCUMENTO[doc.categoria]?.rotulo || "")}">${esc(doc.titulo || "sem título")}</button>`).join("")}
+          </div>
+        </div>` : ""}
+
       <div class="btn-row" style="margin-top:12px">
-        <button class="btn" data-novo-anexo type="button">${icon("plus")} Novo material</button>
+        <button class="btn" data-novo-doc-aqui type="button">${icon("plus")} Novo documento na Biblioteca</button>
       </div>
 
       ${(p.passos || []).length ? `
@@ -2874,7 +2885,8 @@ function viewBiblioteca() {
           <button class="doc-card" data-doc="${d.id}" type="button">
             <div class="btn-row">
               <span class="tag red">${esc(TIPOS_DOCUMENTO[d.categoria]?.rotulo || "outro")}</span>
-              <span class="tag">${esc(d.escopo || "empresa")}</span>
+              ${(() => { const o = ondeApareceODocumento(d.id); const n = o.processos.length + o.cargos.length;
+                return `<span class="tag ${n ? "green" : "amber"}">${n ? `${n} uso${n === 1 ? "" : "s"}` : "não usado"}</span>`; })()}
             </div>
             <h3>${esc(d.titulo)}</h3>
             <p>${esc(d.resumo)}</p>
@@ -2935,6 +2947,8 @@ function viewDocEditor() {
           <input id="d-video" data-d="videoUrl" value="${esc(d.videoUrl || "")}" placeholder="https://www.youtube.com/watch?v=..." />
         </div>
       </div>
+
+      ${ondeODocumentoAparece(d)}
 
       ${url || youtubeId(d.videoUrl) ? `<div class="section-title"><h3>Prévia</h3><span class="line"></span></div>
         <div class="card">
@@ -3189,6 +3203,29 @@ function novoSistema() {
   ir("sistemaEditor", { sistemaId: s.id });
 }
 
+function ondeODocumentoAparece(d) {
+  const onde = ondeApareceODocumento(d.id);
+  const total = onde.processos.length + onde.cargos.length;
+  return `
+    <div class="section-title"><h3>Onde este documento é usado</h3><span class="line"></span><span class="muted">${total}</span></div>
+    ${total ? `<div class="stack" style="margin-top:12px">
+      ${onde.processos.map((p) => `
+        <button class="pend-item" data-processo="${esc(p.id)}" type="button">
+          <span class="pend-tipo">processo</span>
+          <span class="pend-texto"><strong>${esc(p.nome)}</strong> — ${esc(setor(p.setorId)?.nome || "sem setor")}</span>
+          <span class="pend-seta">→</span>
+        </button>`).join("")}
+      ${onde.cargos.map((c) => `
+        <button class="pend-item" data-cargo="${esc(c.id)}" type="button">
+          <span class="pend-tipo">trilha</span>
+          <span class="pend-texto"><strong>${esc(c.nome)}</strong> — treinamento obrigatório ou material de estudo</span>
+          <span class="pend-seta">→</span>
+        </button>`).join("")}
+    </div>`
+      : `<div class="empty">Ninguém usa este documento ainda. Vincule-o dentro de um processo, em <strong>Material de apoio</strong>, ou na trilha de um cargo.</div>`}
+  `;
+}
+
 function ligarDocEditor(raiz) {
   const d = documento(ui.docId);
   if (!d) return;
@@ -3214,6 +3251,7 @@ function ligarDocEditor(raiz) {
     if (!confirm(`Apagar "${d.titulo}"?`)) return;
     state.documentos = state.documentos.filter((x) => x.id !== d.id);
     state.cargos.forEach((c) => (c.trilha || []).forEach((t) => { if (t.documentoId === d.id) t.documentoId = ""; }));
+    state.processos.forEach((p) => { p.documentoIds = (p.documentoIds || []).filter((id) => id !== d.id); });
     salvar(true);
     ir("biblioteca");
   });
@@ -3270,7 +3308,7 @@ function abrirContarProcesso() {
       videoUrl: "",
       porque: rascunho.porque || "",
       seErrar: rascunho.seErrar || "",
-      anexos: [],
+      documentoIds: [],
       proximos: [],
       passos: (rascunho.passos || []).map((s) => ({
         id: uid("ps"),
@@ -3725,25 +3763,30 @@ function ligarEditor(raiz) {
     });
   });
 
-  $$(".anexo-row", raiz).forEach((linha) => {
-    const a = (p.anexos || []).find((x) => x.id === linha.dataset.anexoId);
-    if (!a) return;
-    $$("[data-a]", linha).forEach((campo) => campo.addEventListener("input", () => {
-      a[campo.dataset.a] = campo.value;
-      salvar();
-    }));
-    $("[data-remover-anexo]", linha)?.addEventListener("click", () => {
-      p.anexos = p.anexos.filter((x) => x.id !== a.id);
-      salvar(true);
-      render();
-    });
-  });
-
-  $("[data-novo-anexo]", raiz)?.addEventListener("click", () => {
-    p.anexos = p.anexos || [];
-    p.anexos.push({ id: uid("a"), titulo: "", url: "" });
+  $$("[data-ligar-doc]", raiz).forEach((b) => b.addEventListener("click", () => {
+    p.documentoIds = [...new Set([...(p.documentoIds || []), b.dataset.ligarDoc])];
     salvar(true);
     render();
+  }));
+
+  /* Desvincular tira do processo, não apaga da biblioteca: o documento pode
+     servir a outro processo ou à trilha de um cargo. */
+  $$("[data-desligar-doc]", raiz).forEach((b) => b.addEventListener("click", () => {
+    p.documentoIds = (p.documentoIds || []).filter((id) => id !== b.dataset.desligarDoc);
+    salvar(true);
+    render();
+  }));
+
+  $$("[data-abrir-doc]", raiz).forEach((b) => b.addEventListener("click", () => ir("docEditor", { docId: b.dataset.abrirDoc })));
+
+  /* Criar já vinculado: quem escreve o processo é quem descobre que falta a
+     norma, e mandar ir na Biblioteca e voltar é onde o vínculo se perde. */
+  $("[data-novo-doc-aqui]", raiz)?.addEventListener("click", () => {
+    const doc = { id: uid("d"), titulo: "Novo documento", categoria: "outro", escopo: "", resumo: "", url: "", videoUrl: "" };
+    state.documentos.push(doc);
+    p.documentoIds = [...(p.documentoIds || []), doc.id];
+    salvar(true);
+    ir("docEditor", { docId: doc.id });
   });
 
   const novoPasso = $("[data-novo-passo]", raiz);
@@ -3828,7 +3871,7 @@ function novoProcesso(raiaId) {
     videoUrl: "",
     porque: "",
     seErrar: "",
-    anexos: [],
+    documentoIds: [],
     passos: [],
     perguntas: [],
     proximos: [],

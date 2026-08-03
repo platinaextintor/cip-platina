@@ -41,6 +41,7 @@ Aplicada em quatro lugares:
 | quem é processo de apoio | de não ter ligação nenhuma no mapa |
 | se um processo está vigente | da assinatura do conteúdo bater com a da aprovação |
 | quais regras um processo aplica | das regras marcadas nos passos dele |
+| quem usa um documento | dos processos e trilhas que apontam para ele |
 
 É o que impede o CIP de virar cópias desencontradas — o erro clássico de ferramenta caseira de processo. É também o princípio central do ARIS: cada objeto existe uma vez e é reutilizado.
 
@@ -218,6 +219,22 @@ Uma auditoria externa em 03/08/2026 abriu peça por peça e concluiu o essencial
 A função não inventa regra nova: junta as que já estavam espalhadas (`elosFracos`, `regrasOrfas`, `sistemasOrfaos`, `processosSemIndicador`) e completa o que faltava. Cada item carrega para onde ir, então a lacuna vira trabalho em um clique.
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
+
+## O processo aponta para a biblioteca
+
+O "material de apoio" do processo era anexo digitado à mão — título e link soltos, **sem nenhuma ligação com a biblioteca**. Documento cadastrado não aparecia em processo nenhum, e anexo de processo não virava documento: duas listas de arquivo na mesma empresa, nenhuma sabendo da outra.
+
+Agora o processo tem `documentoIds` e a biblioteca é o único lugar onde documento existe. Os anexos antigos viram documentos de verdade na migração, e **títulos iguais viram um só** — o mesmo ganho da regra e do sistema.
+
+A pergunta inversa tem duas metades, porque documento serve para executar **e** para ensinar:
+
+```
+ondeApareceODocumento(id) → { processos, cargos }
+```
+
+`processos` são os que o usam no trabalho; `cargos` são os que o têm na trilha. A tela do documento mostra as duas listas, e a biblioteca marca no cartão quantos usos ele tem.
+
+**Desvincular tira do processo, não apaga da biblioteca** — o documento pode servir a outro processo ou à trilha de alguém. Apagar de vez limpa a referência nos dois lados.
 
 ## POP é o passo a passo, não um documento
 

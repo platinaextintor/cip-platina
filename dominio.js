@@ -281,7 +281,6 @@ function normalizar(dados) {
     p.cargosIds = Array.isArray(p.cargosIds) ? p.cargosIds : [];
     p.passos = Array.isArray(p.passos) ? p.passos : [];
     p.perguntas = Array.isArray(p.perguntas) ? p.perguntas : [];
-    p.anexos = Array.isArray(p.anexos) ? p.anexos : [];
     p.videoUrl = p.videoUrl || "";
     p.passos.forEach((s) => { s.videoUrl = s.videoUrl || ""; });
     p.proximos = normalizarSaidas(p.proximos);
@@ -312,6 +311,32 @@ function normalizar(dados) {
     } else {
       p.aprovacao = null;
     }
+
+    /* O "material de apoio" do processo era anexo digitado à mão — título e link
+       soltos, sem nenhuma ligação com a biblioteca. Documento cadastrado não
+       aparecia no processo, e anexo do processo não virava documento: duas
+       listas de arquivo na mesma empresa, nenhuma sabendo da outra.
+
+       Agora o processo APONTA para documentos. O anexo antigo vira documento de
+       verdade, e títulos iguais viram um só — que é o mesmo ganho da regra. */
+    if (Array.isArray(p.anexos) && p.anexos.length) {
+      p.documentoIds = Array.isArray(p.documentoIds) ? p.documentoIds : [];
+      p.anexos.forEach((a) => {
+        const titulo = String(a?.titulo || "").trim();
+        const url = String(a?.url || "").trim();
+        if (!titulo && !url) return;
+        const nome = titulo || url;
+        let doc = dados.documentos.find((x) => x.titulo.trim() === nome && (x.url || "") === url);
+        if (!doc) {
+          doc = { id: uid("d"), titulo: nome, categoria: "outro", escopo: "", resumo: "", url, videoUrl: "" };
+          dados.documentos.push(doc);
+        }
+        if (!p.documentoIds.includes(doc.id)) p.documentoIds.push(doc.id);
+      });
+    }
+    delete p.anexos;
+    p.documentoIds = (Array.isArray(p.documentoIds) ? p.documentoIds : [])
+      .filter((id) => dados.documentos.some((x) => x.id === id));
 
     p.historico = (Array.isArray(p.historico) ? p.historico : [])
       .filter((h) => h && h.em)
@@ -1095,6 +1120,28 @@ function setoresQueDependemDaRegra(regraId, st = state) {
   return [...ids].map((id) => st.setores.find((s) => s.id === id)).filter(Boolean);
 }
 
+/* Os documentos que um processo usa. Referência, não cópia. */
+function documentosDoProcesso(p, st = state) {
+  return (p?.documentoIds || []).map((id) => st.documentos.find((d) => d.id === id)).filter(Boolean);
+}
+
+/* A pergunta inversa do documento — e ela tem duas metades, porque documento
+   serve para executar E para ensinar: quais processos o usam, e quais cargos
+   o têm na trilha. */
+function ondeApareceODocumento(docId, st = state) {
+  return {
+    processos: st.processos.filter((p) => (p.documentoIds || []).includes(docId)),
+    cargos: st.cargos.filter((c) => (c.trilha || []).some((t) => t.documentoId === docId)),
+  };
+}
+
+function documentosSemUso(st = state) {
+  return st.documentos.filter((d) => {
+    const onde = ondeApareceODocumento(d.id, st);
+    return !onde.processos.length && !onde.cargos.length;
+  });
+}
+
 /* Sistema crítico sem nenhum passo declarado é suspeito: ou não é crítico, ou
    o mapeamento está incompleto. Vale avisar em vez de deixar passar. */
 function sistemasOrfaos(st = state) {
@@ -1216,7 +1263,7 @@ function lerBpmn(xml, st = state) {
       id, nome: nome || "Sem nome", setorId: setorDoNo[id] || "",
       donoCargoId: "", cargosIds: [], status: "rascunho", revisado: true,
       videoUrl: "", entrada: "", saida: "", porque: "", seErrar: "",
-      anexos: [], passos: [], perguntas: [], proximos: [],
+      documentoIds: [], passos: [], perguntas: [], proximos: [],
     });
     conhecido[id] = "processo";
   })));
@@ -1352,6 +1399,14 @@ function pendencias(st = state) {
       põe(4, "sistema", s.nome, "marcado como crítico e nenhum passo declara usar", { view: "sistemaEditor", extras: { sistemaId: s.id } });
     }
   });
+
+  /* Documento vazio E sem uso geraria duas linhas para o mesmo objeto. A falta
+     de conteúdo é o problema mais fundo — resolvida ela, a de uso aparece. */
+  documentosSemUso(st)
+    .filter((d) => d.url?.trim() || d.videoUrl?.trim() || d.resumo?.trim())
+    .forEach((d) => {
+      põe(4, "documento", d.titulo || "sem título", "não está ligado a nenhum processo nem à trilha de nenhum cargo", { view: "docEditor", extras: { docId: d.id } });
+    });
 
   st.documentos.forEach((d) => {
     if (!d.url?.trim() && !d.videoUrl?.trim() && !d.resumo?.trim()) {

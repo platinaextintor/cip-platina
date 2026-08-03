@@ -374,6 +374,59 @@
         igual(elosFracos().map((x) => x.falta), ["entrada"]);
       });
 
+      grupo("Domínio · o processo aponta para a biblioteca");
+
+      teste("anexo digitado à mão vira documento de verdade", () => {
+        state = normalizar({ ...semente(), documentos: [], processos: [
+          proc({ id: "P", anexos: [{ id: "a1", titulo: "Tabela de preço", url: "https://exemplo/tabela" }] }),
+        ] });
+        igual(state.documentos.map((d) => [d.titulo, d.url]), [["Tabela de preço", "https://exemplo/tabela"]]);
+        igual(documentosDoProcesso(state.processos[0]).length, 1);
+        if ("anexos" in state.processos[0]) throw new Error("o anexo antigo ficou para trás");
+      });
+
+      teste("o mesmo material em dois processos vira UM documento", () => {
+        state = normalizar({ ...semente(), documentos: [], processos: [
+          proc({ id: "a", anexos: [{ id: "x", titulo: "NBR", url: "https://n" }] }),
+          proc({ id: "b", anexos: [{ id: "y", titulo: "NBR", url: "https://n" }] }),
+        ] });
+        igual(state.documentos.length, 1);
+        igual(state.processos.map((p) => p.documentoIds.length), [1, 1]);
+      });
+
+      teste("anexo vazio não vira documento fantasma", () => {
+        state = normalizar({ ...semente(), documentos: [], processos: [
+          proc({ id: "P", anexos: [{ id: "a1", titulo: "", url: "" }] }),
+        ] });
+        igual(state.documentos.length, 0);
+      });
+
+      teste("quem usa o documento — processos e trilhas", () => {
+        state = normalizar({ ...semente(),
+          documentos: [{ id: "d1", titulo: "NBR", categoria: "norma", escopo: "", resumo: "r", url: "", videoUrl: "" }],
+          processos: [proc({ id: "P", nome: "Inspecionar", documentoIds: ["d1"] })] });
+        state.cargos[3].trilha = [{ id: "t1", tipo: "documento", titulo: "Ler a NBR", url: "", duracao: "", obrigatorio: true, nota: "", documentoId: "d1" }];
+        const onde = ondeApareceODocumento("d1");
+        igual([onde.processos.map((p) => p.nome), onde.cargos.map((c) => c.nome)],
+              [["Inspecionar"], ["Técnico de Extintores"]]);
+      });
+
+      teste("documento que ninguém usa é apontado", () => {
+        state = normalizar({ ...semente(), processos: [],
+          documentos: [{ id: "d1", titulo: "Solto", categoria: "norma", escopo: "", resumo: "r", url: "", videoUrl: "" }] });
+        igual(documentosSemUso().map((d) => d.titulo), ["Solto"]);
+        if (!pendencias().some((x) => x.tipo === "documento" && /nenhum processo/.test(x.detalhe))) throw new Error("não virou pendência");
+      });
+
+      teste("documento apagado sai do processo, não deixa id morto", () => {
+        state = normalizar({ ...semente(),
+          documentos: [{ id: "d1", titulo: "X", categoria: "norma", escopo: "", resumo: "r", url: "", videoUrl: "" }],
+          processos: [proc({ id: "P", documentoIds: ["d1"] })] });
+        state.documentos = [];
+        state = normalizar(state);
+        igual(state.processos[0].documentoIds, []);
+      });
+
       grupo("Domínio · a biblioteca guarda o que vem de fora");
 
       function comDoc(categoria, escopo = "") {
@@ -1112,7 +1165,8 @@
         const p = procVivo({ cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] });
         aprovarProcesso(p, "Eric");
         p.videoUrl = "https://youtube.com/watch?v=abc";
-        p.anexos.push({ id: "a1", titulo: "extra", url: "" });
+        state.documentos = [{ id: "d1", titulo: "extra", categoria: "outro", escopo: "", resumo: "r", url: "", videoUrl: "" }];
+        p.documentoIds = ["d1"];
         igual(situacaoDoProcesso(p), "vigente");
       });
 
@@ -1336,7 +1390,7 @@
             { id: "d1", titulo: "Vazio", categoria: "pop", escopo: "", resumo: "", url: "", videoUrl: "" },
             { id: "d2", titulo: "Cheio", categoria: "pop", escopo: "", resumo: "tem resumo", url: "", videoUrl: "" },
           ] });
-        igual(pendencias().filter((x) => x.tipo === "documento").map((x) => x.titulo), ["Vazio"]);
+        igual(pendencias().filter((x) => x.tipo === "documento" && /nome sem conteúdo/.test(x.detalhe)).map((x) => x.titulo), ["Vazio"]);
       });
 
       teste("o retrato conta o que está de pé, sem opinião", () => {
