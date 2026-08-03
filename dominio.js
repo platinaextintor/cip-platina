@@ -195,6 +195,12 @@ function normalizar(dados) {
   (dados.decisoes || []).forEach((x) => delete x.faseId);
   (dados.fins || []).forEach((x) => delete x.faseId);
 
+  /* Chefe apagado sobe o subordinado para a raiz, em vez de deixá-lo pendurado
+     num id que não existe — a árvore precisa continuar desenhável. */
+  dados.cargos.forEach((c) => {
+    if (c.reportaA && !dados.cargos.some((x) => x.id === c.reportaA)) c.reportaA = null;
+  });
+
   dados.setores.forEach((s) => {
     if (!CAMADAS[s.camada]) s.camada = "principal";
   });
@@ -236,10 +242,16 @@ function normalizar(dados) {
 
     /* RACI completo. R e A já existiam com outros nomes — quem executa e o dono.
        Faltavam C e I, que são justamente os que ninguém lembra de avisar. */
-    const cargosVivos = (ids) => (Array.isArray(ids) ? ids : []).filter((id) => dados.cargos.some((c) => c.id === id));
+    const existeCargo = (id) => !!id && dados.cargos.some((c) => c.id === id);
+    const cargosVivos = (ids) => (Array.isArray(ids) ? ids : []).filter(existeCargo);
     p.cargosIds = cargosVivos(p.cargosIds);
     p.consultadosIds = cargosVivos(p.consultadosIds);
     p.informadosIds = cargosVivos(p.informadosIds);
+
+    /* Dono apagado precisa virar SEM dono, não dono fantasma. A trava de
+       aprovação testa se o campo está vazio; um id que aponta para ninguém
+       passa por ela e o processo é aprovado sem ninguém para responder. */
+    if (!existeCargo(p.donoCargoId)) p.donoCargoId = "";
 
     /* A aprovação carrega nome, data e a ASSINATURA do conteúdo aprovado. Sem
        a assinatura, "aprovado" vira selo eterno: alguém aprova, outro edita, e
@@ -295,7 +307,10 @@ function normalizar(dados) {
 
     const idsDePasso = new Set(p.passos.map((s) => s.id));
     p.passos.forEach((s) => {
-      s.cargoId = s.cargoId || "";
+      /* Quem faz o passo define a raia do desenho. Cargo apagado deixaria uma
+         raia de ninguém — e a resposta certa é "sem responsável", não um id
+         que não existe. */
+      s.cargoId = existeCargo(s.cargoId) ? s.cargoId : "";
       s.proximos = normalizarSaidas(s.proximos).filter((x) => idsDePasso.has(x.para) && x.para !== s.id);
       /* Sistema que sobrou de um apagado vira lixo silencioso. */
       s.sistemaIds = (Array.isArray(s.sistemaIds) ? s.sistemaIds : [])
@@ -387,12 +402,38 @@ const SITUACOES = {
    aprovar rápido demais conteúdo plausível mas não confirmado". Estava certo —
    dava para aprovar um rascunho de IA em dois cliques sem nunca ter lido. */
 function porQueNaoPodeAprovar(p, st = state) {
-  if (!p) return "processo não encontrado";
-  if (p.revisado === false) return "este texto foi escrito pela IA e ninguém revisou ainda";
-  if (!(p.passos || []).length) return "não há passos para aprovar";
-  if (!p.donoCargoId) return "sem dono, não há quem responda pela aprovação";
-  if (!(p.cargosIds || []).length) return "sem ninguém marcado como quem executa";
-  return "";
+  return (faltaParaAprovar(p, st)[0] || "");
+}
+
+/* O CRITÉRIO OFICIAL DE PROCESSO PRONTO, num lugar só.
+
+   Antes eram dois, e discordavam: dava para aprovar um processo de 2 passos e
+   o contador continuar dizendo que não estava pronto, porque `mapeado()` exigia
+   3. O ensaio geral pegou isso na primeira rodada. Duas definições de "pronto"
+   é como cada pessoa passa a ter a sua.
+
+   Agora só existe esta lista, e ela é cobrada no único momento que importa: a
+   aprovação. Depois de aprovado, pronto é pronto.
+
+   O número mínimo de passos saiu. Era palpite de quando não havia aprovação —
+   um jeito de adivinhar se alguém tinha mesmo preenchido. Hoje existe sinal de
+   verdade: uma pessoa com nome disse que está certo. Se o processo tem dois
+   passos e o dono aprovou, ele tem dois passos. */
+function faltaParaAprovar(p, st = state) {
+  if (!p) return ["processo não encontrado"];
+  const faltas = [];
+  const recebe = [...st.processos, ...st.decisoes].some((n) => (n.proximos || []).some((x) => x.para === p.id));
+  const entrega = (p.proximos || []).length > 0;
+
+  if (p.revisado === false) faltas.push("este texto foi escrito pela IA e ninguém revisou ainda");
+  if (!(p.passos || []).length) faltas.push("não há passos escritos");
+  else if ((p.passos || []).some((s) => !s.oQue?.trim())) faltas.push("há passo sem título");
+  if (!p.donoCargoId) faltas.push("sem dono, não há quem responda pela aprovação");
+  if (!(p.cargosIds || []).length) faltas.push("sem ninguém marcado como quem executa");
+  if (!p.porque?.trim()) faltas.push("não diz por que o processo existe");
+  if (recebe && !p.entrada?.trim()) faltas.push("recebe de outra peça mas não diz o que recebe");
+  if (entrega && !p.saida?.trim()) faltas.push("entrega para outra peça mas não diz o que entrega");
+  return faltas;
 }
 
 /* Revisar e aprovar são atos diferentes, e de propósito. Revisar é dizer "li e
@@ -454,18 +495,24 @@ function processosQuePedemAtencao(st = state) {
   return st.processos.filter((p) => situacaoDoProcesso(p) === "mudou");
 }
 
+/* Pronto é aprovado e não mexido depois. Nada além disso — o que faz um
+   processo poder ser aprovado está em faltaParaAprovar(), e é lá que se cobra. */
 function mapeado(p) {
-  const passosOk = (p.passos || []).filter((s) => s.oQue && s.oQue.trim()).length;
-  return !!(p.porque && p.porque.trim()) && passosOk >= 3 && p.revisado !== false
-    && situacaoDoProcesso(p) === "vigente";
+  return situacaoDoProcesso(p) === "vigente";
 }
 
-function faltando(p) {
-  const faltas = [];
-  if (!p.porque?.trim()) faltas.push("por que existe");
-  if (!(p.passos || []).length) faltas.push("os passos");
-  const semExemplo = (p.passos || []).filter((s) => !s.imagem && !s.comoFazer?.trim()).length;
-  if (semExemplo) faltas.push(`${semExemplo} passo(s) sem exemplo`);
+/* O que impede este processo de ficar pronto, curto, para caber num cartão. */
+function faltando(p, st = state) {
+  const faltas = faltaParaAprovar(p, st).map((x) => x
+    .replace("este texto foi escrito pela IA e ninguém revisou ainda", "revisão")
+    .replace("não há passos escritos", "os passos")
+    .replace("há passo sem título", "título em algum passo")
+    .replace("sem dono, não há quem responda pela aprovação", "dono")
+    .replace("sem ninguém marcado como quem executa", "quem executa")
+    .replace("não diz por que o processo existe", "por que existe")
+    .replace("recebe de outra peça mas não diz o que recebe", "entrada")
+    .replace("entrega para outra peça mas não diz o que entrega", "saída"));
+  if (!faltas.length && situacaoDoProcesso(p) !== "vigente") faltas.push("aprovação");
   return faltas;
 }
 

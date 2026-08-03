@@ -85,18 +85,22 @@
       }
 
       /* Um processo mínimo, para os testes não repetirem 15 campos. */
+      /* O molde nasce APROVÁVEL: dono, executor e porquê preenchidos. Assim um
+         teste sobre outra coisa não precisa saber do critério de pronto, e um
+         teste sobre incompletude sobrescreve o campo que quer vazio. */
       function proc(extra = {}) {
         return {
           id: "p1", nome: "Processo", setorId: "s-comercial",
-          donoCargoId: "c-supervisor", cargosIds: [], status: "rascunho", revisado: true,
-          videoUrl: "", porque: "", seErrar: "", anexos: [], passos: [], perguntas: [],
+          porque: "existe por isso", entrada: "algo chega", saida: "algo sai",
+          donoCargoId: "c-supervisor", cargosIds: ["c-vendedor"], status: "rascunho", revisado: true,
+          videoUrl: "", seErrar: "", anexos: [], passos: [], perguntas: [],
           proximos: [], ...extra,
         };
       }
       /* Na vida real nenhum processo chega ao desenhista sem passar por normalizar().
          Testar sem ele é testar um estado que o CIP nunca produz. */
       function procVivo(extra = {}) {
-        state = normalizar({ ...semente(), processos: [proc(extra)] });
+        state = normalizar({ ...semente(), processos: [proc({ passos: [passo()], ...extra })] });
         return state.processos[0];
       }
       function passo(extra = {}) {
@@ -191,9 +195,23 @@
       teste("rascunho de IA não conta como pronto até ser revisado", () =>
         mapeado(proc({ porque: "x", revisado: false, passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === false);
 
-      teste("faltando aponta o que impede", () => {
-        const f = faltando(proc());
-        if (!f.includes("por que existe") || !f.includes("os passos")) throw new Error("veio " + JSON.stringify(f));
+      teste("faltando aponta o que impede, com o vocabulário curto", () => {
+        state = semente();
+        const f = faltando(proc({ porque: "", passos: [], donoCargoId: "", cargosIds: [] }));
+        ["por que existe", "os passos", "dono", "quem executa"].forEach((esperado) => {
+          if (!f.includes(esperado)) throw new Error(`faltou "${esperado}" em ${JSON.stringify(f)}`);
+        });
+      });
+
+      /* A régua de pronto tem que ser UMA. Se estas duas discordarem, alguém
+         aprova e o contador não sobe — foi o que o ensaio geral pegou. */
+      teste("aprovável e pronto são a mesma régua", () => {
+        state = semente();
+        const p = normalizar({ ...semente(), processos: [proc({ passos: [passo(), passo({ id: "b" })] })] }).processos[0];
+        state.processos = [p];
+        igual(faltaParaAprovar(p), [], "nada impede aprovar:");
+        aprovarProcesso(p, "Eric");
+        if (!mapeado(p)) throw new Error("aprovou e não conta como pronto");
       });
 
       grupo("Domínio · posição vem das ligações");
@@ -1086,7 +1104,7 @@
 
       teste("só processo vigente entra na lista do que falta medir", () => {
         state = normalizar({ ...semente(), processos: [
-          proc({ id: "a", nome: "Aprovado sem número", cargosIds: ["c-vendedor"], passos: [passo()] }),
+          proc({ id: "a", nome: "Aprovado sem número", passos: [passo()] }),
           proc({ id: "b", nome: "Rascunho" }),
         ] });
         if (!aprovarProcesso(state.processos[0], "Eric").ok) throw new Error("o fixture não era aprovável");
@@ -1135,8 +1153,8 @@
 
       teste("quem entrega e não diz o que entrega é a lacuna mais grave", () => {
         state = normalizar({ ...semente(), processos: [
-          proc({ id: "a", nome: "Antes", proximos: [{ para: "b", rotulo: "" }] }),
-          proc({ id: "b", nome: "Depois" }),
+          proc({ id: "a", nome: "Antes", saida: "", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", nome: "Depois", entrada: "" }),
         ] });
         const grave = pendencias().filter((x) => x.peso === 1);
         igual(grave.map((x) => [x.titulo, x.detalhe.includes("entrega") ? "saida" : "entrada"]),
@@ -1170,7 +1188,7 @@
       teste("o retrato conta o que está de pé, sem opinião", () => {
         state = normalizar({ ...semente(), processos: [
           proc({ id: "a", entrada: "x", saida: "y", donoCargoId: "c-diretor", cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] }),
-          proc({ id: "b", donoCargoId: "", cargosIds: [] }),
+          proc({ id: "b", donoCargoId: "", cargosIds: [], entrada: "", saida: "" }),
         ] });
         const r = retratoDoBloco1();
         igual([r.processos, r.comPassos, r.comEntradaESaida, r.comDono, r.comExecutor], [2, 1, 1, 1, 1]);
@@ -1180,6 +1198,142 @@
         state = normalizar({ ...semente(), processos: [proc({ id: "a" })] });
         const semDestino = pendencias().filter((x) => !x.ir || !x.ir.view);
         igual(semDestino, []);
+      });
+
+      grupo("Ensaio geral · o ciclo inteiro de um processo");
+
+      /* O ensaio que a auditoria pediu: um processo percorrendo tudo o que a
+         Platina vai fazer com ele. Não testa uma função — testa a vida do
+         objeto, que é onde as regras se contradizem. */
+      teste("do nascimento à publicação, sem pular etapa", () => {
+        state = normalizar({ ...semente(),
+          sistemas: [{ id: "sis1", nome: "CAD", descricao: "", url: "", critico: true }],
+          regras: [{ id: "r1", codigo: "", titulo: "Prazo por valor", texto: "acima de 10k, 30/60/90" }],
+          documentos: [{ id: "doc1", titulo: "POP do pedido", categoria: "pop", escopo: "", resumo: "tem resumo", url: "", videoUrl: "" }],
+          processos: [proc({ id: "P", nome: "Criar pedido", passos: [] })],
+        });
+        const p = state.processos[0];
+        const passo1 = { id: "s1", tipo: "etapa", cargoId: "c-vendedor", oQue: "Lançar o pedido", comoFazer: "assim", porque: "", armadilha: "", imagem: "", videoUrl: "", sistemaIds: ["sis1"], regraIds: ["r1"], proximos: [] };
+        const passo2 = { id: "s2", tipo: "decisao", cargoId: "c-supervisor", oQue: "Tem crédito?", comoFazer: "", porque: "", armadilha: "", imagem: "", videoUrl: "", sistemaIds: [], regraIds: [], proximos: [] };
+        p.passos = [passo1, passo2];
+        passo1.proximos = [{ para: "s2", rotulo: "" }];
+        p.entrada = "Proposta aprovada";
+        p.saida = "Pedido criado";
+        p.porque = "Porque a venda vira ordem aqui";
+        p.donoCargoId = "c-supervisor";
+        p.cargosIds = ["c-vendedor"];
+        p.consultadosIds = ["c-admin"];
+        p.informadosIds = ["c-diretor"];
+        p.revisado = false;
+        state.indicadores = [{ id: "i1", nome: "Prazo", pergunta: "?", unidade: "dias", direcao: "menor", meta: 2, frequencia: "mensal", processoIds: ["P"] }];
+        state = normalizar(state);
+
+        const vivo = () => state.processos[0];
+
+        // 1 · as derivações respondem
+        igual(regrasDoProcesso(vivo()).length, 1, "regra do processo:");
+        igual(sistemasDoProcesso(vivo()).length, 1, "sistema do processo:");
+        igual(indicadoresDoProcesso("P").length, 1, "indicador:");
+        igual(ondeApareceARegra("r1").length, 1, "quem depende da regra:");
+        igual(ondeApareceOSistema("sis1").length, 1, "quem depende do sistema:");
+        igual(quemAvisar(vivo()).length, 4, "RACI completo:");
+        igual(processosDoCargo("c-vendedor").map((x) => x.id), ["P"], "trilha do cargo:");
+
+        // 2 · rascunho de IA não aprova
+        if (aprovarProcesso(vivo(), "Eric").ok) throw new Error("aprovou sem revisão");
+        if (!pendencias().some((x) => x.tipo === "revisao")) throw new Error("não apontou o rascunho");
+
+        // 3 · revisar e aprovar
+        marcarRevisado(vivo(), "Vinicius");
+        if (!aprovarProcesso(vivo(), "Eric").ok) throw new Error("não aprovou depois de revisar");
+        igual(situacaoDoProcesso(vivo()), "vigente", "depois de aprovar:");
+        if (!mapeado(vivo())) throw new Error("aprovado e completo não conta como pronto");
+
+        // 4 · as pendências do processo somem
+        const doProcesso = pendencias().filter((x) => x.titulo === "Criar pedido");
+        igual(doProcesso, [], "pendências do processo depois de pronto:");
+
+        // 5 · alterar derruba o selo, e a lista acusa
+        vivo().passos[0].oQue = "Lançar o pedido no CAD";
+        igual(situacaoDoProcesso(vivo()), "mudou", "depois de editar:");
+        if (!processosQuePedemAtencao().some((x) => x.id === "P")) throw new Error("não entrou na fila de reaprovação");
+
+        // 6 · reaprovar volta a valer, com o novo nome
+        aprovarProcesso(vivo(), "Eric");
+        igual([situacaoDoProcesso(vivo()), vivo().aprovacao.nome], ["vigente", "Eric"]);
+        igual(vivo().historico.map((h) => h.acao),
+              ["revisou o rascunho da IA", "aprovou", "aprovou"], "histórico do ciclo:");
+
+        // 7 · o desenho do subprocesso sai inteiro
+        const html = bpmnDesenhar(bpmnDoProcesso(vivo()));
+        if (/NaN|undefined/.test(html)) throw new Error("desenho quebrado no fim do ciclo");
+      });
+
+      teste("apagar o cargo que todo mundo usa não deixa lixo", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "P", donoCargoId: "c-vendedor", cargosIds: ["c-vendedor"], consultadosIds: ["c-vendedor"],
+                 passos: [passo({ id: "1", cargoId: "c-vendedor" })] }),
+        ] });
+        state.cargos = state.cargos.filter((c) => c.id !== "c-vendedor");
+        state = normalizar(state);
+        const p = state.processos[0];
+        igual([p.cargosIds, p.consultadosIds], [[], []], "vínculos limpos:");
+        if (bpmnDoProcesso(p) === null) throw new Error("o desenho sumiu junto com o cargo");
+        const html = bpmnDesenhar(bpmnDoProcesso(p));
+        if (/NaN|undefined/.test(html)) throw new Error("desenho quebrado sem o cargo");
+      });
+
+      teste("apagar o cargo limpa dono, passo e hierarquia — não só as listas", () => {
+        /* O ensaio geral pegou isto: passo e dono ficavam com id fantasma.
+           Dono fantasma é o pior, porque a trava de aprovação testa se o campo
+           está VAZIO — um id que aponta para ninguém passa por ela. */
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "P", donoCargoId: "c-vendedor", cargosIds: ["c-vendedor"],
+                 passos: [passo({ id: "1", cargoId: "c-vendedor" })] }),
+        ] });
+        state.cargos = state.cargos.filter((c) => c.id !== "c-vendedor");
+        state = normalizar(state);
+        const p = state.processos[0];
+        igual([p.donoCargoId, p.passos[0].cargoId, p.cargosIds], ["", "", []]);
+        if (faltaParaAprovar(p).every((x) => !/dono/.test(x))) throw new Error("aprovaria com dono fantasma");
+      });
+
+      teste("chefe apagado sobe o subordinado para a raiz", () => {
+        state = normalizar({ ...semente(), processos: [] });
+        state.cargos = state.cargos.filter((c) => c.id !== "c-supervisor");
+        state = normalizar(state);
+        const orfaos = state.cargos.filter((c) => c.reportaA && !state.cargos.some((x) => x.id === c.reportaA));
+        igual(orfaos, [], "cargos pendurados em chefe inexistente:");
+      });
+
+      teste("apagar o sistema e a regra tira a marca dos passos", () => {
+        state = normalizar({ ...semente(),
+          sistemas: [{ id: "sis1", nome: "CAD", critico: true, descricao: "", url: "" }],
+          regras: [{ id: "r1", codigo: "RN-001", titulo: "R", texto: "t" }],
+          processos: [proc({ id: "P", passos: [passo({ id: "1", sistemaIds: ["sis1"], regraIds: ["r1"] })] })] });
+        state.sistemas = [];
+        state.regras = [];
+        state = normalizar(state);
+        igual([state.processos[0].passos[0].sistemaIds, state.processos[0].passos[0].regraIds], [[], []]);
+      });
+
+      teste("apagar tudo devolve um estado que as telas conseguem desenhar", () => {
+        /* O bug que quebrou três telas: apagar deixava o estado sem listas que
+           o resto do código esperava encontrar. */
+        state = normalizar({ ...estadoVazio(), empresa: { nome: "Platina" } });
+        const listas = Object.keys(estadoVazio()).filter((k) => Array.isArray(estadoVazio()[k]));
+        const faltando = listas.filter((k) => !Array.isArray(state[k]));
+        igual(faltando, [], "listas ausentes depois de zerar:");
+        igual(pendencias().length, 0, "nada pendente num sistema vazio:");
+        igual(retratoDoBloco1().processos, 0);
+        if (bpmnDoMapa() === null) throw new Error("o mapa vazio não desenha");
+      });
+
+      teste("o macro vazio ainda desenha as raias, sem quebrar", () => {
+        state = normalizar({ ...semente(), processos: [] });
+        const html = bpmnDesenhar(bpmnDoMapa());
+        if (/NaN|undefined/.test(html)) throw new Error("desenho quebrado com mapa vazio");
+        if (!html.includes("bpmn-faixa")) throw new Error("as raias sumiram");
       });
 
       grupo("Nuvem · estado vira peças e volta inteiro");

@@ -3336,7 +3336,8 @@ function blocoDeAprovacao(p) {
   const sit = situacaoDoProcesso(p);
   const s = SITUACOES[sit];
   const ap = p.aprovacao;
-  const impedimento = porQueNaoPodeAprovar(p);
+  const faltas = faltaParaAprovar(p);
+  const impedimento = faltas[0] || "";
   const historico = [...(p.historico || [])].reverse();
 
   return `
@@ -3347,9 +3348,9 @@ function blocoDeAprovacao(p) {
       </div>
       <p style="margin-top:8px">${esc(s.ajuda)}</p>
 
-      ${impedimento ? `<div class="note note-trap" style="margin-top:12px">
+      ${faltas.length ? `<div class="note note-trap" style="margin-top:12px">
         <div class="block-label">Ainda não dá para aprovar</div>
-        <p>${esc(impedimento)}.</p>
+        <ul class="lista">${faltas.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
         ${p.revisado === false ? `<div class="btn-row" style="margin-top:10px">
           <button class="btn btn-sm" data-revisei type="button">${icon("ok", 15)} Li tudo e está certo</button>
           <span class="hint">Isso registra o seu nome como quem revisou. Aprovar vem depois.</span>

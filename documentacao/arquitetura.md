@@ -219,6 +219,36 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
+## O critério de processo pronto
+
+**Um só, e cobrado num lugar só.** Antes eram dois e discordavam: dava para aprovar um processo de dois passos e o contador continuar dizendo que não estava pronto, porque `mapeado()` exigia três. O ensaio geral pegou na primeira rodada.
+
+`faltaParaAprovar()` é a lista oficial:
+
+- foi revisado por gente (rascunho de IA não passa)
+- tem passos, e nenhum sem título
+- tem dono e tem quem executa
+- diz por que existe
+- declara a entrada, **se** recebe de alguém
+- declara a saída, **se** entrega para alguém
+
+`mapeado()` virou uma linha: `situacaoDoProcesso(p) === "vigente"`. Depois de aprovado, pronto é pronto.
+
+**O mínimo de três passos saiu.** Era palpite de quando não havia aprovação — um jeito de adivinhar se alguém tinha preenchido. Hoje há sinal de verdade: uma pessoa com nome disse que está certo. Se o processo tem dois passos e o dono aprovou, ele tem dois passos.
+
+## O ensaio geral
+
+`testes.html` roda o ciclo inteiro de um processo — nascer, ganhar passos, ligar regra e sistema, receber RACI, ser recusado por falta de revisão, ser revisado, aprovado, alterado, reaprovado — e verifica em cada ponto o que o resto do sistema responde.
+
+Achou dois defeitos reais na primeira execução:
+
+| Defeito | Consequência |
+|---|---|
+| duas definições de "pronto" | aprovar e o contador não subir |
+| cargo apagado deixava `cargoId` fantasma no passo e no dono | processo aprovável com dono que não existe |
+
+O segundo é o mais grave: a trava de aprovação testa se o dono está **vazio**, e um id apontando para ninguém passava por ela.
+
 ## O que ainda não está separado
 
 Honestidade sobre o estado atual:
