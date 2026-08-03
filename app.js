@@ -4,7 +4,12 @@
    só isso — o que o CIP É mora em dominio.js, como é desenhado em bpmn.js e
    onde é guardado em nuvem.js. */
 
-const VERSAO = "v28";
+/* A versão sai do próprio endereço deste arquivo, não de uma constante escrita
+   à mão. Manter as duas em dia era tarefa minha, e eu falhei: um sed por número
+   de linha parou de acertar quando o cabeçalho mudou de tamanho, e o site
+   passou a servir v28 com o carimbo dizendo v32. Agora só existe uma fonte —
+   o ?v= do index.html — e elas não têm como discordar. */
+const VERSAO = `v${(document.currentScript?.src.match(/[?&]v=(\d+)/) || [])[1] || "?"}`;
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */

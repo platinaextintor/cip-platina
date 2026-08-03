@@ -63,7 +63,10 @@
         let erro = null;
         try {
           const r = fn();
-          if (r === false) erro = "devolveu falso";
+          /* Promise não é `false`, então um teste assíncrono passaria sempre —
+             verde bonito que não verificou nada. Melhor recusar na cara. */
+          if (r && typeof r.then === "function") erro = "teste assíncrono: esta bancada é síncrona";
+          else if (r === false) erro = "devolveu falso";
         } catch (e) {
           erro = e.message;
         }
