@@ -230,7 +230,7 @@ function bpmnFluxo(fluxo, porId, ordem = 0) {
        também como o BPMN costuma ser lido: o rótulo pertence ao gateway, não
        ao caminho. */
     const x = de.x + bpmnMeia(de).x + 10;
-    const y = de.y - 10 + ordem * 15;
+    const y = de.y - 12 + ordem * 20;
     rotulo = `<text x="${x}" y="${y}" class="bpmn-rotulo-fluxo" text-anchor="start">${bpmnEsc(fluxo.rotulo)}</text>`;
   }
 
@@ -261,8 +261,26 @@ function bpmnDesenhar(modelo, opcoes = {}) {
     return `
       <g class="bpmn-faixa"${opcoes.interativo ? ` data-bpmn-faixa="${bpmnEsc(f.id)}"` : ""}>
         <rect x="${BPMN.margem}" y="${topo}" width="${l.largura - BPMN.margem * 2}" height="${altura}" class="bpmn-faixa-area" />
-        <rect x="${BPMN.margem}" y="${topo}" width="${BPMN.faixaLabel}" height="${altura}" class="bpmn-faixa-banda" style="${f.cor ? `fill:${f.cor}1f` : ""}" />
-        <text transform="translate(${BPMN.margem + BPMN.faixaLabel / 2}, ${meio}) rotate(-90)" class="bpmn-faixa-nome">${bpmnEsc(nome)}<title>${bpmnEsc(f.nome)}</title></text>
+      </g>
+    `;
+  }).join("");
+
+  /* O nome da raia sai do grupo dela e vira uma camada própria, desenhada por
+     último — para poder ser presa na borda enquanto o desenho rola por baixo.
+     Num macro de 6.000px de largura, rolar até o fim e não saber mais em que
+     setor cada linha está é o que torna o mapa inútil. */
+  const nomesDeFaixa = l.faixas.map((f) => {
+    const topo = l.topoDaFaixa[f.id] ?? BPMN.margem;
+    const altura = l.alturaDaFaixa[f.id] ?? BPMN.slot;
+    const meio = topo + altura / 2;
+    const cabe = Math.max(6, Math.floor((altura - 16) / 7.3));
+    const nome = f.nome.length > cabe ? `${f.nome.slice(0, cabe - 1)}…` : f.nome;
+    const x = l.largura - BPMN.margem - BPMN.faixaLabel;
+    return `
+      <g class="bpmn-faixa-etiqueta">
+        <rect x="${x}" y="${topo}" width="${BPMN.faixaLabel}" height="${altura}" class="bpmn-faixa-fundo" />
+        <rect x="${x}" y="${topo}" width="${BPMN.faixaLabel}" height="${altura}" class="bpmn-faixa-banda" style="${f.cor ? `fill:${f.cor}1f` : ""}" />
+        <text transform="translate(${x + BPMN.faixaLabel / 2}, ${meio}) rotate(-90)" class="bpmn-faixa-nome">${bpmnEsc(nome)}<title>${bpmnEsc(f.nome)}</title></text>
       </g>
     `;
   }).join("");
@@ -311,6 +329,7 @@ function bpmnDesenhar(modelo, opcoes = {}) {
         ${fluxos}
         ${formas}
         <path id="fioTemporario" class="bpmn-fio-temp" d="" />
+        <g class="bpmn-faixa-nomes" data-largura="${Math.round(l.largura)}">${nomesDeFaixa}</g>
       </svg>
     </div>
   `;

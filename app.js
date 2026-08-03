@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v27";
+const VERSAO = "v28";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -339,7 +339,7 @@ function render() {
   if (ui.view === "regraEditor") ligarRegraEditor(main);
   if (ui.view === "desenho") ligarDesenho(main);
   if (ui.view === "macro") ligarMacro(main);
-  if (ui.view === "fluxo") requestAnimationFrame(desenharLigacoes);
+  if (ui.view === "fluxo") ligarFluxo(main);
   atualizarProgresso();
 }
 
@@ -490,97 +490,109 @@ function avisoDeMedicao() {
   </div>`;
 }
 
+/* Prende os nomes das raias na borda direita visível. O SVG não tem position:
+   sticky, então quem move é o transform: a cada rolagem, a camada dos nomes é
+   empurrada para onde a borda direita da janela está, em coordenadas do próprio
+   desenho. Rolando até o fim, o deslocamento vira zero e elas voltam ao lugar. */
+function prenderNomesDeRaia(tela) {
+  const ajustar = () => {
+    const camada = $("svg.bpmn .bpmn-faixa-nomes", tela);
+    const svg = $("svg.bpmn", tela);
+    if (!camada || !svg) return;
+    const largura = Number(camada.dataset.largura) || 0;
+    const escala = svg.clientWidth / largura || 1;
+    const bordaVisivel = (tela.scrollLeft + tela.clientWidth) / escala;
+    const dx = Math.min(0, bordaVisivel - largura);
+    camada.setAttribute("transform", `translate(${dx.toFixed(1)}, 0)`);
+  };
+  tela.addEventListener("scroll", ajustar, { passive: true });
+  requestAnimationFrame(ajustar);
+}
+
+function ligarFluxo(raiz) {
+  const tela = $("#telaFluxo", raiz);
+  if (!tela) return;
+  prenderNomesDeRaia(tela);
+
+  /* Clicar numa peça abre o que ela é. Nesta tela não se desenha — se navega. */
+  tela.addEventListener("click", (e) => {
+    const alvo = e.target.closest("[data-bpmn-el]");
+    if (!alvo) return;
+    const id = alvo.dataset.bpmnEl.split("::")[0];
+    if (processo(id)) ir("editor", { processoId: id });
+    else { ui.macroSel = id; ir("macro"); }
+  });
+
+  $$("[data-zoom-fluxo]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const passo = Number(b.dataset.zoomFluxo);
+    if (passo === 0) {
+      const svg = $("#telaFluxo svg.bpmn");
+      ui.zoomFluxo = svg ? Math.min(1.6, Math.max(0.1, (tela.clientWidth - 40) / Number(svg.getAttribute("viewBox").split(" ")[2]))) : 1;
+    } else {
+      ui.zoomFluxo = Math.min(2, Math.max(0.3, Number(((ui.zoomFluxo || 1) + passo * 0.15).toFixed(2))));
+    }
+    render();
+  }));
+}
+
+/* A tela do fluxo é o fluxograma, e só ele. Antes eram duas representações do
+   mesmo mapa — cartões aqui, BPMN no "Desenhar o macro" — e manter as duas
+   significava desenhar a mesma coisa de dois jeitos, com dois bugs de layout
+   diferentes. Aqui se lê e se navega; para editar, o botão leva ao mesmo
+   desenho em modo de edição. */
 function viewFluxo() {
-  const porSetor = ui.agrupar !== "fase";
-  const grupos = porSetor ? setoresPorCamada() : state.fases;
-  const chave = porSetor ? "setorId" : "faseId";
-  const orfaos = state.processos.filter((p) => !grupos.some((g) => g.id === p[chave]));
   const c = ui.cargoSel ? cargo(ui.cargoSel) : null;
-  const ligando = ui.ligando ? processo(ui.ligando) : null;
-  const col = colunas();
-  const totalColunas = Math.max(1, ...Object.values(col).map((n) => n + 1));
+  const modelo = bpmnDoMapa();
+  const zoom = ui.zoomFluxo || 1;
 
   return `
-    <div class="page">
-      <div class="page-head head-row">
-        <div>
-          <span class="eyebrow">Mapa da operação</span>
-          <h1>Como o trabalho anda na empresa</h1>
-          <p>Cada nó é um processo. Ligue um no outro para desenhar o caminho — as setas atravessam raias quando o trabalho troca de setor.</p>
-        </div>
+    <div class="desenho">
+      <header class="desenho-topo">
+        <strong class="desenho-nome">Como o trabalho anda na Platina</strong>
+
         <div class="btn-row">
-          <button class="btn btn-primary" data-macro type="button">${icon("edit", 15)} Desenhar o macro</button>
-          <button class="btn" data-contar type="button">${icon("ia", 15)} Contar um processo</button>
-          <div class="chips">
-            <button class="chip${porSetor ? " on" : ""}" data-agrupar="setor" type="button">Por setor</button>
-            <button class="chip${porSetor ? "" : " on"}" data-agrupar="fase" type="button">Por fase</button>
-          </div>
-          <button class="btn btn-ghost" data-nova-raia type="button">${icon("plus", 15)} ${porSetor ? "Setor" : "Fase"}</button>
+          <button class="btn btn-sm btn-primary" data-macro type="button">${icon("edit", 15)} Desenhar o macro</button>
+          <button class="btn btn-sm" data-contar type="button">${icon("ia", 15)} Contar um processo</button>
         </div>
-      </div>
+
+        <div class="desenho-zoom">
+          <button class="icon-btn" data-zoom-fluxo="-1" type="button" aria-label="Diminuir">−</button>
+          <span>${Math.round(zoom * 100)}%</span>
+          <button class="icon-btn" data-zoom-fluxo="1" type="button" aria-label="Aumentar">+</button>
+          <button class="btn btn-sm" data-zoom-fluxo="0" type="button">Ajustar</button>
+        </div>
+      </header>
 
       ${avisoDeReaprovacao()}
       ${avisoDeMedicao()}
 
-      ${ligando ? `<div class="filter-bar aviso">
-        ${icon("link", 15)} Ligando <strong>${esc(ligando.nome)}</strong> — clique no processo que vem depois.
-        <button class="btn btn-sm btn-ghost" data-cancelar-ligacao type="button" style="margin-left:auto">Cancelar</button>
-      </div>` : ""}
-
-      ${c && !ligando ? `<div class="filter-bar">
-        <strong>${esc(c.nome)}</strong> — destacando os processos deste cargo
+      ${c ? `<div class="filter-bar" style="margin:10px 18px 0">
+        <strong>${esc(c.nome)}</strong> — os processos deste cargo
         <button class="btn btn-sm btn-ghost" data-limpar-cargo type="button" style="margin-left:auto">Limpar</button>
       </div>` : ""}
 
-      <div class="mapa-wrap">
-        <div class="mapa" id="mapa">
-          <svg class="mapa-links" id="mapaLinks" aria-hidden="true">
-            <defs>
-              <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0 0 L10 5 L0 10 z" fill="var(--line-2)"></path>
-              </marker>
-              <marker id="setaForte" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0 0 L10 5 L0 10 z" fill="var(--navy-2)"></path>
-              </marker>
-            </defs>
-          </svg>
-          ${grupos.map((g) => raia(g, chave, porSetor, null, col, totalColunas)).join("")}
-          ${orfaos.length ? raia({ id: "", nome: porSetor ? "Sem setor" : "Sem fase" }, chave, porSetor, orfaos, col, totalColunas) : ""}
-        </div>
-      </div>
-
-      ${elosFracos().length ? `<div class="filter-bar aviso" style="margin-top:14px">
+      ${elosFracos().length ? `<div class="filter-bar aviso" style="margin:10px 18px 0">
         ${icon("link", 15)} <strong>${elosFracos().length} elo${elosFracos().length === 1 ? "" : "s"} sem declarar.</strong>
         ${esc(elosFracos().slice(0, 3).map((f) => `${f.nome} sem ${f.falta}`).join(" · "))}${elosFracos().length > 3 ? " …" : ""}
       </div>` : ""}
 
-      <p class="hint" style="margin-top:12px">Visão de acompanhamento. Para desenhar o fluxo com decisões, use <strong>Desenhar o macro</strong>.</p>
+      <div class="desenho-corpo">
+        <div class="desenho-tela" id="telaFluxo">
+          ${legenda(["inicio", "subprocesso", "exclusivo", "inclusivo", "fim", "fluxo"])}
+          ${modelo && modelo.elementos.length
+            ? bpmnDesenhar(modelo, { zoom, selecionado: ui.macroSel })
+            : `<div class="empty desenho-vazio">
+                 <strong>O mapa ainda está vazio.</strong>
+                 <p>Use <strong>Desenhar o macro</strong> para colocar o primeiro processo.</p>
+               </div>`}
+          ${faixaDeSustentacao()}
+        </div>
+      </div>
+
+      <p class="hint" style="margin:10px 18px 14px">Clique num processo para abrir. Para mexer no desenho, use <strong>Desenhar o macro</strong>.</p>
     </div>
   `;
 }
-
-function raia(g, chave, porSetor, lista, col, totalColunas) {
-  const procs = lista || state.processos.filter((p) => p[chave] === g.id);
-  const prontos = procs.filter(mapeado).length;
-  const cor = porSetor ? corSetor(g.id) : "var(--line-2)";
-  const ultima = procs.length ? Math.max(...procs.map((p) => col[p.id] || 0)) : -1;
-
-  return `
-    <section class="raia" data-raia="${esc(g.id)}">
-      <div class="raia-cabeca">
-        <span class="raia-titulo" style="border-color:${cor}">
-          ${g.id ? `<button class="raia-nome" data-renomear-raia="${esc(g.id)}" type="button">${esc(g.nome)}</button>` : `<span class="raia-nome">${esc(g.nome)}</span>`}
-          <span class="muted">${procs.length ? `${prontos}/${procs.length}` : "vazia"}</span>
-        </span>
-      </div>
-      <div class="raia-trilho" data-solta="${esc(g.id)}" style="grid-template-columns:repeat(${totalColunas + 1}, 210px)">
-        ${procs.map((p) => no(p, col[p.id] || 0)).join("")}
-        <button class="no-add" data-novo-processo="${esc(g.id)}" type="button" style="grid-column:${ultima + 2}">${icon("plus", 15)}<span>processo</span></button>
-      </div>
-    </section>
-  `;
-}
-
 function no(p, coluna) {
   const dono = cargo(p.donoCargoId);
   const pronto = mapeado(p);
@@ -613,61 +625,6 @@ function no(p, coluna) {
 }
 
 /* As setas são desenhadas depois do layout, medindo a posição real de cada nó. */
-function desenharLigacoes() {
-  const mapa = $("#mapa");
-  const svg = $("#mapaLinks");
-  if (!mapa || !svg) return;
-
-  const base = mapa.getBoundingClientRect();
-  const largura = mapa.scrollWidth;
-  const altura = mapa.scrollHeight;
-  svg.setAttribute("width", largura);
-  svg.setAttribute("height", altura);
-  svg.setAttribute("viewBox", `0 0 ${largura} ${altura}`);
-
-  const caixas = {};
-  $$("[data-no]", mapa).forEach((n) => {
-    const r = n.getBoundingClientRect();
-    caixas[n.dataset.no] = { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height };
-  });
-
-  const traços = [];
-  nosMacro().forEach((p) => {
-    (p.proximos || []).forEach(({ para: destinoId }) => {
-      const a = caixas[p.id];
-      const b = caixas[destinoId];
-      if (!a || !b) return;
-
-      const x1 = a.x + a.w;
-      const y1 = a.y + a.h / 2;
-      const x2 = b.x;
-      const y2 = b.y + b.h / 2;
-      const volta = x2 < x1;
-      const puxada = volta ? Math.max(70, Math.abs(x1 - x2) * 0.35) : Math.max(34, (x2 - x1) * 0.45);
-      const d = `M ${x1} ${y1} C ${x1 + puxada} ${y1}, ${x2 - puxada} ${y2}, ${x2} ${y2}`;
-
-      const aceso = ui.cargoSel && ((p.cargosIds || []).includes(ui.cargoSel) || p.donoCargoId === ui.cargoSel);
-      traços.push(`<path class="link-hit" d="${d}" data-de="${p.id}" data-para="${destinoId}"></path>`);
-      traços.push(`<path class="link-linha${aceso ? " forte" : ""}" d="${d}" marker-end="url(#${aceso ? "setaForte" : "seta"})"></path>`);
-    });
-  });
-
-  const defs = svg.querySelector("defs");
-  svg.innerHTML = "";
-  svg.appendChild(defs);
-  svg.insertAdjacentHTML("beforeend", traços.join(""));
-
-  $$(".link-hit", svg).forEach((linha) => linha.addEventListener("click", () => {
-    const de = noMacro(linha.dataset.de);
-    const para = noMacro(linha.dataset.para);
-    const rotulo = (n) => n?.nome || n?.pergunta || "?";
-    if (!de || !confirm(`Desfazer a ligação de "${rotulo(de)}" para "${rotulo(para)}"?`)) return;
-    de.proximos = de.proximos.filter((x) => x.para !== linha.dataset.para);
-    salvar(true);
-    render();
-  }));
-}
-
 function ligarProcessos(deId, paraId) {
   const de = processo(deId);
   if (!de || deId === paraId) return;
@@ -682,8 +639,7 @@ function ligarProcessos(deId, paraId) {
 function soltarNo(processoId, raiaId, clienteX) {
   const p = processo(processoId);
   if (!p) return;
-  const porSetor = ui.agrupar !== "fase";
-  const chave = porSetor ? "setorId" : "faseId";
+  const chave = "setorId";
   if (raiaId) p[chave] = raiaId;
 
   const trilho = $(`[data-solta="${CSS.escape(raiaId)}"]`);
@@ -715,7 +671,7 @@ function soltarNo(processoId, raiaId, clienteX) {
 
 
 /* O mapa: cada processo aparece colapsado — o desenho de dentro dele é o
-   subprocesso. Raia é setor ou fase. */
+   subprocesso. Raia é o setor. */
 
 
 function blocoBpmn(modelo, vazio) {
@@ -772,9 +728,8 @@ function legenda(quais) {
 }
 
 function viewMacro() {
-  const porSetor = ui.agrupar !== "fase";
   const sel = ui.macroSel ? noMacro(ui.macroSel) : null;
-  const modelo = bpmnDoMapa(ui.agrupar !== "fase");
+  const modelo = bpmnDoMapa();
   const zoom = ui.zoomMacro || 1;
   const ligando = ui.ligando ? noMacro(ui.ligando) : null;
 
@@ -788,16 +743,10 @@ function viewMacro() {
           <button class="chip" data-add-macro="processo" type="button" title="Novo processo${sel ? " ligado ao selecionado" : ""}">${icon("plus", 13)} Processo</button>
           <button class="chip" data-add-macro="decisao" type="button" title="Nova decisão${sel ? " ligada ao selecionado" : ""}">${icon("plus", 13)} Decisão</button>
           <button class="chip" data-add-macro="fim" type="button" title="Um desfecho nomeado">${icon("plus", 13)} Fim</button>
-          <button class="chip" data-nova-raia type="button" title="Cria ${porSetor ? "um setor" : "uma fase"}, que vira uma raia">${icon("plus", 13)} Raia</button>
+          <button class="chip" data-nova-raia type="button" title="Cria um setor, que vira uma raia">${icon("plus", 13)} Raia</button>
         </div>
 
-        <div class="agrupador">
-          <span class="hint">raias por</span>
-          <div class="chips">
-            <button class="chip${porSetor ? " on" : ""}" data-agrupar="setor" type="button">Setor</button>
-            <button class="chip${porSetor ? "" : " on"}" data-agrupar="fase" type="button">Fase</button>
-          </div>
-        </div>
+
 
         <div class="desenho-zoom">
           <button class="icon-btn" data-zoom-macro="-1" type="button" aria-label="Diminuir">−</button>
@@ -935,10 +884,7 @@ function inspetorProcessoMacro(p) {
           <label>Setor</label>
           <select data-m="setorId">${opcoes(state.setores, p.setorId)}</select>
         </div>
-        <div class="field">
-          <label>Fase</label>
-          <select data-m="faseId">${opcoes(state.fases, p.faseId)}</select>
-        </div>
+
       </div>
       <div class="field">
         <label>Dono do processo</label>
@@ -990,10 +936,7 @@ function inspetorDecisao(d) {
           <label>Setor</label>
           <select data-m="setorId">${opcoes(state.setores, d.setorId)}</select>
         </div>
-        <div class="field">
-          <label>Fase</label>
-          <select data-m="faseId">${opcoes(state.fases, d.faseId)}</select>
-        </div>
+
       </div>
     </div>
 
@@ -1021,10 +964,7 @@ function inspetorFim(f) {
           <label>Setor</label>
           <select data-m="setorId">${opcoes(state.setores, f.setorId)}</select>
         </div>
-        <div class="field">
-          <label>Fase</label>
-          <select data-m="faseId">${opcoes(state.fases, f.faseId)}</select>
-        </div>
+
       </div>
     </div>
 
@@ -1061,24 +1001,22 @@ function ligarMacro(raiz) {
   const sel = ui.macroSel ? noMacro(ui.macroSel) : null;
 
   $$("[data-add-macro]", raiz).forEach((b) => b.addEventListener("click", () => {
-    const porSetor = ui.agrupar !== "fase";
     /* O de apoio nasce solto de propósito: nem herda o contexto do selecionado,
        nem ganha ligação. É o que o mantém na faixa de baixo. */
     const apoio = b.dataset.addMacro === "apoio";
     const setorDeApoio = state.setores.find((s) => s.camada === "apoio");
     const setorId = apoio ? (setorDeApoio?.id || state.setores[0]?.id || "") : (sel?.setorId || state.setores[0]?.id || "");
-    const faseId = apoio ? "" : (sel?.faseId || state.fases[0]?.id || "");
     let novo;
 
     if (b.dataset.addMacro === "decisao") {
-      novo = { id: uid("d"), tipo: "exclusivo", pergunta: "", setorId, faseId, proximos: [] };
+      novo = { id: uid("d"), tipo: "exclusivo", pergunta: "", setorId, proximos: [] };
       state.decisoes.push(novo);
     } else if (b.dataset.addMacro === "fim") {
-      novo = { id: uid("f"), nome: "Fim", setorId, faseId, proximos: [] };
+      novo = { id: uid("f"), nome: "Fim", setorId, proximos: [] };
       state.fins.push(novo);
     } else {
       novo = {
-        id: uid("p"), nome: apoio ? "Novo processo de apoio" : "Novo processo", faseId, setorId,
+        id: uid("p"), nome: apoio ? "Novo processo de apoio" : "Novo processo", setorId,
         donoCargoId: state.cargos[0]?.id || "", cargosIds: [], status: "rascunho",
         revisado: true, videoUrl: "", porque: "", seErrar: "",
         anexos: [], passos: [], perguntas: [], proximos: [],
@@ -1123,6 +1061,7 @@ function ligarMacro(raiz) {
 
   const tela = $("#telaMacro", raiz);
   if (tela) {
+    prenderNomesDeRaia(tela);
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl || null;
     let origem = null;
     let x0 = 0;
@@ -1228,7 +1167,7 @@ function ligarMacro(raiz) {
 
       const destino = faixa.dataset.bpmnFaixa;
       if (!destino) return;
-      const chave = ui.agrupar === "fase" ? "faseId" : "setorId";
+      const chave = "setorId";
       if (peca[chave] === destino) return;
 
       peca[chave] = destino;
@@ -1335,7 +1274,7 @@ function redesenharMacro() {
     /* Troca só o desenho. A tela inteira levaria junto a legenda e a faixa dos
        processos que sustentam — que não têm nada a ver com o que mudou. */
     const alvo = $("#telaMacro .bpmn-wrap");
-    const modelo = bpmnDoMapa(ui.agrupar !== "fase");
+    const modelo = bpmnDoMapa();
     if (alvo && modelo) alvo.outerHTML = bpmnDesenhar(modelo, { interativo: true, ligavel: true, selecionado: ui.macroSel, zoom: ui.zoomMacro || 1 });
   }, 450);
 }
@@ -1544,6 +1483,7 @@ function ligarDesenho(raiz) {
      digita, e ouvintes por forma se acumulariam a cada redesenho. */
   const tela = $("#telaBpmn", raiz);
   if (tela) {
+    prenderNomesDeRaia(tela);
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl.split("::")[0] || null;
     const sobOPonteiro = (e) => idDe(document.elementFromPoint(e.clientX, e.clientY));
 
@@ -1791,7 +1731,6 @@ function telaAbertura(p) {
   return `
     <div class="card">
       <div class="lesson-kicker">
-        <span class="tag navy">${esc(fase(p.faseId)?.nome || "sem fase")}</span>
         <span class="counter">abertura</span>
       </div>
       <h2 class="step-title">${esc(p.nome)}</h2>
@@ -1985,10 +1924,6 @@ function viewEditor() {
         </div>
 
         <div class="field-grid">
-          <div class="field">
-            <label for="e-fase">Fase do fluxo</label>
-            <select id="e-fase" data-p="faseId">${opcoes(state.fases, p.faseId)}</select>
-          </div>
           <div class="field">
             <label for="e-setor">Setor</label>
             <select id="e-setor" data-p="setorId">${opcoes(state.setores, p.setorId)}</select>
@@ -2341,7 +2276,6 @@ function viewTrilha() {
             <strong>${esc(p.nome)}</strong>
             <span class="proc-meta">
               <span class="tag ${SITUACOES[situacaoDoProcesso(p)].classe}"><span class="tag-dot"></span>${esc(SITUACOES[situacaoDoProcesso(p)].rotulo)}</span>
-              <span>${esc(fase(p.faseId)?.nome || "sem fase")}</span>
               <span>${(p.passos || []).length} passo${(p.passos || []).length === 1 ? "" : "s"}</span>
               ${faltando(p).length ? `<span class="tag red">falta ${esc(faltando(p).join(", "))}</span>` : ""}
             </span>
@@ -2553,7 +2487,7 @@ function ligarCargoEditor(raiz) {
   });
 
   const textoDoCargo = () => {
-    const procs = processosDoCargo(c.id).map((p) => `- ${p.nome} (${fase(p.faseId)?.nome || "sem fase"})`).join("\n");
+    const procs = processosDoCargo(c.id).map((p) => `- ${p.nome} (${setor(p.setorId)?.nome || "sem setor"})`).join("\n");
     return [
       `Cargo: ${c.nome}`,
       `Setor: ${setor(c.setorId)?.nome || "—"}`,
@@ -3027,7 +2961,6 @@ function abrirContarProcesso() {
       id: uid("p"),
       nome: rascunho.nome || "Processo sem nome",
       setorId: existe(state.setores, rascunho.setorId) ? rascunho.setorId : state.setores[0]?.id || "",
-      faseId: existe(state.fases, rascunho.faseId) ? rascunho.faseId : state.fases[0]?.id || "",
       donoCargoId: existe(state.cargos, rascunho.donoCargoId) ? rascunho.donoCargoId : state.cargos[0]?.id || "",
       cargosIds: (rascunho.cargosIds || []).filter((id) => existe(state.cargos, id)),
       status: "rascunho",
@@ -3148,10 +3081,10 @@ function ligarEventos(raiz) {
     render();
   }));
 
-  $("[data-nova-raia]", raiz)?.addEventListener("click", () => (ui.agrupar === "fase" ? novaFase() : novoSetor()));
+  $("[data-nova-raia]", raiz)?.addEventListener("click", novoSetor);
 
   $$("[data-renomear-raia]", raiz).forEach((b) => b.addEventListener("click", () => {
-    const lista = ui.agrupar === "fase" ? state.fases : state.setores;
+    const lista = state.setores;
     const item = lista.find((x) => x.id === b.dataset.renomearRaia);
     if (!item) return;
     const nome = prompt("Novo nome:", item.nome);
@@ -3556,11 +3489,9 @@ function comprimirImagem(file, larguraMax = 1000) {
 /* ---------------------------------------------------------------- criação */
 
 function novoProcesso(raiaId) {
-  const porSetor = ui.agrupar !== "fase";
   const p = {
     id: uid("p"),
     nome: "Novo processo",
-    faseId: (porSetor ? "" : raiaId) || state.fases[0]?.id || "",
     setorId: (porSetor ? raiaId : "") || state.setores[0]?.id || "",
     donoCargoId: state.cargos[0]?.id || "",
     cargosIds: ui.cargoSel ? [ui.cargoSel] : [],
@@ -3604,13 +3535,6 @@ function novoSetor() {
   render();
 }
 
-function novaFase() {
-  const nome = prompt("Nome da fase (ex: Cobrar):");
-  if (!nome?.trim()) return;
-  state.fases.push({ id: uid("f"), nome: nome.trim() });
-  salvar(true);
-  render();
-}
 
 /* ---------------------------------------------------------------- drawer */
 
@@ -3647,13 +3571,6 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   fecharDrawer();
-});
-
-let redesenhoTimer = null;
-window.addEventListener("resize", () => {
-  if (ui.view !== "fluxo") return;
-  clearTimeout(redesenhoTimer);
-  redesenhoTimer = setTimeout(desenharLigacoes, 120);
 });
 
 function fecharDrawer() {
@@ -3760,7 +3677,7 @@ $("#openData").addEventListener("click", () => {
   $("[data-importar]", drawer).addEventListener("change", importar);
   $("[data-zerar]", drawer).addEventListener("click", () => {
     if (!confirm("Isso apaga setores, cargos, processos, decisões e documentos deste navegador. Exportou o JSON antes?")) return;
-    state = { ...estadoVazio(), empresa: state.empresa, fases: semente().fases };
+    state = { ...estadoVazio(), empresa: state.empresa };
     ui.cargoSel = null;
     ui.macroSel = null;
     salvar(true);
@@ -3768,7 +3685,7 @@ $("#openData").addEventListener("click", () => {
     ir("organograma");
   });
   $("[data-exemplo]", drawer).addEventListener("click", () => {
-    if (!confirm("Substituir tudo pelo esqueleto inicial (4 setores, 5 cargos, 6 fases)?")) return;
+    if (!confirm("Substituir tudo pelo esqueleto inicial (4 setores e 5 cargos)?")) return;
     state = semente();
     ui.cargoSel = null;
     salvar(true);
@@ -3822,7 +3739,7 @@ if (ZEROU) {
   aviso.className = "filter-bar";
   aviso.style.cssText = "margin:12px 18px 0";
   aviso.innerHTML = `
-    ${icon("ok", 15)} <strong>Base zerada.</strong> Sobraram só os setores, cargos e fases — nenhum processo, decisão ou documento.
+    ${icon("ok", 15)} <strong>Base zerada.</strong> Sobraram só os setores e cargos — nenhum processo, decisão ou documento.
     ${localStorage.getItem(CHAVE_ANTERIOR) ? '<button class="btn btn-sm btn-ghost" id="baixarAnterior" type="button" style="margin-left:auto">Baixar o que foi apagado</button>' : ""}
   `;
   document.querySelector("#main").before(aviso);

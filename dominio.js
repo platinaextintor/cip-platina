@@ -76,7 +76,6 @@ function estadoVazio() {
     empresa: { nome: "Platina Extintores" },
     setores: [],
     cargos: [],
-    fases: [],
     decisoes: [],
     fins: [],
     documentos: [],
@@ -103,19 +102,11 @@ function semente() {
       { id: "c-tecnico", setorId: "s-tecnica", nome: "Técnico de Extintores", reportaA: "c-supervisor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
       { id: "c-admin", setorId: "s-admin", nome: "Auxiliar Administrativo", reportaA: "c-diretor", missao: "", expectativas: "", conhecimentos: "", trilha: [] },
     ],
-    fases: [
-      { id: "f-captar", nome: "Captar" },
-      { id: "f-orcar", nome: "Orçar" },
-      { id: "f-executar", nome: "Executar" },
-      { id: "f-entregar", nome: "Entregar" },
-      { id: "f-cuidar", nome: "Cuidar" },
-      { id: "f-apoio", nome: "Apoio" },
-    ],
   };
 }
 
 function valido(dados) {
-  const listas = ["setores", "cargos", "fases", "processos"];
+  const listas = ["setores", "cargos", "processos"];
   return !!dados && listas.every((chave) => Array.isArray(dados[chave]));
 }
 
@@ -195,6 +186,15 @@ function normalizar(dados) {
       .filter((id) => (dados.processos || []).some((p) => p.id === id));
   });
 
+  /* A fase saiu do projeto em 03/08/2026. Era uma segunda maneira de agrupar o
+     mesmo mapa, e ninguém usava as duas — o setor já responde "de quem é o
+     trabalho". Duas formas de agrupar significavam manter duas classificações
+     em dia; na prática, uma sempre ficava para trás. */
+  delete dados.fases;
+  (dados.processos || []).forEach((p) => delete p.faseId);
+  (dados.decisoes || []).forEach((x) => delete x.faseId);
+  (dados.fins || []).forEach((x) => delete x.faseId);
+
   dados.setores.forEach((s) => {
     if (!CAMADAS[s.camada]) s.camada = "principal";
   });
@@ -205,7 +205,6 @@ function normalizar(dados) {
   dados.fins.forEach((f) => {
     f.nome = f.nome || "";
     f.setorId = f.setorId || "";
-    f.faseId = f.faseId || "";
     f.proximos = [];
   });
 
@@ -213,7 +212,6 @@ function normalizar(dados) {
     d.tipo = TIPOS_DECISAO[d.tipo] ? d.tipo : "exclusivo";
     d.pergunta = d.pergunta || "";
     d.setorId = d.setorId || "";
-    d.faseId = d.faseId || "";
     d.proximos = normalizarSaidas(d.proximos);
   });
 
@@ -609,8 +607,8 @@ function desviosDoPasso(p, s) {
 function bpmnDoMapa(porSetor = true) {
   const nos = nosMacro();
 
-  const grupos = porSetor ? setoresPorCamada() : state.fases;
-  const chave = porSetor ? "setorId" : "faseId";
+  const grupos = setoresPorCamada();
+  const chave = "setorId";
   const col = colunas();
 
   const faixaDe = (n) => (grupos.some((g) => g.id === n[chave]) ? n[chave] : "");
@@ -623,7 +621,7 @@ function bpmnDoMapa(porSetor = true) {
     cor: porSetor ? corSetor(g.id) : "",
   }));
   if (nos.some((n) => !faixaDe(n))) {
-    faixas.push({ id: "", nome: porSetor ? "Sem setor" : "Sem fase", cor: "" });
+    faixas.push({ id: "", nome: "Sem setor", cor: "" });
   }
 
   const elementos = [];
@@ -696,7 +694,7 @@ function textoDoProcesso(p) {
   const cargos = p.cargosIds.map((id) => cargo(id)?.nome).filter(Boolean).join(", ");
   return [
     `Processo: ${p.nome}`,
-    `Setor: ${setor(p.setorId)?.nome || "—"} · Fase: ${fase(p.faseId)?.nome || "—"}`,
+    `Setor: ${setor(p.setorId)?.nome || "—"}`,
     cargos ? `Quem executa: ${cargos}` : "",
     p.porque ? `Por que existe: ${p.porque}` : "",
     p.seErrar ? `Quando sai errado: ${p.seErrar}` : "",
@@ -710,7 +708,6 @@ function contextoBase() {
   return {
     empresa: state.empresa?.nome,
     setores: state.setores.map((s) => ({ id: s.id, nome: s.nome })),
-    fases: state.fases.map((f) => ({ id: f.id, nome: f.nome })),
     cargos: state.cargos.map((c) => ({ id: c.id, nome: c.nome, setor: setor(c.setorId)?.nome || "" })),
   };
 }
@@ -748,7 +745,6 @@ const setor = (id) => state.setores.find((s) => s.id === id);
 
 const cargo = (id) => state.cargos.find((c) => c.id === id);
 
-const fase = (id) => state.fases.find((f) => f.id === id);
 
 const processo = (id) => state.processos.find((p) => p.id === id);
 
@@ -1019,7 +1015,7 @@ function lerBpmn(xml, st = state) {
 
   BPMN_TAREFA.forEach((tag) => bpmnAchar(texto, tag).forEach(({ attrs }) => registrar(attrs, (id, nome) => {
     processos.push({
-      id, nome: nome || "Sem nome", faseId: "", setorId: setorDoNo[id] || "",
+      id, nome: nome || "Sem nome", setorId: setorDoNo[id] || "",
       donoCargoId: "", cargosIds: [], status: "rascunho", revisado: true,
       videoUrl: "", entrada: "", saida: "", porque: "", seErrar: "",
       anexos: [], passos: [], perguntas: [], proximos: [],
@@ -1030,12 +1026,12 @@ function lerBpmn(xml, st = state) {
   [["exclusiveGateway", "exclusivo"], ["inclusiveGateway", "inclusivo"], ["parallelGateway", "inclusivo"], ["eventBasedGateway", "exclusivo"]]
     .forEach(([tag, tipo]) => bpmnAchar(texto, tag).forEach(({ attrs }) => registrar(attrs, (id, nome) => {
       if (tag === "parallelGateway") avisos.push(`"${nome || id}" é um gateway paralelo; virou inclusivo — o CIP não separa os dois.`);
-      decisoes.push({ id, tipo, pergunta: nome || "", setorId: setorDoNo[id] || "", faseId: "", proximos: [] });
+      decisoes.push({ id, tipo, pergunta: nome || "", setorId: setorDoNo[id] || "", proximos: [] });
       conhecido[id] = "decisao";
     })));
 
   bpmnAchar(texto, "endEvent").forEach(({ attrs }) => registrar(attrs, (id, nome) => {
-    fins.push({ id, nome: nome || "Fim", setorId: setorDoNo[id] || "", faseId: "", proximos: [] });
+    fins.push({ id, nome: nome || "Fim", setorId: setorDoNo[id] || "", proximos: [] });
     conhecido[id] = "fim";
   }));
 

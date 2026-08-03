@@ -52,16 +52,16 @@ Aplicada em quatro lugares:
   setores:    [{ id, nome, camada }],                           // estrategico | principal | apoio
   cargos:     [{ id, setorId, nome, reportaA, missao, expectativas, conhecimentos,
                  trilha: [{ id, tipo, titulo, url, duracao, obrigatorio, nota, documentoId }] }],
-  fases:      [{ id, nome }],                                  // a cadeia de valor
-  decisoes:   [{ id, tipo, pergunta, setorId, faseId, proximos }], // exclusivo | inclusivo
-  fins:       [{ id, nome, setorId, faseId }],                  // desfechos nomeados
+  decisoes:   [{ id, tipo, pergunta, setorId, proximos }],       // exclusivo | inclusivo
+  fins:       [{ id, nome, setorId }],                          // desfechos nomeados
   documentos: [{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
   sistemas:   [{ id, nome, descricao, url, critico }],          // onde o trabalho acontece
   regras:     [{ id, codigo, titulo, texto, vigenteDesde }],    // RN-001; vale na empresa, não no processo
   indicadores:[{ id, nome, pergunta, unidade, direcao, meta,
                  frequencia, processoIds[] }],                  // a ponte com o Bloco 9
   processos:  [{
-    id, nome, faseId, setorId, donoCargoId, cargosIds[], status, revisado, videoUrl,
+    id, nome, setorId, donoCargoId, cargosIds[], consultadosIds[], informadosIds[],
+    status, revisado, aprovacao, historico[], videoUrl,
     proximos: [{ para, rotulo }],
     entrada, saida,                                            // o que chega e o que sai
     porque, seErrar,
@@ -174,6 +174,14 @@ O desenho precisa se explicar sozinho e obedecer ao gesto que a pessoa já conhe
 O import **não encosta** em cargo, documento, sistema nem trilha: o arquivo não sabe nada disso, e apagar o que ele não conhece seria perda pura. Também não inventa fase — quem importa atribui depois.
 
 O que o leitor **não** lê: pool, fluxo de mensagem, evento de borda, e a posição (`bpmndi`). Posição o CIP calcula das ligações — é invariante, não omissão.
+
+## Uma representação por coisa
+
+A fase saiu em 03/08/2026, e a tela de cartões junto. Eram duas formas de agrupar o mesmo mapa (por setor, por fase) e duas formas de desenhá-lo (cartões no "Fluxo macro", BPMN no "Desenhar o macro"). Manter as duas custava manter duas classificações em dia e dois motores de layout com dois conjuntos de bugs — e na prática só uma de cada par era usada.
+
+Hoje: **o setor agrupa, o BPMN desenha.** A tela de fluxo lê e navega; "Desenhar o macro" é a mesma coisa em modo de edição.
+
+**O nome da raia fica preso na borda direita.** Num macro de 6.000px, rolar até o fim e não saber mais em que setor cada linha está é o que torna o mapa inútil. O SVG não tem `position: sticky`, então a camada dos nomes é empurrada por `transform` a cada rolagem — quando o desenho chega ao fim, o deslocamento vira zero e ela volta ao lugar de origem.
 
 ## Carga de dados é fora do app
 

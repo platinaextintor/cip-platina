@@ -655,6 +655,13 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 .desenho-vazio { max-width: 460px; margin: 60px auto; text-align: center; }
 .desenho-vazio p { margin-top: 8px; }
 
+/* a etiqueta da raia fica por cima do desenho, presa na borda */
+.bpmn-faixa-etiqueta { pointer-events: none; }
+/* A etiqueta é um trilho, não uma mancha: fundo opaco para o desenho passar
+   por baixo sem borrar o nome do setor. */
+.bpmn-faixa-fundo { fill: var(--paper); }
+.bpmn-faixa-nomes .bpmn-faixa-banda { stroke: var(--line); stroke-width: 1; }
+
 /* renomear no lugar — o campo mora por cima da forma */
 .renomeando {
   position: absolute;
