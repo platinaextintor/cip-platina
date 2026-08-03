@@ -100,6 +100,11 @@ function nomeDoUsuario(user = usuarioAtual) {
 
 /* ---------------------------------------------------------------- tradução */
 
+/* O que este cliente sabe escrever. Serve de trava: o que não está aqui,
+   ele não apaga. Sai de pecasDoEstado com um estado de exemplo para as duas
+   listas nunca saírem de sincronia. */
+const TIPOS_QUE_SEI_ESCREVER = new Set(["estrutura", "processo", "decisao", "fim", "documento", "sistema"]);
+
 function pecasDoEstado(st) {
   const pecas = [
     {
@@ -110,6 +115,7 @@ function pecasDoEstado(st) {
   ];
   (st.processos || []).forEach((p) => pecas.push({ id: `p:${p.id}`, tipo: "processo", dados: p }));
   (st.decisoes || []).forEach((d) => pecas.push({ id: `d:${d.id}`, tipo: "decisao", dados: d }));
+  (st.fins || []).forEach((f) => pecas.push({ id: `f:${f.id}`, tipo: "fim", dados: f }));
   (st.documentos || []).forEach((d) => pecas.push({ id: `doc:${d.id}`, tipo: "documento", dados: d }));
   (st.sistemas || []).forEach((s) => pecas.push({ id: `sis:${s.id}`, tipo: "sistema", dados: s }));
   return pecas;
@@ -121,6 +127,7 @@ function estadoDePecas(linhas) {
     if (l.tipo === "estrutura") Object.assign(base, l.dados || {});
     else if (l.tipo === "processo") base.processos.push(l.dados);
     else if (l.tipo === "decisao") base.decisoes.push(l.dados);
+    else if (l.tipo === "fim") base.fins.push(l.dados);
     else if (l.tipo === "documento") base.documentos.push(l.dados);
     else if (l.tipo === "sistema") base.sistemas.push(l.dados);
   });
@@ -135,7 +142,7 @@ async function baixarTudo() {
   if (error) throw new Error(error.message);
 
   sombra.clear();
-  (data || []).forEach((l) => sombra.set(l.id, { json: JSON.stringify(l.dados), versao: l.versao }));
+  (data || []).forEach((l) => sombra.set(l.id, { json: JSON.stringify(l.dados), versao: l.versao, tipo: l.tipo }));
 
   /* Banco vazio na primeira vez: sobe o esqueleto em vez de deixar a tela nua. */
   if (!data || !data.length) {
@@ -164,7 +171,15 @@ async function gravarMudancas(st) {
   const idsAtuais = new Set(atuais.map((p) => p.id));
 
   const mudadas = atuais.filter((p) => sombra.get(p.id)?.json !== JSON.stringify(p.dados));
-  const sumidas = [...sombra.keys()].filter((id) => !idsAtuais.has(id));
+
+  /* Uma peça só é considerada apagada se este cliente sabe produzir peças do
+     tipo dela. Sem isso, uma aba com código velho lê uma linha que não entende,
+     não a devolve em pecasDoEstado, conclui que sumiu e APAGA — e o trabalho de
+     quem está com a versão nova morre em silêncio. Aconteceu comigo: os fins
+     nomeados ficaram no banco antes de nuvem.js saber lê-los. */
+  const sumidas = [...sombra.entries()]
+    .filter(([id, peca]) => !idsAtuais.has(id) && TIPOS_QUE_SEI_ESCREVER.has(peca.tipo))
+    .map(([id]) => id);
 
   if (mudadas.length) {
     const { error } = await cliente

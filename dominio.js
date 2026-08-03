@@ -686,6 +686,12 @@ function processosQueSustentam(st = state) {
 
    Ler um .bpmn de fora e virar mapa do CIP.
 
+   NÃO EXISTE BOTÃO PARA ISSO NA TELA, de propósito. O import substitui o fluxo
+   macro inteiro; um clique errado num seletor de arquivo apagaria o trabalho de
+   três pessoas. Carregar arquivo de fora é operação de uma vez só, feita fora
+   do app — e o que fica aqui é a regra de tradução, testada, para quem for
+   fazer essa carga saber exatamente o que ela faz.
+
    Sem DOMParser de propósito: o domínio não pode depender do navegador, e o
    pedaço do BPMN que interessa é raso — elementos com atributos, sem
    aninhamento além da raia. Um scanner pequeno lê isso e roda em qualquer

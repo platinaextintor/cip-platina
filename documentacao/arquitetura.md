@@ -105,7 +105,9 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 12. **Processo de apoio não é um campo, é uma constatação.** Ninguém marca "este é de apoio". Quem não tem ligação nenhuma no mapa aparece na faixa *Processos que sustentam*; ligou, sobe para o fluxo sozinho. Um mapa sem nenhuma ligação não tem ninguém "fora do fluxo" — sem fluxo, não há fora.
 13. **Peça fora do fluxo não ganha início nem fim.** Ela não começa nem termina nada — sustenta. Desenhar evento nela seria dizer o que não é. Continua desenhada na raia dela: está fora do fluxo, não fora do mapa.
 14. **Ciclo fechado ainda tem porta.** Quando todo passo tem entrada, o primeiro vira a entrada — no desenho e na aula, pela mesma regra.
-15. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
+15. **Cliente não apaga o que não entende.** A sincronia só considera "sumida" uma peça cujo tipo ele sabe escrever. Sem isso, uma aba com código velho lê uma linha nova, não a reconhece, conclui que sumiu e apaga o trabalho de quem está atualizado.
+16. **Toda lista do modelo tem linha no banco.** Um teste percorre o modelo e cobra: acrescentou lista, dá lugar para ela. `fins` viveu meses só no navegador porque ninguém cobrava.
+17. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 
@@ -164,10 +166,16 @@ O import **não encosta** em cargo, documento, sistema nem trilha: o arquivo nã
 
 O que o leitor **não** lê: pool, fluxo de mensagem, evento de borda, e a posição (`bpmndi`). Posição o CIP calcula das ligações — é invariante, não omissão.
 
+## Carga de dados é fora do app
+
+Não existe botão de importar `.bpmn` na tela, e é decisão, não pendência: o import substitui o fluxo macro inteiro, e um clique errado num seletor de arquivo apagaria o trabalho de três pessoas. `lerBpmn()` fica no domínio como a **regra de tradução, testada**, e a carga é operação de uma vez, feita fora do app, com backup da tabela antes.
+
+O macro real da Platina — 16 processos, 4 decisões, 3 fins nomeados, 25 ligações — entrou assim em 03/08/2026.
+
 ## O que ainda não está separado
 
 Honestidade sobre o estado atual:
 
 - `app.js` tem 3.000 linhas. Melhor que 3.355 num arquivo só, mas ainda é grande. As telas poderiam virar arquivos por assunto.
 - O domínio lê um `state` compartilhado em vez de receber por parâmetro. Testável (a bancada troca o `state` antes de cada caso), mas não é isolamento de verdade.
-- A camada de nuvem não tem teste automatizado — foi verificada à mão, com duas abas e gravação direta no banco.
+- A camada de nuvem passou a ter teste da tradução estado↔peças (era o buraco que deixou o fim nomeado meses sem linha no banco). O que continua sem teste automatizado é a conversa com o servidor: login, Realtime e concorrência seguem verificados à mão, com duas abas.

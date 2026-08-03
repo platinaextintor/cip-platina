@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v24";
+const VERSAO = "v25";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -3360,12 +3360,6 @@ $("#openData").addEventListener("click", () => {
       <label class="btn file-label">Importar JSON<input type="file" accept="application/json,.json" data-importar></label>
     </div>
 
-    <div class="section-title"><h3>Trazer um BPMN de fora</h3><span class="line"></span></div>
-    <p class="sub">Um <code>.bpmn</code> do Camunda, do bpmn.io ou de outra ferramenta vira o fluxo macro. As raias viram setores, as caixas viram processos, os losangos viram decisões.</p>
-    <p class="hint">Substitui o fluxo macro inteiro. <strong>Não encosta</strong> em cargos, documentos, sistemas nem trilhas — o arquivo não sabe nada disso.</p>
-    <div class="btn-row" style="margin-top:12px">
-      <label class="btn file-label">Importar .bpmn<input type="file" accept=".bpmn,.xml,application/xml,text/xml" data-importar-bpmn></label>
-    </div>
 
     <div class="section-title"><h3>Recomeçar</h3><span class="line"></span></div>
     <div class="btn-row">
@@ -3376,7 +3370,6 @@ $("#openData").addEventListener("click", () => {
 
   $("[data-exportar]", drawer).addEventListener("click", exportar);
   $("[data-importar]", drawer).addEventListener("change", importar);
-  $("[data-importar-bpmn]", drawer).addEventListener("change", importarBpmn);
   $("[data-zerar]", drawer).addEventListener("click", () => {
     if (!confirm("Isso apaga setores, cargos, processos, decisões e documentos deste navegador. Exportou o JSON antes?")) return;
     state = { ...estadoVazio(), empresa: state.empresa, fases: semente().fases };
@@ -3432,62 +3425,6 @@ function importar(evento) {
     }
   };
   reader.readAsText(file);
-}
-
-/* Trazer um .bpmn de fora. O domínio lê e diz o que achou; aqui só se pergunta
-   antes de trocar e se mostra o relatório depois — porque import silencioso é
-   como se perde a confiança na ferramenta. */
-function importarBpmn(evento) {
-  const [file] = evento.target.files;
-  evento.target.value = "";
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    let lido;
-    try {
-      lido = estadoComBpmn(reader.result, state);
-    } catch (erro) {
-      return alert(erro.message || "Não foi possível ler esse arquivo.");
-    }
-
-    const { resumo } = lido;
-    if (!resumo.processos) return alert("Esse arquivo não tem nenhuma tarefa ou subprocesso para virar processo.");
-
-    const tinha = state.processos.length + state.decisoes.length + state.fins.length;
-    const pergunta = [
-      `${file.name} traz ${resumo.processos} processos, ${resumo.decisoes} decisões e ${resumo.fins} fins.`,
-      tinha ? `\nIsso SUBSTITUI as ${tinha} peças que já estão no fluxo macro.` : "",
-      "\nCargos, documentos e sistemas não são tocados. Importar?",
-    ].join("");
-    if (!confirm(pergunta)) return;
-
-    state = lido.estado;
-    ui.macroSel = null;
-    ui.cargoSel = null;
-    salvar(true);
-    fecharDrawer();
-    ir("macro");
-    relatorioDoImport(lido);
-  };
-  reader.readAsText(file);
-}
-
-function relatorioDoImport({ resumo, avisos }) {
-  const faixa = document.createElement("div");
-  faixa.className = "filter-bar aviso";
-  faixa.style.cssText = "margin:12px 18px 0;align-items:flex-start";
-  faixa.innerHTML = `
-    <div style="flex:1">
-      <strong>Importado:</strong> ${resumo.processos} processos, ${resumo.decisoes} decisões,
-      ${resumo.fins} fins e ${resumo.ligacoes} ligações${resumo.setores ? `, e ${resumo.setores} setor${resumo.setores === 1 ? "" : "es"} novo${resumo.setores === 1 ? "" : "s"}` : ""}.
-      <span class="hint">Nenhum processo veio com fase — atribua conforme forem revisando.</span>
-      ${avisos.length ? `<ul style="margin:8px 0 0 16px">${avisos.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-    </div>
-    <button class="btn btn-sm btn-ghost" data-fechar-relatorio type="button">Entendi</button>
-  `;
-  $("#main").before(faixa);
-  faixa.querySelector("[data-fechar-relatorio]").addEventListener("click", () => faixa.remove());
 }
 
 /* ---------------------------------------------------------------- start */

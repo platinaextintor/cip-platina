@@ -42,6 +42,10 @@
       document.write(`<link rel="stylesheet" href="./styles.css${V}" />`);
       document.write(`<scr` + `ipt src="./dominio.js${V}"></scr` + `ipt>`);
       document.write(`<scr` + `ipt src="./bpmn.js${V}"></scr` + `ipt>`);
+      /* nuvem.js entra aqui porque a tradução estado↔peças é lógica pura e
+         precisava de teste: o fim nomeado ficou meses sem linha no banco. O
+         arquivo não cria cliente no topo, então carregar não conecta nada. */
+      document.write(`<scr` + `ipt src="./nuvem.js${V}"></scr` + `ipt>`);
     </script>
 
     <script>
@@ -801,6 +805,68 @@
       });
 
       // ============================================================ TELA
+
+      grupo("Nuvem · estado vira peças e volta inteiro");
+
+      function estadoCheio() {
+        return normalizar({
+          ...semente(),
+          processos: [proc({ id: "p1", proximos: [{ para: "d1", rotulo: "" }] })],
+          decisoes: [{ id: "d1", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s-comercial", faseId: "", proximos: [{ para: "f1", rotulo: "Contrato" }] }],
+          fins: [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", faseId: "", proximos: [] }],
+          documentos: [{ id: "doc1", titulo: "POP", categoria: "pop", escopo: "", resumo: "", url: "", videoUrl: "" }],
+          sistemas: [{ id: "sis1", nome: "CAD", descricao: "", url: "", critico: true }],
+        });
+      }
+
+      /* A guarda que faltava: se alguém acrescentar uma lista ao modelo e
+         esquecer de dar linha para ela no banco, este teste cai. Foi
+         exatamente o que aconteceu com `fins`. */
+      teste("toda lista do modelo tem lugar no banco", () => {
+        const st = estadoCheio();
+        const volta = estadoDePecas(pecasDoEstado(st).map((p) => ({ tipo: p.tipo, dados: p.dados })));
+        const listas = Object.keys(estadoVazio()).filter((k) => Array.isArray(estadoVazio()[k]));
+        const perdidas = listas.filter((k) => (st[k] || []).length !== (volta[k] || []).length);
+        igual(perdidas, [], "listas que não voltaram do banco:");
+      });
+
+      teste("o fim nomeado sobrevive à ida e volta", () => {
+        const st = estadoCheio();
+        const volta = estadoDePecas(pecasDoEstado(st).map((p) => ({ tipo: p.tipo, dados: p.dados })));
+        igual(volta.fins.map((f) => f.nome), ["Proposta não aprovada"]);
+      });
+
+      teste("cada peça tem id único — senão uma sobrescreve a outra", () => {
+        const ids = pecasDoEstado(estadoCheio()).map((p) => p.id);
+        igual(ids.length, new Set(ids).size, "ids repetidos:");
+      });
+
+      teste("as ligações voltam inteiras, não só as peças", () => {
+        const st = estadoCheio();
+        const volta = estadoDePecas(pecasDoEstado(st).map((p) => ({ tipo: p.tipo, dados: p.dados })));
+        igual(volta.decisoes[0].proximos.map((x) => [x.para, x.rotulo]), [["f1", "Contrato"]]);
+      });
+
+      teste("o que este cliente sabe escrever bate com o que ele escreve", () => {
+        const emitidos = [...new Set(pecasDoEstado(estadoCheio()).map((p) => p.tipo))].sort();
+        const naoDeclarados = emitidos.filter((t) => !TIPOS_QUE_SEI_ESCREVER.has(t));
+        igual(naoDeclarados, [], "tipos que ele escreve mas não declara:");
+      });
+
+      teste("tipo que este cliente não conhece não entra na lista de apagar", () => {
+        /* A trava contra o pior caso: aba velha lê peça nova, não entende, e
+           conclui que ela sumiu. Apagar aí é destruir trabalho alheio. */
+        if (TIPOS_QUE_SEI_ESCREVER.has("indicador")) throw new Error("mude o tipo do teste");
+        const sombraFalsa = new Map([
+          ["ind:1", { tipo: "indicador" }],
+          ["p:sumido", { tipo: "processo" }],
+        ]);
+        const idsAtuais = new Set();
+        const sumidas = [...sombraFalsa.entries()]
+          .filter(([id, peca]) => !idsAtuais.has(id) && TIPOS_QUE_SEI_ESCREVER.has(peca.tipo))
+          .map(([id]) => id);
+        igual(sumidas, ["p:sumido"]);
+      });
 
       grupo("Tela · medir a coisa certa");
 
