@@ -3875,6 +3875,12 @@ $("#openData").addEventListener("click", () => {
       <h2>Dados do projeto</h2>
       <button class="icon-btn" data-fechar type="button" aria-label="Fechar">${icon("close")}</button>
     </div>
+
+    <p class="sub" style="display:flex;align-items:center;gap:8px">
+      <span class="tag navy">${esc(VERSAO)}</span>
+      <span class="hint">a versão que este navegador carregou</span>
+      <button class="btn btn-sm btn-ghost" data-recarregar type="button" style="margin-left:auto">Buscar a mais nova</button>
+    </p>
     ${blocoOndeMoraOsDados(kb)}
 
     <div class="btn-row" style="margin-top:18px">
@@ -3889,6 +3895,14 @@ $("#openData").addEventListener("click", () => {
       <button class="btn btn-ghost btn-sm" data-exemplo type="button">Restaurar setores e cargos</button>
     </div>
   `);
+
+  /* Recarregar furando o cache. Sem isso, a única saída para quem está com
+     versão velha é saber apertar Ctrl+Shift+R — e ninguém sabe. */
+  $("[data-recarregar]", drawer)?.addEventListener("click", () => {
+    const url = new URL(location.href);
+    url.searchParams.set("recarga", Date.now().toString(36));
+    location.replace(url.toString());
+  });
 
   $("[data-exportar]", drawer).addEventListener("click", exportar);
   $("[data-importar]", drawer).addEventListener("change", importar);
