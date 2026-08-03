@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v26";
+const VERSAO = "v27";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -467,6 +467,29 @@ function noCargo(c, vistos) {
    a seta continua desenhada, ela apenas não conta para a posição. */
 
 
+/* A lista que o gestor abre na segunda de manhã: o que foi aprovado, alguém
+   mexeu depois, e ninguém aprovou de novo. */
+function avisoDeReaprovacao() {
+  const pendentes = processosQuePedemAtencao();
+  if (!pendentes.length) return "";
+  return `<div class="filter-bar aviso" style="margin:0 0 16px">
+    ${icon("ok", 15)} <strong>${pendentes.length} processo${pendentes.length === 1 ? "" : "s"} mudou depois de aprovado.</strong>
+    ${pendentes.slice(0, 4).map((p) => `<button class="btn btn-sm btn-ghost" data-processo="${p.id}" type="button">${esc(p.nome)}</button>`).join("")}
+    ${pendentes.length > 4 ? `<span class="hint">e mais ${pendentes.length - 4}</span>` : ""}
+  </div>`;
+}
+
+/* Processo vigente que ninguém mede. Não é erro — é a fila do que medir. */
+function avisoDeMedicao() {
+  const sem = processosSemIndicador();
+  if (!sem.length) return "";
+  return `<div class="filter-bar" style="margin:0 0 16px">
+    ${icon("data", 15)} <strong>${sem.length} processo${sem.length === 1 ? "" : "s"} vigente${sem.length === 1 ? "" : "s"} sem nenhum número.</strong>
+    <span class="hint">Aprovado é bom; medido é melhor.</span>
+    ${sem.slice(0, 3).map((p) => `<button class="btn btn-sm btn-ghost" data-processo="${p.id}" type="button">${esc(p.nome)}</button>`).join("")}
+  </div>`;
+}
+
 function viewFluxo() {
   const porSetor = ui.agrupar !== "fase";
   const grupos = porSetor ? setoresPorCamada() : state.fases;
@@ -495,6 +518,9 @@ function viewFluxo() {
           <button class="btn btn-ghost" data-nova-raia type="button">${icon("plus", 15)} ${porSetor ? "Setor" : "Fase"}</button>
         </div>
       </div>
+
+      ${avisoDeReaprovacao()}
+      ${avisoDeMedicao()}
 
       ${ligando ? `<div class="filter-bar aviso">
         ${icon("link", 15)} Ligando <strong>${esc(ligando.nome)}</strong> — clique no processo que vem depois.
@@ -1950,6 +1976,8 @@ function viewEditor() {
         </div>
       </div>` : ""}
 
+      ${blocoDeAprovacao(p)}
+
       <div class="stack">
         <div class="field">
           <label for="e-nome">Nome do processo</label>
@@ -1972,11 +2000,30 @@ function viewEditor() {
         </div>
 
         <div class="field">
-          <label>Quem executa</label>
+          <label>Quem executa <span class="hint">— o R do RACI</span></label>
           <div class="chips">
             ${state.cargos.map((c) => `<button class="chip${p.cargosIds.includes(c.id) ? " on" : ""}" data-toggle-cargo="${c.id}" type="button">${esc(c.nome)}</button>`).join("")}
           </div>
         </div>
+
+        <div class="field">
+          <label>Quem é consultado antes <span class="hint">— o C: sem a opinião dele, o processo não anda</span></label>
+          <div class="chips">
+            ${state.cargos.map((c) => `<button class="chip${(p.consultadosIds || []).includes(c.id) ? " on" : ""}" data-toggle-consultado="${c.id}" type="button">${esc(c.nome)}</button>`).join("")}
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Quem é avisado depois <span class="hint">— o I: não decide, mas precisa saber</span></label>
+          <div class="chips">
+            ${state.cargos.map((c) => `<button class="chip${(p.informadosIds || []).includes(c.id) ? " on" : ""}" data-toggle-informado="${c.id}" type="button">${esc(c.nome)}</button>`).join("")}
+          </div>
+        </div>
+
+        ${problemasDeRaci(p).length ? `<div class="note note-trap">
+          <div class="block-label">Responsabilidade incompleta</div>
+          <ul class="lista">${problemasDeRaci(p).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        </div>` : ""}
 
         <div class="field-grid">
           <div class="field">
@@ -2043,6 +2090,66 @@ function viewEditor() {
       <div class="btn-row" style="margin-top:12px">
         <button class="btn" data-novo-passo type="button">${icon("plus")} Novo passo</button>
       </div>
+
+      <div class="section-title">
+        <h3>Como se mede</h3><span class="line"></span>
+        <button class="btn btn-sm" data-novo-indicador type="button">${icon("plus", 15)} Novo indicador</button>
+      </div>
+      <p class="hint">O número que diz se este processo vai bem. Sem ele, "melhorou" é opinião.</p>
+
+      ${indicadoresDoProcesso(p.id).length ? `<div class="stack" style="margin-top:12px">
+        ${indicadoresDoProcesso(p.id).map((i) => `
+          <div class="step-editor" data-indicador-id="${esc(i.id)}">
+            <div class="stack">
+              <div class="field">
+                <label>Nome do indicador</label>
+                <input data-i="nome" value="${esc(i.nome)}" placeholder="Prazo médio de emissão da proposta" />
+              </div>
+              <div class="field">
+                <label>Que pergunta ele responde</label>
+                <input data-i="pergunta" value="${esc(i.pergunta)}" placeholder="Estamos respondendo o cliente rápido o bastante?" />
+              </div>
+              <div class="field-grid">
+                <div class="field">
+                  <label>Unidade</label>
+                  <select data-i="unidade">${Object.entries(DIRECOES).map(([k, v]) => `<option value="${k}"${i.unidade === k ? " selected" : ""}>${esc(v.rotulo)}</option>`).join("")}</select>
+                </div>
+                <div class="field">
+                  <label>Meta</label>
+                  <input data-i="meta" type="number" step="any" value="${i.meta == null ? "" : esc(String(i.meta))}" placeholder="2" />
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field">
+                  <label>O bom é</label>
+                  <div class="chips">
+                    <button class="chip${i.direcao === "maior" ? " on" : ""}" data-direcao="maior" type="button">quanto maior, melhor</button>
+                    <button class="chip${i.direcao === "menor" ? " on" : ""}" data-direcao="menor" type="button">quanto menor, melhor</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Com que frequência se olha</label>
+                  <select data-i="frequencia">${Object.entries(FREQUENCIAS).map(([k, v]) => `<option value="${k}"${i.frequencia === k ? " selected" : ""}>${esc(v.rotulo)}</option>`).join("")}</select>
+                </div>
+              </div>
+              ${(i.processoIds || []).length > 1 ? `<p class="hint">${icon("link", 14)} Este número também mede ${(i.processoIds || []).length - 1} outro${(i.processoIds || []).length === 2 ? "" : "s"} processo${(i.processoIds || []).length === 2 ? "" : "s"} — mudar aqui muda lá.</p>` : ""}
+              <div class="btn-row">
+                <span class="tag navy">${esc(metaEscrita(i))}</span>
+                <span class="spacer"></span>
+                <button class="btn btn-sm btn-ghost" data-tirar-indicador type="button">Tirar deste processo</button>
+              </div>
+            </div>
+          </div>`).join("")}
+      </div>` : `<div class="empty">Nenhum número definido. Comece pela pergunta que você já faz de cabeça sobre este processo.</div>`}
+
+      ${state.indicadores.filter((i) => !(i.processoIds || []).includes(p.id)).length ? `
+        <div class="field" style="margin-top:14px">
+          <label>Ou aproveite um que já existe</label>
+          <div class="chips">
+            ${state.indicadores.filter((i) => !(i.processoIds || []).includes(p.id)).map((i) => `
+              <button class="chip" data-ligar-indicador="${esc(i.id)}" type="button" title="${esc(i.pergunta)}">${esc(i.nome || "sem nome")}</button>`).join("")}
+          </div>
+        </div>` : ""}
 
       <div class="section-title"><h3>Perguntas de checagem</h3><span class="line"></span></div>
       <div id="perguntasLista" class="stack">
@@ -2233,7 +2340,7 @@ function viewTrilha() {
           <button class="proc-card" style="border-left-color:${corSetor(p.setorId)}" data-processo="${p.id}" type="button">
             <strong>${esc(p.nome)}</strong>
             <span class="proc-meta">
-              <span class="tag ${mapeado(p) ? "green" : "amber"}"><span class="tag-dot"></span>${mapeado(p) ? "pronto" : "em construção"}</span>
+              <span class="tag ${SITUACOES[situacaoDoProcesso(p)].classe}"><span class="tag-dot"></span>${esc(SITUACOES[situacaoDoProcesso(p)].rotulo)}</span>
               <span>${esc(fase(p.faseId)?.nome || "sem fase")}</span>
               <span>${(p.passos || []).length} passo${(p.passos || []).length === 1 ? "" : "s"}</span>
               ${faltando(p).length ? `<span class="tag red">falta ${esc(faltando(p).join(", "))}</span>` : ""}
@@ -3124,6 +3231,37 @@ function redesenharBpmnEditor() {
   }, 500);
 }
 
+/* A aprovação com nome. O carimbo só vale enquanto o conteúdo é o mesmo que foi
+   aprovado — por isso a assinatura. Selo que sobrevive a qualquer edição é pior
+   que nenhum selo: ele afirma que alguém conferiu o que ninguém conferiu. */
+function blocoDeAprovacao(p) {
+  const sit = situacaoDoProcesso(p);
+  const s = SITUACOES[sit];
+  const ap = p.aprovacao;
+  const historico = [...(p.historico || [])].reverse();
+
+  return `
+    <div class="note ${sit === "vigente" ? "note-why" : "note-trap"}" style="margin-bottom:18px">
+      <div class="btn-row" style="align-items:center">
+        <span class="tag ${s.classe}"><span class="tag-dot"></span>${esc(s.rotulo)}</span>
+        ${ap ? `<span class="muted">aprovado por <strong>${esc(ap.nome)}</strong> em ${esc(dataCurta(ap.em))}</span>` : ""}
+      </div>
+      <p style="margin-top:8px">${esc(s.ajuda)}</p>
+
+      <div class="btn-row" style="margin-top:12px">
+        ${sit === "vigente"
+          ? `<button class="btn btn-sm btn-ghost" data-tirar-aprovacao type="button">Tirar a aprovação</button>`
+          : `<button class="btn btn-sm btn-primary" data-aprovar type="button">${icon("ok", 15)} ${sit === "mudou" ? "Aprovar de novo" : "Aprovar este processo"}</button>`}
+        ${historico.length ? `<button class="btn btn-sm btn-ghost" data-ver-historico type="button">${historico.length} registro${historico.length === 1 ? "" : "s"} no histórico</button>` : ""}
+      </div>
+
+      ${ui.verHistorico === p.id && historico.length ? `<ul class="lista" style="margin-top:12px">
+        ${historico.map((h) => `<li><strong>${esc(h.quem)}</strong> ${esc(h.acao)} <span class="muted">— ${esc(dataCurta(h.em))}</span>${h.detalhe ? ` <span class="hint">${esc(h.detalhe)}</span>` : ""}</li>`).join("")}
+      </ul>` : ""}
+    </div>
+  `;
+}
+
 function ligarEditor(raiz) {
   const p = processo(ui.processoId);
   if (!p) return;
@@ -3141,6 +3279,91 @@ function ligarEditor(raiz) {
     p.cargosIds = p.cargosIds.includes(id) ? p.cargosIds.filter((x) => x !== id) : [...p.cargosIds, id];
     chip.classList.toggle("on");
     salvar(true);
+  }));
+
+  $("[data-novo-indicador]", raiz)?.addEventListener("click", () => {
+    state.indicadores.push({
+      id: uid("ind"), nome: "Novo indicador", pergunta: "",
+      unidade: "numero", direcao: "maior", meta: null, frequencia: "mensal",
+      processoIds: [p.id],
+    });
+    salvar(true);
+    render();
+  });
+
+  $$("[data-ligar-indicador]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const i = indicador(b.dataset.ligarIndicador);
+    if (!i) return;
+    i.processoIds = [...new Set([...(i.processoIds || []), p.id])];
+    salvar(true);
+    render();
+  }));
+
+  $$("[data-indicador-id]", raiz).forEach((bloco) => {
+    const i = indicador(bloco.dataset.indicadorId);
+    if (!i) return;
+
+    $$("[data-i]", bloco).forEach((campo) => {
+      const evento = campo.tagName === "SELECT" ? "change" : "input";
+      campo.addEventListener(evento, () => {
+        const chave = campo.dataset.i;
+        i[chave] = chave === "meta" ? (campo.value === "" ? null : Number(campo.value)) : campo.value;
+        salvar();
+        if (evento === "change") render();
+      });
+    });
+
+    $$("[data-direcao]", bloco).forEach((b) => b.addEventListener("click", () => {
+      i.direcao = b.dataset.direcao;
+      salvar(true);
+      render();
+    }));
+
+    /* Tirar do processo não apaga o indicador: ele pode medir outros. Só some
+       de vez quando não mede mais nada. */
+    $("[data-tirar-indicador]", bloco)?.addEventListener("click", () => {
+      i.processoIds = (i.processoIds || []).filter((id) => id !== p.id);
+      if (!i.processoIds.length) state.indicadores = state.indicadores.filter((x) => x.id !== i.id);
+      salvar(true);
+      render();
+    });
+  });
+
+  $("[data-aprovar]", raiz)?.addEventListener("click", () => {
+    const nome = typeof nomeDoUsuario === "function" ? nomeDoUsuario() : "";
+    if (!confirm(`Aprovar "${p.nome}" em nome de ${nome || "você"}?\n\nSeu nome fica registrado, e a aprovação cai sozinha se alguém editar o processo depois.`)) return;
+    aprovarProcesso(p, nome);
+    salvar(true);
+    render();
+  });
+
+  $("[data-tirar-aprovacao]", raiz)?.addEventListener("click", () => {
+    retirarAprovacao(p, typeof nomeDoUsuario === "function" ? nomeDoUsuario() : "");
+    salvar(true);
+    render();
+  });
+
+  $("[data-ver-historico]", raiz)?.addEventListener("click", () => {
+    ui.verHistorico = ui.verHistorico === p.id ? null : p.id;
+    render();
+  });
+
+  $$("[data-toggle-consultado]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.toggleConsultado;
+    p.consultadosIds = (p.consultadosIds || []).includes(id)
+      ? p.consultadosIds.filter((x) => x !== id)
+      : [...(p.consultadosIds || []), id];
+    salvar(true);
+    render();
+  }));
+
+  $$("[data-toggle-informado]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.toggleInformado;
+    p.informadosIds = (p.informadosIds || []).includes(id)
+      ? p.informadosIds.filter((x) => x !== id)
+      : [...(p.informadosIds || []), id];
+    salvar(true);
+    render();
   }));
 
   $$(".step-editor[data-passo-id]", raiz).forEach((bloco) => {

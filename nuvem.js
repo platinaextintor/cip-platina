@@ -103,7 +103,7 @@ function nomeDoUsuario(user = usuarioAtual) {
 /* O que este cliente sabe escrever. Serve de trava: o que não está aqui,
    ele não apaga. Sai de pecasDoEstado com um estado de exemplo para as duas
    listas nunca saírem de sincronia. */
-const TIPOS_QUE_SEI_ESCREVER = new Set(["estrutura", "processo", "decisao", "fim", "documento", "sistema", "regra"]);
+const TIPOS_QUE_SEI_ESCREVER = new Set(["estrutura", "processo", "decisao", "fim", "documento", "sistema", "regra", "indicador"]);
 
 function pecasDoEstado(st) {
   const pecas = [
@@ -119,6 +119,7 @@ function pecasDoEstado(st) {
   (st.documentos || []).forEach((d) => pecas.push({ id: `doc:${d.id}`, tipo: "documento", dados: d }));
   (st.sistemas || []).forEach((s) => pecas.push({ id: `sis:${s.id}`, tipo: "sistema", dados: s }));
   (st.regras || []).forEach((r) => pecas.push({ id: `r:${r.id}`, tipo: "regra", dados: r }));
+  (st.indicadores || []).forEach((i) => pecas.push({ id: `ind:${i.id}`, tipo: "indicador", dados: i }));
   return pecas;
 }
 
@@ -132,6 +133,7 @@ function estadoDePecas(linhas) {
     else if (l.tipo === "documento") base.documentos.push(l.dados);
     else if (l.tipo === "sistema") base.sistemas.push(l.dados);
     else if (l.tipo === "regra") base.regras.push(l.dados);
+    else if (l.tipo === "indicador") base.indicadores.push(l.dados);
   });
   return normalizar(base);
 }

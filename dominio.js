@@ -82,6 +82,7 @@ function estadoVazio() {
     documentos: [],
     sistemas: [],
     regras: [],
+    indicadores: [],
     processos: [],
   };
 }
@@ -177,6 +178,23 @@ function normalizar(dados) {
     if (!r.codigo) r.codigo = `RN-${String(++proximo).padStart(3, "0")}`;
   });
 
+  /* O indicador fecha a ponte com o Bloco 9: sem número definido na modelagem,
+     a Inteligência não tem o que medir. Mora fora do processo pelo mesmo motivo
+     da regra — "prazo médio de entrega" é do Comercial e da Logística ao mesmo
+     tempo, e cada um mediria de um jeito. */
+  dados.indicadores = Array.isArray(dados.indicadores) ? dados.indicadores : [];
+  dados.indicadores.forEach((i) => {
+    i.nome = i.nome || "";
+    i.pergunta = i.pergunta || "";
+    i.unidade = DIRECOES[i.unidade] ? i.unidade : "numero";
+    i.direcao = DIRECOES_BOAS.includes(i.direcao) ? i.direcao : "maior";
+    i.meta = typeof i.meta === "number" ? i.meta : (i.meta === "" || i.meta == null ? null : Number(i.meta));
+    if (!Number.isFinite(i.meta)) i.meta = null;
+    i.frequencia = FREQUENCIAS[i.frequencia] ? i.frequencia : "mensal";
+    i.processoIds = (Array.isArray(i.processoIds) ? i.processoIds : [])
+      .filter((id) => (dados.processos || []).some((p) => p.id === id));
+  });
+
   dados.setores.forEach((s) => {
     if (!CAMADAS[s.camada]) s.camada = "principal";
   });
@@ -217,6 +235,28 @@ function normalizar(dados) {
     p.entrada = p.entrada || "";
     p.saida = p.saida || "";
     p.revisado = p.revisado !== false;
+
+    /* RACI completo. R e A já existiam com outros nomes — quem executa e o dono.
+       Faltavam C e I, que são justamente os que ninguém lembra de avisar. */
+    const cargosVivos = (ids) => (Array.isArray(ids) ? ids : []).filter((id) => dados.cargos.some((c) => c.id === id));
+    p.cargosIds = cargosVivos(p.cargosIds);
+    p.consultadosIds = cargosVivos(p.consultadosIds);
+    p.informadosIds = cargosVivos(p.informadosIds);
+
+    /* A aprovação carrega nome, data e a ASSINATURA do conteúdo aprovado. Sem
+       a assinatura, "aprovado" vira selo eterno: alguém aprova, outro edita, e
+       o carimbo continua lá dizendo que está tudo certo. */
+    if (p.aprovacao && typeof p.aprovacao === "object") {
+      p.aprovacao.nome = p.aprovacao.nome || "";
+      p.aprovacao.em = p.aprovacao.em || "";
+      p.aprovacao.assinatura = p.aprovacao.assinatura || "";
+    } else {
+      p.aprovacao = null;
+    }
+
+    p.historico = (Array.isArray(p.historico) ? p.historico : [])
+      .filter((h) => h && h.em)
+      .slice(-50); // o histórico é de governança, não é log: cabe em uma tela
     /* O subprocesso era uma fila: a ordem do array virava a sequência. Agora é
        desenho — cada passo aponta para os próximos. Base antiga é convertida
        encadeando na ordem em que estava, para nada se perder. */
@@ -308,9 +348,90 @@ function processosDoCargo(cargoId) {
   return state.processos.filter((p) => p.cargosIds.includes(cargoId) || p.donoCargoId === cargoId);
 }
 
+/* A assinatura do que foi aprovado. Não é criptografia — é só o suficiente para
+   perceber que o conteúdo mudou depois do carimbo. Cobre o que a aprovação
+   realmente aprova: o que se faz, em que ordem, sob que regra e por quem. */
+function assinaturaDoProcesso(p) {
+  const partes = [
+    p.nome, p.porque, p.entrada, p.saida, p.donoCargoId,
+    (p.cargosIds || []).join(","),
+    ...(p.passos || []).map((s) => [
+      s.tipo, s.oQue, s.comoFazer, s.porque, s.armadilha,
+      (s.regraIds || []).join("+"), (s.sistemaIds || []).join("+"), s.cargoId,
+      (s.proximos || []).map((x) => `${x.para}:${x.rotulo}`).join(">"),
+    ].join("|")),
+  ].join("~");
+
+  let h = 5381;
+  for (let i = 0; i < partes.length; i++) h = ((h << 5) + h + partes.charCodeAt(i)) >>> 0;
+  return `${h.toString(36)}-${partes.length.toString(36)}`;
+}
+
+/* Três estados, e o do meio é o que faltava: aprovado mas alterado depois.
+   Chamar isso de "vigente" seria mentir; chamar de "rascunho" apagaria o
+   trabalho de quem aprovou. */
+function situacaoDoProcesso(p) {
+  if (!p?.aprovacao) return "rascunho";
+  return p.aprovacao.assinatura === assinaturaDoProcesso(p) ? "vigente" : "mudou";
+}
+
+const SITUACOES = {
+  rascunho: { rotulo: "rascunho", classe: "amber", ajuda: "Ainda não foi aprovado por ninguém." },
+  vigente: { rotulo: "vigente", classe: "green", ajuda: "Aprovado, e não mudou desde então." },
+  mudou: { rotulo: "mudou desde a aprovação", classe: "red", ajuda: "Foi aprovado, mas alguém editou depois. Precisa de nova aprovação." },
+};
+
+/* Aprovar é um ato com nome e data — é isso que separa governança de checkbox. */
+function aprovarProcesso(p, nome, quando = new Date().toISOString()) {
+  p.aprovacao = { nome: nome || "alguém", em: quando, assinatura: assinaturaDoProcesso(p) };
+  p.status = "vigente";
+  registrar(p, quando, nome, "aprovou");
+  return p;
+}
+
+function retirarAprovacao(p, nome, quando = new Date().toISOString()) {
+  p.aprovacao = null;
+  p.status = "rascunho";
+  registrar(p, quando, nome, "tirou a aprovação");
+  return p;
+}
+
+function registrar(p, em, quem, acao, detalhe = "") {
+  p.historico = [...(p.historico || []), { em, quem: quem || "alguém", acao, detalhe }].slice(-50);
+}
+
+/* RACI só vale se alguém for responsabilizável. Sem A, "todo mundo aprova" —
+   que é o mesmo que ninguém. E o cargo que executa não se consulta a si mesmo. */
+function problemasDeRaci(p, st = state) {
+  const problemas = [];
+  if (!p.donoCargoId) problemas.push("Sem dono: ninguém responde por este processo.");
+  if (!(p.cargosIds || []).length) problemas.push("Ninguém marcado como quem executa.");
+  const executa = new Set(p.cargosIds || []);
+  const repetidos = (p.consultadosIds || []).filter((id) => executa.has(id));
+  repetidos.forEach((id) => {
+    const c = st.cargos.find((x) => x.id === id);
+    problemas.push(`${c?.nome || "Um cargo"} executa e é consultado ao mesmo tempo — escolha um.`);
+  });
+  return problemas;
+}
+
+/* Quem precisa ser avisado quando este processo mudar: quem executa, quem é
+   consultado, quem é informado e o dono. Derivado, nunca guardado. */
+function quemAvisar(p, st = state) {
+  const ids = [...new Set([p.donoCargoId, ...(p.cargosIds || []), ...(p.consultadosIds || []), ...(p.informadosIds || [])])];
+  return ids.filter(Boolean).map((id) => st.cargos.find((c) => c.id === id)).filter(Boolean);
+}
+
+/* O que mudou de regra e ainda não foi reaprovado. É a lista que o gestor abre
+   na segunda de manhã. */
+function processosQuePedemAtencao(st = state) {
+  return st.processos.filter((p) => situacaoDoProcesso(p) === "mudou");
+}
+
 function mapeado(p) {
   const passosOk = (p.passos || []).filter((s) => s.oQue && s.oQue.trim()).length;
-  return !!(p.porque && p.porque.trim()) && passosOk >= 3 && p.revisado !== false;
+  return !!(p.porque && p.porque.trim()) && passosOk >= 3 && p.revisado !== false
+    && situacaoDoProcesso(p) === "vigente";
 }
 
 function faltando(p) {
@@ -609,7 +730,7 @@ function aplicarNoEstado(m) {
   }
   const [prefixo, ...resto] = m.peca.split(":");
   const id = resto.join(":");
-  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas", r: "regras" }[prefixo];
+  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas", r: "regras", ind: "indicadores" }[prefixo];
   if (!lista) return;
   const i = state[lista].findIndex((x) => x.id === id);
 
@@ -633,6 +754,7 @@ const processo = (id) => state.processos.find((p) => p.id === id);
 
 const sistema = (id) => state.sistemas.find((s) => s.id === id);
 const regra = (id) => state.regras.find((r) => r.id === id);
+const indicador = (id) => state.indicadores.find((i) => i.id === id);
 const documento = (id) => state.documentos.find((d) => d.id === id);
 
 const fim = (id) => state.fins.find((f) => f.id === id);
@@ -696,6 +818,42 @@ function ondeApareceOSistema(sistemaId, st = state) {
       passos: (p.passos || []).filter((s) => (s.sistemaIds || []).includes(sistemaId)),
     }))
     .filter((x) => x.passos.length);
+}
+
+const DIRECOES = {
+  numero: { rotulo: "número", sufixo: "" },
+  percentual: { rotulo: "percentual", sufixo: "%" },
+  dias: { rotulo: "dias", sufixo: " d" },
+  horas: { rotulo: "horas", sufixo: " h" },
+  reais: { rotulo: "reais", sufixo: "" },
+};
+const DIRECOES_BOAS = ["maior", "menor"];
+const FREQUENCIAS = {
+  diaria: { rotulo: "por dia" },
+  semanal: { rotulo: "por semana" },
+  mensal: { rotulo: "por mês" },
+  trimestral: { rotulo: "por trimestre" },
+};
+
+/* O indicador é do processo, mas guardado do lado do indicador — porque um
+   número costuma medir mais de um processo, e o contrário é raro. */
+function indicadoresDoProcesso(processoId, st = state) {
+  return st.indicadores.filter((i) => (i.processoIds || []).includes(processoId));
+}
+
+/* Processo vigente sem nenhum número é processo que ninguém sabe se vai bem.
+   Não é erro — é a lista do que medir a seguir. */
+function processosSemIndicador(st = state) {
+  return st.processos.filter((p) => situacaoDoProcesso(p) === "vigente" && !indicadoresDoProcesso(p.id, st).length);
+}
+
+/* Como o número aparece escrito. Meta sem unidade e sem direção é número solto:
+   "15" não diz se 20 é bom ou ruim. */
+function metaEscrita(i) {
+  if (i?.meta == null) return "sem meta";
+  const sufixo = DIRECOES[i.unidade]?.sufixo ?? "";
+  const valor = i.unidade === "reais" ? `R$ ${i.meta}` : `${i.meta}${sufixo}`;
+  return `${i.direcao === "maior" ? "no mínimo" : "no máximo"} ${valor}`;
 }
 
 /* Título quando a regra nasce de texto solto: a primeira linha costuma ser a

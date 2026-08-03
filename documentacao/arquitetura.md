@@ -39,6 +39,8 @@ Aplicada em quatro lugares:
 | a camada do processo | da camada do setor dele |
 | os sistemas do processo | dos sistemas dos passos dele |
 | quem é processo de apoio | de não ter ligação nenhuma no mapa |
+| se um processo está vigente | da assinatura do conteúdo bater com a da aprovação |
+| quais regras um processo aplica | das regras marcadas nos passos dele |
 
 É o que impede o CIP de virar cópias desencontradas — o erro clássico de ferramenta caseira de processo. É também o princípio central do ARIS: cada objeto existe uma vez e é reutilizado.
 
@@ -55,6 +57,9 @@ Aplicada em quatro lugares:
   fins:       [{ id, nome, setorId, faseId }],                  // desfechos nomeados
   documentos: [{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
   sistemas:   [{ id, nome, descricao, url, critico }],          // onde o trabalho acontece
+  regras:     [{ id, codigo, titulo, texto, vigenteDesde }],    // RN-001; vale na empresa, não no processo
+  indicadores:[{ id, nome, pergunta, unidade, direcao, meta,
+                 frequencia, processoIds[] }],                  // a ponte com o Bloco 9
   processos:  [{
     id, nome, faseId, setorId, donoCargoId, cargosIds[], status, revisado, videoUrl,
     proximos: [{ para, rotulo }],
@@ -107,7 +112,11 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 14. **Ciclo fechado ainda tem porta.** Quando todo passo tem entrada, o primeiro vira a entrada — no desenho e na aula, pela mesma regra.
 15. **Cliente não apaga o que não entende.** A sincronia só considera "sumida" uma peça cujo tipo ele sabe escrever. Sem isso, uma aba com código velho lê uma linha nova, não a reconhece, conclui que sumiu e apaga o trabalho de quem está atualizado.
 16. **Toda lista do modelo tem linha no banco.** Um teste percorre o modelo e cobra: acrescentou lista, dá lugar para ela. `fins` viveu meses só no navegador porque ninguém cobrava.
-17. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
+17. **Aprovação tem nome, data e assinatura do que foi aprovado.** O selo cai sozinho quando o conteúdo muda — selo que sobrevive a qualquer edição afirma que alguém conferiu o que ninguém conferiu. Só cai por mudança no que a aprovação de fato aprova: nome, motivo, entradas e saídas, responsáveis, e os passos com suas regras, sistemas e ligações. Trocar um vídeo ou anexar um arquivo não derruba.
+18. **"Pronto" passou a exigir aprovação.** Antes bastava estar preenchido — que é a definição de pronto que ninguém assina.
+19. **A regra e o indicador moram fora do processo.** Os dois valem em mais de um: a regra do prazo de pagamento pega Comercial, Financeiro e Faturamento; o prazo médio de entrega mede Comercial e Logística. Guardados dentro, seriam cópias que um dia divergem.
+20. **Mexer no indicador não derruba a aprovação do processo.** O número mede o processo, não faz parte dele. Se derrubasse, ajustar uma meta obrigaria a reaprovar o passo a passo — e ninguém ajustaria.
+21. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 
@@ -171,6 +180,12 @@ O que o leitor **não** lê: pool, fluxo de mensagem, evento de borda, e a posi�
 Não existe botão de importar `.bpmn` na tela, e é decisão, não pendência: o import substitui o fluxo macro inteiro, e um clique errado num seletor de arquivo apagaria o trabalho de três pessoas. `lerBpmn()` fica no domínio como a **regra de tradução, testada**, e a carga é operação de uma vez, feita fora do app, com backup da tabela antes.
 
 O macro real da Platina — 16 processos, 4 decisões, 3 fins nomeados, 25 ligações — entrou assim em 03/08/2026.
+
+## Governança: o que existe e o que não
+
+Existe: aprovação com nome e data, o selo caindo sozinho quando o conteúdo muda, RACI completo (R e A já existiam como "quem executa" e "dono"; C e I entraram), validação de responsabilidade, e histórico dos atos de governança.
+
+**O histórico é de governança, não é log de alterações.** Ele registra quem aprovou e quem tirou a aprovação, com data — não quem mudou qual palavra. Guardar diff de tudo é outro produto, e cabe no banco, não numa lista dentro do processo. O que a assinatura garante é que ninguém *precisa* do diff para saber que mudou.
 
 ## O que ainda não está separado
 

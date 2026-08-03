@@ -155,8 +155,16 @@
       teste("processo com menos de três passos não conta", () =>
         mapeado(proc({ porque: "existe por isso", passos: [passo(), passo({ id: "b" })] })) === false);
 
-      teste("processo completo conta como pronto", () =>
-        mapeado(proc({ porque: "existe por isso", passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === true);
+      /* "Pronto" passou a exigir aprovação com nome. Antes bastava estar
+         preenchido — que é a definição de pronto que ninguém assina. */
+      teste("processo completo mas não aprovado ainda não conta como pronto", () =>
+        mapeado(proc({ porque: "existe por isso", passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === false);
+
+      teste("processo completo E aprovado conta como pronto", () => {
+        const p = proc({ porque: "existe por isso", passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] });
+        aprovarProcesso(p, "Eric");
+        return mapeado(p) === true;
+      });
 
       teste("rascunho de IA não conta como pronto até ser revisado", () =>
         mapeado(proc({ porque: "x", revisado: false, passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === false);
@@ -876,6 +884,175 @@
         igual(regrasOrfas().map((r) => r.codigo), ["RN-001"]);
       });
 
+      grupo("Domínio · governança");
+
+      teste("processo novo é rascunho — ninguém aprovou nada ainda", () => {
+        igual(situacaoDoProcesso(procVivo()), "rascunho");
+      });
+
+      teste("aprovar carimba nome e data", () => {
+        const p = procVivo({ passos: [passo({ id: "1" })] });
+        aprovarProcesso(p, "Eric", "2026-08-03T10:00:00.000Z");
+        igual([p.aprovacao.nome, situacaoDoProcesso(p)], ["Eric", "vigente"]);
+      });
+
+      teste("editar depois de aprovado derruba o selo", () => {
+        const p = procVivo({ passos: [passo({ id: "1", oQue: "Antes" })] });
+        aprovarProcesso(p, "Eric");
+        igual(situacaoDoProcesso(p), "vigente", "logo após aprovar:");
+        p.passos[0].oQue = "Depois";
+        igual(situacaoDoProcesso(p), "mudou", "depois de editar:");
+      });
+
+      teste("trocar a regra do passo também derruba o selo", () => {
+        state = normalizar({ ...semente(),
+          regras: [{ id: "r1", titulo: "A", texto: "a" }, { id: "r2", titulo: "B", texto: "b" }],
+          processos: [proc({ passos: [passo({ id: "1", regraIds: ["r1"] })] })] });
+        const p = state.processos[0];
+        aprovarProcesso(p, "Eric");
+        p.passos[0].regraIds = ["r2"];
+        igual(situacaoDoProcesso(p), "mudou");
+      });
+
+      teste("mexer no que não é o processo não derruba o selo", () => {
+        const p = procVivo({ passos: [passo({ id: "1" })] });
+        aprovarProcesso(p, "Eric");
+        p.videoUrl = "https://youtube.com/watch?v=abc";
+        p.anexos.push({ id: "a1", titulo: "extra", url: "" });
+        igual(situacaoDoProcesso(p), "vigente");
+      });
+
+      teste("reaprovar depois da mudança volta a valer", () => {
+        const p = procVivo({ passos: [passo({ id: "1", oQue: "Antes" })] });
+        aprovarProcesso(p, "Eric");
+        p.passos[0].oQue = "Depois";
+        aprovarProcesso(p, "Vinicius");
+        igual([situacaoDoProcesso(p), p.aprovacao.nome], ["vigente", "Vinicius"]);
+      });
+
+      teste("o histórico guarda quem fez o quê", () => {
+        const p = procVivo();
+        aprovarProcesso(p, "Eric", "2026-08-03T10:00:00.000Z");
+        retirarAprovacao(p, "Vinicius", "2026-08-04T10:00:00.000Z");
+        igual(p.historico.map((h) => [h.quem, h.acao]), [["Eric", "aprovou"], ["Vinicius", "tirou a aprovação"]]);
+      });
+
+      teste("o histórico não cresce sem limite", () => {
+        const p = procVivo();
+        for (let i = 0; i < 70; i++) aprovarProcesso(p, "Eric");
+        if (p.historico.length > 50) throw new Error("histórico virou log: " + p.historico.length);
+      });
+
+      teste("processo aprovado e depois alterado entra na lista de atenção", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "Mexido", passos: [passo({ id: "1", oQue: "x" })] }),
+          proc({ id: "b", nome: "Quieto", passos: [passo({ id: "2", oQue: "y" })] }),
+        ] });
+        state.processos.forEach((p) => aprovarProcesso(p, "Eric"));
+        state.processos[0].passos[0].oQue = "mudou";
+        igual(processosQuePedemAtencao().map((p) => p.nome), ["Mexido"]);
+      });
+
+      teste("sem dono, o RACI reclama", () => {
+        const p = procVivo({ donoCargoId: "", cargosIds: ["c-vendedor"] });
+        if (!problemasDeRaci(p).some((x) => /dono/i.test(x))) throw new Error("passou calado");
+      });
+
+      teste("o mesmo cargo não executa e se consulta", () => {
+        const p = procVivo({ cargosIds: ["c-vendedor"], consultadosIds: ["c-vendedor"] });
+        if (!problemasDeRaci(p).some((x) => /consultado/i.test(x))) throw new Error("passou calado");
+      });
+
+      teste("quem avisar junta os quatro papéis, sem repetir", () => {
+        const p = procVivo({
+          donoCargoId: "c-supervisor", cargosIds: ["c-vendedor"],
+          consultadosIds: ["c-tecnico"], informadosIds: ["c-supervisor", "c-admin"],
+        });
+        igual(quemAvisar(p).length, 4);
+      });
+
+      teste("cargo apagado sai de C e de I, como já saía de R", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ consultadosIds: ["c-vendedor", "fantasma"], informadosIds: ["fantasma"] }),
+        ] });
+        const p = state.processos[0];
+        igual([p.consultadosIds, p.informadosIds], [["c-vendedor"], []]);
+      });
+
+      grupo("Domínio · indicador");
+
+      function comIndicador(extra = {}) {
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "p1" }), proc({ id: "p2" })],
+          indicadores: [{ id: "i1", nome: "Prazo médio", pergunta: "?", unidade: "dias", direcao: "menor", meta: 2, frequencia: "mensal", processoIds: ["p1"], ...extra }],
+        });
+        return state.indicadores[0];
+      }
+
+      teste("o indicador é achado pelo processo que ele mede", () => {
+        comIndicador();
+        igual(indicadoresDoProcesso("p1").map((i) => i.nome), ["Prazo médio"]);
+        igual(indicadoresDoProcesso("p2").length, 0);
+      });
+
+      teste("o mesmo número pode medir dois processos", () => {
+        comIndicador({ processoIds: ["p1", "p2"] });
+        igual([indicadoresDoProcesso("p1").length, indicadoresDoProcesso("p2").length], [1, 1]);
+      });
+
+      teste("indicador apontando para processo apagado limpa sozinho", () => {
+        comIndicador({ processoIds: ["p1", "fantasma"] });
+        igual(state.indicadores[0].processoIds, ["p1"]);
+      });
+
+      teste("meta sem unidade e sem direção não vira frase solta", () => {
+        const i = comIndicador();
+        igual(metaEscrita(i), "no máximo 2 d");
+      });
+
+      teste("indicador sem meta diz que não tem, em vez de mentir um número", () => {
+        igual(metaEscrita(comIndicador({ meta: null })), "sem meta");
+      });
+
+      teste("meta escrita em texto vira número ou vira nada", () => {
+        igual(metaEscrita(comIndicador({ meta: "duas semanas" })), "sem meta");
+      });
+
+      teste("unidade e frequência inventadas caem no padrão", () => {
+        const i = comIndicador({ unidade: "bananas", frequencia: "quando der", direcao: "para o lado" });
+        igual([i.unidade, i.frequencia, i.direcao], ["numero", "mensal", "maior"]);
+      });
+
+      teste("só processo vigente entra na lista do que falta medir", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "Aprovado sem número" }),
+          proc({ id: "b", nome: "Rascunho" }),
+        ] });
+        aprovarProcesso(state.processos[0], "Eric");
+        igual(processosSemIndicador().map((p) => p.nome), ["Aprovado sem número"]);
+      });
+
+      teste("processo vigente COM número sai da lista", () => {
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "a" })],
+          indicadores: [{ id: "i1", nome: "n", processoIds: ["a"] }],
+        });
+        aprovarProcesso(state.processos[0], "Eric");
+        igual(processosSemIndicador().length, 0);
+      });
+
+      teste("mudar o indicador não derruba a aprovação do processo", () => {
+        /* O indicador mede o processo, não faz parte dele. Se derrubasse, ajustar
+           uma meta obrigaria a reaprovar o passo a passo — e ninguém ajustaria. */
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "a", passos: [passo({ id: "1" })] })],
+          indicadores: [{ id: "i1", nome: "n", processoIds: ["a"] }],
+        });
+        aprovarProcesso(state.processos[0], "Eric");
+        state.indicadores[0].meta = 5;
+        igual(situacaoDoProcesso(state.processos[0]), "vigente");
+      });
+
       grupo("Nuvem · estado vira peças e volta inteiro");
 
       function estadoCheio() {
@@ -887,6 +1064,7 @@
           documentos: [{ id: "doc1", titulo: "POP", categoria: "pop", escopo: "", resumo: "", url: "", videoUrl: "" }],
           sistemas: [{ id: "sis1", nome: "CAD", descricao: "", url: "", critico: true }],
           regras: [{ id: "r1", codigo: "RN-001", titulo: "Prazo por valor", texto: "acima de 10 mil, 30/60/90/120", vigenteDesde: "2026-08-03" }],
+          indicadores: [{ id: "i1", nome: "Prazo médio", pergunta: "?", unidade: "dias", direcao: "menor", meta: 2, frequencia: "mensal", processoIds: ["p1"] }],
         });
       }
 
@@ -927,9 +1105,10 @@
       teste("tipo que este cliente não conhece não entra na lista de apagar", () => {
         /* A trava contra o pior caso: aba velha lê peça nova, não entende, e
            conclui que ela sumiu. Apagar aí é destruir trabalho alheio. */
-        if (TIPOS_QUE_SEI_ESCREVER.has("indicador")) throw new Error("mude o tipo do teste");
+        /* Um tipo que ainda não existe — o cliente do futuro é que vai escrever. */
+        if (TIPOS_QUE_SEI_ESCREVER.has("risco")) throw new Error("mude o tipo do teste");
         const sombraFalsa = new Map([
-          ["ind:1", { tipo: "indicador" }],
+          ["risco:1", { tipo: "risco" }],
           ["p:sumido", { tipo: "processo" }],
         ]);
         const idsAtuais = new Set();
