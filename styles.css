@@ -1092,3 +1092,135 @@ a.btn, .link-btn {
   .anexo-row input:nth-of-type(2) { grid-column: 1 / -1; }
   .doc-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- impressão ----------
+
+   O CIP nasceu de tela, mas processo vira papel: POP na parede da oficina,
+   folha na mão do técnico em campo, pasta na auditoria. Sem folha de estilo
+   de impressão, o que sai da impressora é a barra de navegação e metade de um
+   campo cortado.
+
+   Nada de biblioteca de PDF: o navegador já sabe gerar PDF, e "Salvar como
+   PDF" na caixa de impressão faz o mesmo trabalho sem dependência nenhuma.
+
+   A regra que mais importa aqui é de governança, não de estilo: papel não tem
+   estado. Uma ficha impressa sem dizer se foi aprovada vira verdade oficial na
+   mão de quem a recebe — por isso o carimbo de situação é obrigatório no topo
+   de tudo que sai daqui. */
+
+.so-impressao { display: none; }
+
+@media print {
+  @page { margin: 14mm 12mm; }
+
+  html, body {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  /* Some tudo que é navegação, ação ou ajuda de tela. */
+  .topbar, .drawer, .drawer-scrim, .portao, .tarja-erro,
+  .desenho-topo, .desenho-lado, .lesson-top, .lesson-nav, .lesson-trilho,
+  .filter-bar, .btn, .btn-row, .icon-btn, .file-label,
+  [data-imprimir], .desenho-paleta, .desenho-zoom, .sustentacao-topo .chip,
+  details.legenda, .hint, .pend-seta { display: none !important; }
+
+  #main, .page, .editor, .lesson, .desenho, .desenho-corpo, .desenho-tela {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .so-impressao { display: block; }
+
+  .impressao-cabeca {
+    border-bottom: 1.5pt solid #000;
+    margin-bottom: 10pt;
+    padding-bottom: 6pt;
+  }
+  .impressao-cabeca .empresa { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; }
+  .impressao-cabeca h1 { margin: 2pt 0 4pt; font-size: 16pt; }
+  .impressao-cabeca .linha { display: flex; flex-wrap: wrap; gap: 4pt 14pt; font-size: 9.5pt; }
+
+  /* O carimbo de situação: quem recebe a folha precisa saber se aquilo vale. */
+  .impressao-selo {
+    display: inline-block;
+    border: 1.2pt solid #000;
+    border-radius: 3pt;
+    padding: 2pt 7pt;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .impressao-selo.rascunho { border-style: dashed; }
+  .impressao-selo.aviso { border-width: 2pt; }
+
+  /* Campo vira texto: caixa com borda no papel é ruído, e o que importa é o
+     conteúdo. O rótulo fica, porque sem ele o valor não se explica. */
+  .field > label { color: #000; font-size: 8.5pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .field input, .field textarea, .field select {
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    color: #000;
+    font-size: 11pt;
+    max-width: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    resize: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field textarea { overflow: visible; white-space: pre-wrap; }
+
+  /* Campo vazio imprimia o texto de exemplo, e no papel exemplo cinza vira
+     conteúdo. Melhor sair em branco: o rótulo já diz o que falta ali. */
+  .field input::placeholder, .field textarea::placeholder { color: transparent !important; }
+
+  /* Os chips carregam o RACI, o tipo do passo, as regras e os sistemas. Some
+     tudo e a folha perde justamente quem faz o quê. Aqui viram texto: só os
+     marcados, separados por vírgula. */
+  .chips { display: block !important; }
+  .chip { display: none !important; }
+  .chip.on {
+    display: inline !important;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+  .chip.on + .chip.on::before { content: ", "; }
+  .chips:not(:has(.chip.on))::after { content: "—"; color: #000; }
+  .field { break-inside: avoid; margin-bottom: 6pt; }
+  .field-grid { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6pt 16pt; }
+
+  .step-editor, .learn-item, .note, .doc-card, .pend-item, .retrato-linha {
+    break-inside: avoid;
+    border: 0;
+    border-left: 2pt solid #000;
+    border-radius: 0;
+    background: #fff;
+    padding: 4pt 0 4pt 8pt;
+    margin-bottom: 8pt;
+  }
+  .section-title { break-after: avoid; margin-top: 12pt; }
+  .section-title h3 { font-size: 12pt; }
+  .section-title .line { border-top: .5pt solid #000; }
+
+  /* O desenho cabe na página em vez de sair pela direita. */
+  .bpmn-wrap { overflow: visible !important; }
+  svg.bpmn { width: 100% !important; height: auto !important; break-inside: avoid; }
+  .bpmn-alca, #fioTemporario { display: none; }
+
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8.5pt; }
+  .tag, .tag-dot { border: .5pt solid #000; background: transparent !important; color: #000 !important; }
+}

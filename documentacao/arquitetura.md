@@ -219,6 +219,28 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
+## Impressão
+
+Processo vira papel: POP na parede da oficina, folha na mão do técnico em campo, pasta na auditoria. Sem folha de estilo de impressão, o que saía da impressora era a barra de navegação e metade de um campo cortado.
+
+**Sem biblioteca de PDF.** O navegador já sabe gerar PDF — "Salvar como PDF" na caixa de impressão faz o mesmo trabalho sem dependência nenhuma.
+
+Imprimem: a **ficha do processo**, o **passo a passo** (a aula, que é o POP de quem executa), a **trilha do cargo** e o **mapa macro**.
+
+**A regra aqui é de governança, não de estilo: papel não tem estado.** Uma ficha impressa sem dizer se foi aprovada vira verdade oficial na mão de quem a recebe — e boa parte do que está no CIP hoje é rascunho de IA. Por isso o carimbo é obrigatório no topo de tudo que sai:
+
+| Situação | O que a folha diz |
+|---|---|
+| rascunho de IA | *"escrito pela IA e ainda não revisado. Não use como procedimento oficial."* |
+| rascunho humano | *"ainda não foi aprovado por ninguém."* |
+| vigente | *"aprovado por Fulano em 03/08/2026."* |
+| alterado depois | *"esta folha não corresponde ao que foi aprovado."* |
+
+Dois defeitos que só apareceram ao olhar o papel, não o CSS:
+
+- **O RACI sumia.** Quem executa, quem é consultado e quem é informado são *chips*, e eu tinha escondido todos os chips na impressão. A folha perdia justamente quem faz o quê. Agora viram texto — só os marcados, separados por vírgula.
+- **Campo vazio imprimia o exemplo.** No papel, texto cinza de placeholder vira conteúdo. Agora sai em branco: o rótulo já diz o que falta ali.
+
 ## Uma largura só
 
 O Eric viu antes de mim: *"as caixas de texto estão pequenas e uma mais larga que as outras, tem lugares que parece versão mobile"*. Medindo, eram **quatro larguras diferentes** na mesma aplicação — organograma 1180, biblioteca 1036, editor de processo 800, editor de cargo 640.

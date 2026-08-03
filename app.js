@@ -341,6 +341,7 @@ function render() {
   main.innerHTML = (telas[ui.view] || viewOrganograma)();
 
   ligarEventos(main);
+  $$("[data-imprimir]", main).forEach((b) => b.addEventListener("click", () => window.print()));
   if (ui.view === "editor") ligarEditor(main);
   if (ui.view === "cargoEditor") ligarCargoEditor(main);
   if (ui.view === "docEditor") ligarDocEditor(main);
@@ -713,7 +714,10 @@ function viewFluxo() {
         <div class="btn-row">
           <button class="btn btn-sm btn-primary" data-macro type="button">${icon("edit", 15)} Desenhar o macro</button>
           <button class="btn btn-sm" data-contar type="button">${icon("ia", 15)} Contar um processo</button>
+          ${botaoImprimir("Imprimir o mapa")}
         </div>
+
+        
 
         <div class="desenho-zoom">
           <button class="icon-btn" data-zoom-fluxo="-1" type="button" aria-label="Diminuir">−</button>
@@ -722,6 +726,20 @@ function viewFluxo() {
           <button class="btn btn-sm" data-zoom-fluxo="0" type="button">Ajustar</button>
         </div>
       </header>
+
+      ${cabecalhoDeImpressao({
+      titulo: "Mapa da operação",
+      tipo: "Fluxo macro",
+      situacao: (() => {
+        const prontos = state.processos.filter(mapeado).length;
+        const total = state.processos.length;
+        return { classe: prontos === total && total ? "vigente" : "rascunho",
+                 rotulo: `${prontos} de ${total} processos aprovados`,
+                 aviso: prontos === total && total ? "" : "Nem todo processo deste mapa foi aprovado. O desenho mostra a intenção, não o que está oficializado." };
+      })(),
+      linhas: [`${state.setores.length} setores`, `${state.processos.length} processos`],
+      })}
+      <p class="so-impressao" style="font-size:9pt;margin:-4pt 0 8pt">Mapa largo: escolha <strong>Paisagem</strong> na caixa de impressão para os nomes ficarem legíveis.</p>
 
       ${avisoDeReaprovacao()}
       ${avisoDeMedicao()}
@@ -1889,8 +1907,16 @@ function viewAula() {
     <div class="lesson">
       <div class="lesson-top">
         <button class="btn btn-sm btn-ghost" data-go="fluxo" type="button">${icon("back", 15)} Fluxo macro</button>
+        ${botaoImprimir("Imprimir o passo a passo")}
         <button class="btn btn-sm btn-ghost spacer" data-editar="${p.id}" type="button">${icon("edit", 15)} Editar</button>
       </div>
+
+      ${cabecalhoDeImpressao({
+        titulo: p.nome,
+        tipo: "Passo a passo",
+        situacao: seloDeImpressao(p),
+        linhas: [`Setor: ${setor(p.setorId)?.nome || "—"}`, `${passos.length} passo${passos.length === 1 ? "" : "s"}`],
+      })}
       <div class="rail">${trilho}</div>
       ${corpo}
       <div class="lesson-nav">
@@ -2082,9 +2108,21 @@ function viewEditor() {
     <div class="editor">
       <div class="lesson-top">
         <button class="btn btn-sm btn-ghost" data-ver-aula="${p.id}" type="button">${icon("back", 15)} Ver como aula</button>
+        ${botaoImprimir("Imprimir a ficha")}
         <span class="spacer"></span>
         <button class="btn btn-sm btn-danger" data-apagar-processo="${p.id}" type="button">${icon("trash", 15)} Apagar processo</button>
       </div>
+
+      ${cabecalhoDeImpressao({
+        titulo: p.nome,
+        tipo: "Ficha de processo",
+        situacao: seloDeImpressao(p),
+        linhas: [
+          `Setor: ${setor(p.setorId)?.nome || "—"}`,
+          `Dono: ${cargo(p.donoCargoId)?.nome || "sem dono"}`,
+          `${(p.passos || []).length} passo${(p.passos || []).length === 1 ? "" : "s"}`,
+        ],
+      })}
 
       ${p.revisado === false ? `<div class="note note-trap" style="margin-bottom:18px">
         <div class="block-label">Rascunho da IA — ainda não revisado</div>
@@ -2430,8 +2468,22 @@ function viewTrilha() {
     <div class="lesson">
       <div class="lesson-top">
         <button class="btn btn-sm btn-ghost" data-go="organograma" type="button">${icon("back", 15)} Organograma</button>
+        ${botaoImprimir("Imprimir a trilha")}
         <button class="btn btn-sm btn-ghost spacer" data-editar-cargo="${c.id}" type="button">${icon("edit", 15)} Editar cargo e trilha</button>
       </div>
+
+      ${cabecalhoDeImpressao({
+        titulo: c.nome,
+        tipo: "Trilha do cargo",
+        situacao: { classe: c.missao?.trim() ? "vigente" : "rascunho",
+                    rotulo: c.missao?.trim() ? "cargo descrito" : "descrição incompleta",
+                    aviso: c.missao?.trim() ? "" : "Este cargo ainda não tem missão escrita." },
+        linhas: [
+          `Setor: ${setor(c.setorId)?.nome || "—"}`,
+          `Responde a: ${cargo(c.reportaA)?.nome || "ninguém"}`,
+          `${processosDoCargo(c.id).length} processo${processosDoCargo(c.id).length === 1 ? "" : "s"}`,
+        ],
+      })}
 
       <div class="page-head">
         <span class="eyebrow">Trilha de conhecimento</span>
@@ -2975,6 +3027,53 @@ function ligarSistemaEditor(raiz) {
 
 /* Data em pt-BR sem depender de fuso: "2026-08-03" vira "03/08/2026" e ponto.
    Passar por new Date() aqui já me devolveu o dia anterior. */
+/* O cabeçalho que só existe no papel. O carimbo de situação é obrigatório:
+   folha sem estado vira verdade oficial na mão de quem recebe — e boa parte do
+   que está no CIP hoje é rascunho não revisado. */
+function cabecalhoDeImpressao({ titulo, tipo, situacao, linhas = [] }) {
+  const selo = situacao || { classe: "rascunho", rotulo: "rascunho", aviso: "" };
+  const agora = new Date();
+  const quando = `${String(agora.getDate()).padStart(2, "0")}/${String(agora.getMonth() + 1).padStart(2, "0")}/${agora.getFullYear()}`;
+
+  return `
+    <div class="so-impressao impressao-cabeca">
+      <div class="empresa">${esc(state.empresa?.nome || "Empresa")} · ${esc(tipo)}</div>
+      <h1>${esc(titulo)}</h1>
+      <div class="linha">
+        <span class="impressao-selo ${esc(selo.classe)}${selo.aviso ? " aviso" : ""}">${esc(selo.rotulo)}</span>
+        ${linhas.map((l) => `<span>${esc(l)}</span>`).join("")}
+        <span>impresso em ${quando}</span>
+      </div>
+      ${selo.aviso ? `<p style="margin-top:6pt;font-size:9.5pt"><strong>${esc(selo.aviso)}</strong></p>` : ""}
+    </div>
+  `;
+}
+
+/* O selo de um processo, na linguagem de quem lê a folha — não a de quem
+   programa. "Vigente" e "rascunho" já existem no domínio; aqui eles ganham a
+   frase que impede o papel de mentir. */
+function seloDeImpressao(p) {
+  if (p.revisado === false) {
+    return { classe: "rascunho", rotulo: "rascunho não revisado",
+             aviso: "Este texto foi escrito pela IA e ainda não foi revisado por ninguém. Não use como procedimento oficial." };
+  }
+  const sit = situacaoDoProcesso(p);
+  if (sit === "vigente") {
+    return { classe: "vigente", rotulo: "vigente",
+             aviso: `Aprovado por ${p.aprovacao.nome} em ${dataCurta(p.aprovacao.em)}.` };
+  }
+  if (sit === "mudou") {
+    return { classe: "rascunho", rotulo: "alterado após a aprovação",
+             aviso: "Foi aprovado e alguém editou depois. Esta folha não corresponde ao que foi aprovado." };
+  }
+  return { classe: "rascunho", rotulo: "rascunho",
+           aviso: "Ainda não foi aprovado por ninguém." };
+}
+
+function botaoImprimir(rotulo = "Imprimir") {
+  return `<button class="btn btn-sm btn-ghost" data-imprimir type="button">${icon("data", 15)} ${esc(rotulo)}</button>`;
+}
+
 function dataCurta(iso) {
   const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || "");
