@@ -676,6 +676,52 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 
 /* a etiqueta da raia fica por cima do desenho, presa na borda */
 .bpmn-faixa-etiqueta { pointer-events: none; }
+/* o retrato do Bloco 1 e a lista do que falta */
+.retrato { display: grid; gap: 8px; margin-top: 12px; }
+.retrato-linha { display: grid; grid-template-columns: minmax(0, 1fr) 200px 56px; gap: 12px; align-items: center; }
+.retrato-rotulo { color: var(--ink-2); font-size: 13.5px; }
+.retrato-trilho { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.retrato-cheio { display: block; height: 100%; border-radius: 999px; transition: width .3s; }
+.retrato-cheio.cheio { background: var(--green); }
+.retrato-cheio.meio { background: var(--amber); }
+.retrato-cheio.vazio { background: var(--red); }
+.retrato-num { color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+
+.pend-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 20px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .12s, transform .12s;
+}
+.pend-item:hover { border-color: var(--navy-2); transform: translateX(2px); }
+.pend-tipo {
+  border-radius: 999px;
+  background: var(--bg);
+  padding: 3px 8px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.pend-texto { color: var(--ink-2); font-size: 13.5px; }
+.pend-texto strong { color: var(--ink); }
+.pend-seta { color: var(--ink-3); }
+
+@media (max-width: 720px) {
+  .retrato-linha { grid-template-columns: minmax(0, 1fr) 90px 46px; }
+  .pend-item { grid-template-columns: minmax(0, 1fr) 20px; }
+  .pend-tipo { display: none; }
+}
+
 /* mover o desenho arrastando o fundo */
 .desenho-tela { cursor: grab; }
 .desenho-tela.movendo-tela { cursor: grabbing; user-select: none; }

@@ -1072,6 +1072,74 @@
         igual(situacaoDoProcesso(state.processos[0]), "vigente");
       });
 
+      grupo("Domínio · o que falta");
+
+      teste("processo casca aparece em todas as lacunas que tem", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a", nome: "Casca", porque: "", donoCargoId: "", cargosIds: [], passos: [] })] });
+        const tipos = pendencias().filter((x) => x.tipo !== "cargo").map((x) => x.tipo).sort();
+        igual(tipos, ["dono", "executor", "passos"]);
+      });
+
+      teste("processo completo e aprovado não aparece na lista", () => {
+        state = normalizar({ ...semente(), processos: [proc({
+          id: "a", porque: "existe por isso", donoCargoId: "c-diretor", cargosIds: ["c-vendedor"],
+          entrada: "x", saida: "y", passos: [passo({ id: "1" })],
+        })] });
+        aprovarProcesso(state.processos[0], "Eric");
+        state.indicadores = [{ id: "i1", nome: "n", processoIds: ["a"] }];
+        state = normalizar(state);
+        igual(pendencias().filter((x) => x.tipo !== "cargo").length, 0);
+      });
+
+      teste("quem entrega e não diz o que entrega é a lacuna mais grave", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "Antes", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", nome: "Depois" }),
+        ] });
+        const grave = pendencias().filter((x) => x.peso === 1);
+        igual(grave.map((x) => [x.titulo, x.detalhe.includes("entrega") ? "saida" : "entrada"]),
+              [["Antes", "saida"], ["Depois", "entrada"]]);
+      });
+
+      teste("a lista sai ordenada por consequência", () => {
+        state = normalizar({ ...semente(),
+          regras: [{ id: "r1", titulo: "Solta", texto: "x" }],
+          processos: [proc({ id: "a", nome: "P", proximos: [{ para: "b", rotulo: "" }] }), proc({ id: "b", nome: "Q" })],
+        });
+        const pesos = pendencias().map((x) => x.peso);
+        igual(pesos, [...pesos].sort((a, b) => a - b));
+      });
+
+      teste("cargo sem processo nenhum é apontado", () => {
+        state = normalizar({ ...semente(), processos: [] });
+        const cargos = pendencias().filter((x) => x.tipo === "cargo");
+        igual(cargos.length, state.cargos.length);
+      });
+
+      teste("documento sem arquivo, vídeo nem resumo é nome sem conteúdo", () => {
+        state = normalizar({ ...semente(), processos: [],
+          documentos: [
+            { id: "d1", titulo: "Vazio", categoria: "pop", escopo: "", resumo: "", url: "", videoUrl: "" },
+            { id: "d2", titulo: "Cheio", categoria: "pop", escopo: "", resumo: "tem resumo", url: "", videoUrl: "" },
+          ] });
+        igual(pendencias().filter((x) => x.tipo === "documento").map((x) => x.titulo), ["Vazio"]);
+      });
+
+      teste("o retrato conta o que está de pé, sem opinião", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", entrada: "x", saida: "y", donoCargoId: "c-diretor", cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] }),
+          proc({ id: "b", donoCargoId: "", cargosIds: [] }),
+        ] });
+        const r = retratoDoBloco1();
+        igual([r.processos, r.comPassos, r.comEntradaESaida, r.comDono, r.comExecutor], [2, 1, 1, 1, 1]);
+      });
+
+      teste("cada pendência sabe para onde levar", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a" })] });
+        const semDestino = pendencias().filter((x) => !x.ir || !x.ir.view);
+        igual(semDestino, []);
+      });
+
       grupo("Nuvem · estado vira peças e volta inteiro");
 
       function estadoCheio() {

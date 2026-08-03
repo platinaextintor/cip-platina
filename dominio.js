@@ -1091,3 +1091,95 @@ function estadoComBpmn(xml, st = state) {
     resumo: lido.resumo,
   };
 }
+
+/* ------------------------------------------------------------- o que falta
+
+   Uma auditoria externa apontou o essencial em 03/08/2026: a arquitetura
+   representa a empresa, mas a empresa ainda não está dentro dela. Os 16
+   processos importados eram casca — sem passos, sem entrada, sem saída, sem
+   dono, sem executor, nenhum aprovado.
+
+   Achar isso exigia abrir peça por peça. A lista abaixo é a resposta: uma
+   função que percorre o modelo e devolve o que falta, com o caminho para
+   consertar. Não inventa regra nova — junta as que já existiam espalhadas
+   (elo fraco, regra órfã, sistema sem uso, processo sem indicador) e completa
+   as que faltavam.
+
+   `peso` ordena por consequência, não por gosto:
+   1 quebra o fluxo · 2 impede responsabilizar · 3 deixa o processo oco · 4 sobra solta */
+function pendencias(st = state) {
+  const lista = [];
+  const põe = (peso, tipo, titulo, detalhe, ir) => lista.push({ peso, tipo, titulo, detalhe, ir });
+
+  const temEntrada = new Set();
+  [...st.processos, ...st.decisoes].forEach((n) => (n.proximos || []).forEach((x) => temEntrada.add(x.para)));
+
+  st.processos.forEach((p) => {
+    const abre = { view: "editor", extras: { processoId: p.id } };
+    const entrega = (p.proximos || []).length > 0;
+
+    if (entrega && !p.saida?.trim()) põe(1, "elo", p.nome, "entrega para outra peça mas não diz o que entrega", abre);
+    if (temEntrada.has(p.id) && !p.entrada?.trim()) põe(1, "elo", p.nome, "recebe de outra peça mas não diz o que recebe", abre);
+    if (!p.donoCargoId) põe(2, "dono", p.nome, "ninguém responde por este processo", abre);
+    if (!(p.cargosIds || []).length) põe(2, "executor", p.nome, "nenhum cargo marcado como quem executa", abre);
+    if (!(p.passos || []).length) põe(3, "passos", p.nome, "o subprocesso está vazio — a ficha existe, o trabalho não está descrito", abre);
+    else if (!p.porque?.trim()) põe(3, "porque", p.nome, "não diz por que existe", abre);
+
+    if (situacaoDoProcesso(p) === "mudou") põe(2, "aprovacao", p.nome, "mudou depois de aprovado e ninguém aprovou de novo", abre);
+    if (situacaoDoProcesso(p) === "vigente" && !indicadoresDoProcesso(p.id, st).length) {
+      põe(4, "indicador", p.nome, "está vigente mas ninguém mede", abre);
+    }
+  });
+
+  st.cargos.forEach((c) => {
+    const abre = { view: "trilha", extras: { cargoSel: c.id } };
+    const processos = st.processos.filter((p) => (p.cargosIds || []).includes(c.id) || p.donoCargoId === c.id);
+    if (!processos.length) põe(2, "cargo", c.nome, "não aparece em nenhum processo — a trilha dele nasce vazia", abre);
+    else if (!c.missao?.trim()) põe(3, "cargo", c.nome, "sem missão escrita", abre);
+    else if (!(c.trilha || []).length) põe(4, "cargo", c.nome, "sem nenhum treinamento na trilha", abre);
+  });
+
+  st.regras.forEach((r) => {
+    if (!ondeApareceARegra(r.id, st).length) {
+      põe(4, "regra", `${r.codigo} · ${r.titulo || "sem título"}`, "nenhum passo aplica esta regra", { view: "regraEditor", extras: { regraId: r.id } });
+    }
+  });
+
+  st.sistemas.forEach((s) => {
+    if (s.critico && !ondeApareceOSistema(s.id, st).length) {
+      põe(4, "sistema", s.nome, "marcado como crítico e nenhum passo declara usar", { view: "sistemaEditor", extras: { sistemaId: s.id } });
+    }
+  });
+
+  st.documentos.forEach((d) => {
+    if (!d.url?.trim() && !d.videoUrl?.trim() && !d.resumo?.trim()) {
+      põe(4, "documento", d.titulo || "sem título", "não tem arquivo, vídeo nem resumo — é um nome sem conteúdo", { view: "docEditor", extras: { documentoId: d.id } });
+    }
+  });
+
+  return lista.sort((a, b) => a.peso - b.peso || a.titulo.localeCompare(b.titulo, "pt-BR"));
+}
+
+const PESOS = {
+  1: { rotulo: "Quebra a cadeia", ajuda: "Sem isso não dá para dizer o que passa de um processo para o outro — e é disso que dependem impacto, indicador e IA.", classe: "red" },
+  2: { rotulo: "Ninguém responde", ajuda: "Sem dono, executor ou aprovação em dia, o processo não é de ninguém.", classe: "red" },
+  3: { rotulo: "Ficha oca", ajuda: "A casca existe, o trabalho não está descrito. É o que dá ilusão de documentação.", classe: "amber" },
+  4: { rotulo: "Sobrou solto", ajuda: "Cadastrado mas sem uso. Ou falta ligar, ou não deveria existir.", classe: "amber" },
+};
+
+/* Quanto do Bloco 1 está de pé, em números que não dependem de opinião. */
+function retratoDoBloco1(st = state) {
+  const p = st.processos;
+  const conta = (fn) => p.filter(fn).length;
+  return {
+    processos: p.length,
+    comPassos: conta((x) => (x.passos || []).length),
+    comEntradaESaida: conta((x) => x.entrada?.trim() && x.saida?.trim()),
+    comDono: conta((x) => x.donoCargoId),
+    comExecutor: conta((x) => (x.cargosIds || []).length),
+    vigentes: conta((x) => situacaoDoProcesso(x) === "vigente"),
+    comIndicador: conta((x) => indicadoresDoProcesso(x.id, st).length),
+    cargosLigados: st.cargos.filter((c) => p.some((x) => (x.cargosIds || []).includes(c.id) || x.donoCargoId === c.id)).length,
+    cargos: st.cargos.length,
+  };
+}

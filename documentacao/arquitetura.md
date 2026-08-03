@@ -201,6 +201,23 @@ Existe: aprovação com nome e data, o selo caindo sozinho quando o conteúdo mu
 
 **O histórico é de governança, não é log de alterações.** Ele registra quem aprovou e quem tirou a aprovação, com data — não quem mudou qual palavra. Guardar diff de tudo é outro produto, e cabe no banco, não numa lista dentro do processo. O que a assinatura garante é que ninguém *precisa* do diff para saber que mudou.
 
+## O que falta, dito pelo próprio sistema
+
+Uma auditoria externa em 03/08/2026 abriu peça por peça e concluiu o essencial: *a arquitetura representa a empresa, mas a empresa ainda não está dentro dela*. Os 16 processos importados eram casca — sem passos, sem entrada, sem saída, sem dono, sem executor, nenhum aprovado.
+
+**Descobrir isso não podia depender de alguém abrir 16 fichas.** `pendencias()` percorre o modelo e devolve o que falta, ordenado por consequência:
+
+| Peso | O que é | Por quê |
+|---|---|---|
+| 1 | quebra a cadeia | sem entrada e saída não dá para dizer o que passa de um processo ao outro — e disso dependem impacto, indicador e IA |
+| 2 | ninguém responde | sem dono, executor ou aprovação em dia, o processo não é de ninguém |
+| 3 | ficha oca | a casca existe, o trabalho não está descrito — é o que dá ilusão de documentação |
+| 4 | sobrou solto | cadastrado sem uso: ou falta ligar, ou não deveria existir |
+
+A função não inventa regra nova: junta as que já estavam espalhadas (`elosFracos`, `regrasOrfas`, `sistemasOrfaos`, `processosSemIndicador`) e completa o que faltava. Cada item carrega para onde ir, então a lacuna vira trabalho em um clique.
+
+`retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
+
 ## O que ainda não está separado
 
 Honestidade sobre o estado atual:

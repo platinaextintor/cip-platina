@@ -313,6 +313,7 @@ function render() {
     organograma: "organograma", trilha: "organograma", cargoEditor: "organograma",
     fluxo: "fluxo", aula: "fluxo", editor: "fluxo", desenho: "fluxo", macro: "fluxo",
     biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca", regraEditor: "biblioteca",
+    pendencias: "pendencias",
   }[ui.view];
   $$(".tab").forEach((b) => b.classList.toggle("is-active", b.dataset.go === grupo));
 
@@ -329,6 +330,7 @@ function render() {
     regraEditor: viewRegraEditor,
     desenho: viewDesenho,
     macro: viewMacro,
+    pendencias: viewPendencias,
   };
   const main = $("#main");
   main.innerHTML = (telas[ui.view] || viewOrganograma)();
@@ -341,6 +343,7 @@ function render() {
   if (ui.view === "regraEditor") ligarRegraEditor(main);
   if (ui.view === "desenho") ligarDesenho(main);
   if (ui.view === "macro") ligarMacro(main);
+  if (ui.view === "pendencias") ligarPendencias(main);
   if (ui.view === "fluxo") ligarFluxo(main);
   atualizarProgresso();
 }
@@ -587,6 +590,77 @@ function prenderNomesDeRaia(tela) {
   };
   tela.addEventListener("scroll", ajustar, { passive: true });
   requestAnimationFrame(ajustar);
+}
+
+/* A tela do que falta. A auditoria externa precisou abrir peça por peça para
+   descobrir que os 16 processos eram casca — isso é trabalho que o sistema
+   devia fazer sozinho. Aqui a lacuna vira lista de trabalho, ordenada por
+   consequência, e cada linha leva direto ao lugar de consertar. */
+function viewPendencias() {
+  const tudo = pendencias();
+  const r = retratoDoBloco1();
+  const porPeso = [1, 2, 3, 4].map((n) => ({ peso: n, itens: tudo.filter((x) => x.peso === n) })).filter((g) => g.itens.length);
+
+  const barra = (feito, total, rotulo) => {
+    const pct = total ? Math.round((feito / total) * 100) : 0;
+    return `
+      <div class="retrato-linha">
+        <span class="retrato-rotulo">${esc(rotulo)}</span>
+        <span class="retrato-trilho"><span class="retrato-cheio ${pct === 100 ? "cheio" : pct >= 50 ? "meio" : "vazio"}" style="width:${pct}%"></span></span>
+        <span class="retrato-num">${feito}/${total}</span>
+      </div>`;
+  };
+
+  return `
+    <div class="page">
+      <div class="page-head">
+        <span class="eyebrow">O que falta</span>
+        <h1>${tudo.length ? `${tudo.length} coisa${tudo.length === 1 ? "" : "s"} para fechar` : "Nada pendente"}</h1>
+        <p>A estrutura da empresa já está aqui. Esta tela mostra o que ainda não foi preenchido dentro dela — em ordem de consequência, não de gosto.</p>
+      </div>
+
+      <div class="section-title"><h3>Retrato do mapa</h3><span class="line"></span></div>
+      <div class="retrato">
+        ${barra(r.comPassos, r.processos, "Processos com passos escritos")}
+        ${barra(r.comEntradaESaida, r.processos, "Com entrada e saída declaradas")}
+        ${barra(r.comDono, r.processos, "Com dono")}
+        ${barra(r.comExecutor, r.processos, "Com quem executa")}
+        ${barra(r.vigentes, r.processos, "Aprovados e vigentes")}
+        ${barra(r.comIndicador, r.processos, "Com pelo menos um indicador")}
+        ${barra(r.cargosLigados, r.cargos, "Cargos ligados a algum processo")}
+      </div>
+
+      ${porPeso.map((g) => `
+        <div class="section-title">
+          <h3>${esc(PESOS[g.peso].rotulo)}</h3><span class="line"></span>
+          <span class="tag ${PESOS[g.peso].classe}">${g.itens.length}</span>
+        </div>
+        <p class="hint">${esc(PESOS[g.peso].ajuda)}</p>
+        <div class="stack" style="margin-top:10px">
+          ${g.itens.map((x, i) => `
+            <button class="pend-item" data-pend="${g.peso}:${i}" type="button">
+              <span class="pend-tipo">${esc(x.tipo)}</span>
+              <span class="pend-texto"><strong>${esc(x.titulo)}</strong> — ${esc(x.detalhe)}</span>
+              <span class="pend-seta">→</span>
+            </button>`).join("")}
+        </div>
+      `).join("")}
+
+      ${!tudo.length ? `<div class="note note-why" style="margin-top:20px">
+        <div class="block-label">Nada a apontar</div>
+        <p>Todo processo tem dono, executor, entrada, saída e passos; toda regra e todo sistema estão em uso. É o estado em que a IA e os indicadores passam a ter em que se apoiar.</p>
+      </div>` : ""}
+    </div>
+  `;
+}
+
+function ligarPendencias(raiz) {
+  const tudo = pendencias();
+  $$("[data-pend]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const [peso, i] = b.dataset.pend.split(":").map(Number);
+    const item = tudo.filter((x) => x.peso === peso)[i];
+    if (item) ir(item.ir.view, item.ir.extras);
+  }));
 }
 
 function ligarFluxo(raiz) {
@@ -3733,6 +3807,37 @@ function abrirDrawer(html) {
 
 /* ---------------------------------------------------------------- dados do projeto */
 
+/* Onde o dado mora, dito sem rodeio. A frase antiga — "enquanto não existe
+   banco, tudo vive neste navegador" — ficou de quando não existia Supabase, e
+   uma auditoria externa pegou: para quem usa o sistema no trabalho, não saber
+   se aquilo é rascunho local ou dado oficial da empresa é motivo para não
+   confiar. O texto agora depende do estado real, não de quando foi escrito. */
+function blocoOndeMoraOsDados(kb) {
+  const logado = typeof quemEstaLogado === "function" && quemEstaLogado();
+
+  if (MODO_SEGURO) {
+    return `<p class="sub"><strong>Modo seguro.</strong> Nada do que você fizer agora será gravado —
+      nem aqui nem no servidor. É uma tela de inspeção; feche e reabra sem <code>?seguro=1</code> para voltar ao normal.</p>`;
+  }
+
+  if (!logado) {
+    return `<p class="sub"><strong>Sem sessão.</strong> Sem login, o que você escrever fica só neste navegador
+      e ninguém mais vê. Entre para gravar no servidor da Platina.</p>`;
+  }
+
+  return `
+    <p class="sub">Este é o <strong>dado oficial da Platina</strong>. Fica no servidor, uma linha por peça, e
+      sincroniza sozinho — o que você escreve aparece para quem estiver junto, e o contrário também.</p>
+    <div class="note note-why" style="margin:12px 0 0">
+      <div class="block-label">O que está salvo onde</div>
+      <p><strong>Servidor:</strong> tudo o que você vê. É a versão que vale.<br>
+         <strong>Este navegador:</strong> uma cópia de trabalho (${kb} KB), usada para a tela não piscar e para
+         você não perder nada se a internet cair. Ela não é a fonte.<br>
+         <strong>JSON exportado:</strong> uma foto do momento, para guardar fora do sistema.</p>
+    </div>
+  `;
+}
+
 $("#openData").innerHTML = icon("data");
 $("#openData").addEventListener("click", () => {
   const kb = Math.round(JSON.stringify(state).length / 1024);
@@ -3741,10 +3846,7 @@ $("#openData").addEventListener("click", () => {
       <h2>Dados do projeto</h2>
       <button class="icon-btn" data-fechar type="button" aria-label="Fechar">${icon("close")}</button>
     </div>
-    <p class="sub">Enquanto não existe banco, tudo vive neste navegador. Exporte o JSON de vez em quando — é o seu backup.</p>
-
-    <div class="section-title"><h3>Espaço usado</h3><span class="line"></span></div>
-    <p class="sub">${kb} KB de aproximadamente 5.000 KB. As imagens são o que mais pesa.</p>
+    ${blocoOndeMoraOsDados(kb)}
 
     <div class="btn-row" style="margin-top:18px">
       <button class="btn" data-exportar type="button">Exportar JSON</button>
