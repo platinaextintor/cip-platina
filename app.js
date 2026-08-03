@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v25";
+const VERSAO = "v26";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -310,7 +310,7 @@ function render() {
   const grupo = {
     organograma: "organograma", trilha: "organograma", cargoEditor: "organograma",
     fluxo: "fluxo", aula: "fluxo", editor: "fluxo", desenho: "fluxo", macro: "fluxo",
-    biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca",
+    biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca", regraEditor: "biblioteca",
   }[ui.view];
   $$(".tab").forEach((b) => b.classList.toggle("is-active", b.dataset.go === grupo));
 
@@ -324,6 +324,7 @@ function render() {
     biblioteca: viewBiblioteca,
     docEditor: viewDocEditor,
     sistemaEditor: viewSistemaEditor,
+    regraEditor: viewRegraEditor,
     desenho: viewDesenho,
     macro: viewMacro,
   };
@@ -335,6 +336,7 @@ function render() {
   if (ui.view === "cargoEditor") ligarCargoEditor(main);
   if (ui.view === "docEditor") ligarDocEditor(main);
   if (ui.view === "sistemaEditor") ligarSistemaEditor(main);
+  if (ui.view === "regraEditor") ligarRegraEditor(main);
   if (ui.view === "desenho") ligarDesenho(main);
   if (ui.view === "macro") ligarMacro(main);
   if (ui.view === "fluxo") requestAnimationFrame(desenharLigacoes);
@@ -1863,6 +1865,15 @@ function telaPasso(p, s, i, totalPassos) {
         }).join("")}
       </div>` : ""}
 
+      ${(s.regraIds || []).length ? `<div class="note note-rule" style="margin-top:14px">
+        <div class="block-label">A regra</div>
+        ${s.regraIds.map((id) => {
+          const r = regra(id);
+          if (!r) return "";
+          return `<p><strong>${esc(r.codigo)}</strong> ${esc(r.texto)}${r.vigenteDesde ? ` <span class="hint">— vale desde ${esc(dataCurta(r.vigenteDesde))}</span>` : ""}</p>`;
+        }).join("")}
+      </div>` : ""}
+
       ${s.imagem
         ? `<div class="shot"><img src="${esc(s.imagem)}" alt="Exemplo real do passo ${i}"></div>`
         : (s.videoUrl?.trim() ? "" : '<div class="shot"><div class="shot-empty">Sem exemplo ainda. Um print, foto ou vídeo real aqui é o que faz esse passo grudar.</div></div>')}
@@ -2128,8 +2139,16 @@ function editorPasso(s, i, total) {
           <textarea data-s="armadilha" placeholder="O erro que você já viu acontecer. Seja específico.">${esc(s.armadilha)}</textarea>
         </div>
         <div class="field">
-          <label>A regra</label>
-          <textarea data-s="regra" placeholder="O inegociável, ou quando parar e chamar o supervisor.">${esc(s.regra)}</textarea>
+          <label>Regras que valem aqui <span class="hint">— catalogadas, não digitadas</span></label>
+          ${state.regras.length ? `<div class="chips">
+            ${state.regras.map((r) => `
+              <button class="chip${(s.regraIds || []).includes(r.id) ? " on" : ""}" data-regra-passo="${r.id}" type="button" title="${esc(r.texto)}">${esc(r.codigo)} · ${esc(r.titulo || "sem título")}</button>
+            `).join("")}
+          </div>` : ""}
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn btn-sm" data-nova-regra-aqui type="button">${icon("plus", 14)} Nova regra</button>
+            <span class="hint">A mesma regra vale em vários processos — por isso ela mora na Biblioteca, não aqui dentro.</span>
+          </div>
         </div>
       </div>
     </div>
@@ -2502,8 +2521,34 @@ function viewBiblioteca() {
         <div class="btn-row">
           <button class="btn" data-novo-doc type="button">${icon("plus")} Novo documento</button>
           <button class="btn" data-novo-sistema type="button">${icon("plus")} Novo sistema</button>
+          <button class="btn" data-nova-regra type="button">${icon("plus")} Nova regra</button>
         </div>
       </div>
+
+      <div class="section-title"><h3>Regras de negócio</h3><span class="line"></span><span class="muted">${state.regras.length}</span></div>
+      <p class="hint">A regra vale na empresa, não dentro de um processo. Catalogada aqui, ela muda num lugar só — e o CIP responde quem é afetado.</p>
+
+      ${regrasOrfas().length ? `<div class="filter-bar aviso" style="margin:12px 0">
+        ${icon("link", 15)} <strong>${regrasOrfas().length} regra${regrasOrfas().length === 1 ? "" : "s"} que nenhum passo aplica.</strong>
+        ${esc(regrasOrfas().map((r) => r.codigo).join(", "))} — ou não vale mais, ou falta marcar onde ela pega.
+      </div>` : ""}
+
+      ${state.regras.length ? `<div class="doc-grid" style="margin-bottom:26px">
+        ${state.regras.map((r) => {
+          const onde = ondeApareceARegra(r.id);
+          const setores = setoresQueDependemDaRegra(r.id);
+          return `
+            <button class="doc-card" data-regra="${r.id}" type="button">
+              <div class="btn-row">
+                <span class="tag navy">${esc(r.codigo)}</span>
+                <span class="tag ${onde.length ? "green" : "amber"}">${onde.length ? `${onde.length} processo${onde.length === 1 ? "" : "s"}` : "não aplicada"}</span>
+                ${setores.length > 1 ? `<span class="tag">${setores.length} setores</span>` : ""}
+              </div>
+              <h3>${esc(r.titulo || "sem título")}</h3>
+              <p>${esc(r.texto)}</p>
+            </button>`;
+        }).join("")}
+      </div>` : '<div class="empty" style="margin-bottom:26px">Nenhuma regra catalogada. A primeira costuma ser a que você mais repete em reunião.</div>'}
 
       <div class="section-title"><h3>Sistemas</h3><span class="line"></span><span class="muted">${state.sistemas.length}</span></div>
       <p class="hint">Onde o trabalho acontece: CAD, ERP, WhatsApp, planilha. Ligando os sistemas aos passos, o CIP responde o que para quando um deles cai.</p>
@@ -2692,6 +2737,108 @@ function ligarSistemaEditor(raiz) {
   });
 }
 
+/* Data em pt-BR sem depender de fuso: "2026-08-03" vira "03/08/2026" e ponto.
+   Passar por new Date() aqui já me devolveu o dia anterior. */
+function dataCurta(iso) {
+  const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || "");
+}
+
+function novaRegra(dono) {
+  const r = { id: uid("r"), codigo: "", titulo: "Nova regra", texto: "", vigenteDesde: hojeISO() };
+  state.regras.push(r);
+  state = normalizar(state); // é normalizar quem dá o código sequencial
+  const criada = state.regras[state.regras.length - 1];
+  if (dono) dono.regraIds = [...(dono.regraIds || []), criada.id];
+  salvar(true);
+  return criada;
+}
+
+function hojeISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function viewRegraEditor() {
+  const r = regra(ui.regraId);
+  if (!r) return viewBiblioteca();
+  const onde = ondeApareceARegra(r.id);
+  const passos = onde.reduce((n, x) => n + x.passos.length, 0);
+  const setores = setoresQueDependemDaRegra(r.id);
+
+  return `
+    <div class="editor">
+      <div class="lesson-top">
+        <button class="btn btn-sm btn-ghost" data-go="biblioteca" type="button">${icon("back", 15)} Biblioteca</button>
+        <span class="spacer"></span>
+        <button class="btn btn-sm btn-danger" data-apagar-regra type="button">${icon("trash", 15)} Apagar</button>
+      </div>
+
+      <span class="eyebrow">${esc(r.codigo)}</span>
+
+      <div class="stack">
+        <div class="field">
+          <label for="r-titulo">Título <span class="hint">— como as pessoas vão chamar essa regra</span></label>
+          <input id="r-titulo" data-s-regra="titulo" value="${esc(r.titulo)}" placeholder="Prazo de pagamento por valor de pedido" />
+        </div>
+        <div class="field">
+          <label for="r-texto">A regra</label>
+          <textarea id="r-texto" data-s-regra="texto" placeholder="Pedido igual ou acima de R$ 10.000 pode ser faturado em 30/60/90/120 ddl.">${esc(r.texto)}</textarea>
+        </div>
+        <div class="field">
+          <label for="r-desde">Vale a partir de</label>
+          <input id="r-desde" type="date" data-s-regra="vigenteDesde" value="${esc(r.vigenteDesde || "")}" />
+          <p class="hint">Regra muda. Quem executou antes da data seguiu a regra anterior, e estava certo.</p>
+        </div>
+      </div>
+
+      <div class="section-title"><h3>Quem é afetado se ela mudar</h3><span class="line"></span></div>
+
+      ${onde.length ? `
+        <p class="hint">${onde.length} processo${onde.length === 1 ? "" : "s"} · ${passos} passo${passos === 1 ? "" : "s"}${setores.length > 1 ? ` · <strong>${setores.length} setores</strong> — é por isso que ela não mora dentro de um processo só` : ""}.</p>
+        <div class="stack" style="margin-top:12px">
+          ${onde.map((x) => `
+            <div class="learn-item">
+              <div class="learn-head">
+                <span class="tag" style="background:${corSetor(x.processo.setorId)}1a;color:${corSetor(x.processo.setorId)}">${esc(setor(x.processo.setorId)?.nome || "sem setor")}</span>
+                <span class="muted">${esc(cargo(x.processo.donoCargoId)?.nome || "sem dono")}</span>
+              </div>
+              <h3>${esc(x.processo.nome)}</h3>
+              <ul class="lista">
+                ${x.passos.map((p) => `<li>${esc(p.oQue || "passo sem título")}</li>`).join("")}
+              </ul>
+              <button class="btn btn-sm link-btn" data-processo="${x.processo.id}" type="button" style="margin-top:12px">Abrir o processo</button>
+            </div>`).join("")}
+        </div>
+      ` : `<div class="empty">Nenhum passo aplica esta regra ainda. Marque-a nos passos, dentro do editor do processo — é a marcação que faz o CIP saber quem avisar quando ela mudar.</div>`}
+    </div>
+  `;
+}
+
+function ligarRegraEditor(raiz) {
+  const r = regra(ui.regraId);
+  if (!r) return;
+
+  $$("[data-s-regra]", raiz).forEach((campo) => campo.addEventListener("input", () => {
+    r[campo.dataset.sRegra] = campo.value;
+    salvar();
+  }));
+
+  $("[data-apagar-regra]", raiz)?.addEventListener("click", () => {
+    const onde = ondeApareceARegra(r.id);
+    const aviso = onde.length
+      ? `${r.codigo} é aplicada em ${onde.length} processo(s). Apagar tira a marcação de todos os passos.`
+      : `Apagar ${r.codigo}?`;
+    if (!confirm(aviso)) return;
+    state.regras = state.regras.filter((x) => x.id !== r.id);
+    state.processos.forEach((p) => (p.passos || []).forEach((passo) => {
+      passo.regraIds = (passo.regraIds || []).filter((id) => id !== r.id);
+    }));
+    salvar(true);
+    ir("biblioteca");
+  });
+}
+
 function novoSistema() {
   const s = { id: uid("sis"), nome: "Novo sistema", descricao: "", url: "", critico: false };
   state.sistemas.push(s);
@@ -2788,6 +2935,7 @@ function abrirContarProcesso() {
         tipo: TIPOS[s.tipo] ? s.tipo : "etapa",
         cargoId: existe(state.cargos, s.cargoId) ? s.cargoId : "",
         sistemaIds: [],
+        regraIds: [],
         oQue: s.oQue || "",
         comoFazer: s.comoFazer || "",
         porque: s.porque || "",
@@ -2862,6 +3010,7 @@ function ligarEventos(raiz) {
   $$("[data-editar-setor]", raiz).forEach((b) => b.addEventListener("click", () => abrirDrawerSetor(b.dataset.editarSetor)));
   $$("[data-doc]", raiz).forEach((b) => b.addEventListener("click", () => ir("docEditor", { docId: b.dataset.doc })));
   $$("[data-sistema]", raiz).forEach((b) => b.addEventListener("click", () => ir("sistemaEditor", { sistemaId: b.dataset.sistema })));
+  $$("[data-regra]", raiz).forEach((b) => b.addEventListener("click", () => ir("regraEditor", { regraId: b.dataset.regra })));
 
   $$("[data-processo]", raiz).forEach((b) => b.addEventListener("click", () => abrirAula(b.dataset.processo)));
   $$("[data-editar]", raiz).forEach((b) => b.addEventListener("click", () => ir("editor", { processoId: b.dataset.editar })));
@@ -2955,6 +3104,7 @@ function ligarEventos(raiz) {
   const nd = $("[data-novo-doc]", raiz);
   if (nd) nd.addEventListener("click", novoDocumento);
   $("[data-novo-sistema]", raiz)?.addEventListener("click", novoSistema);
+  $("[data-nova-regra]", raiz)?.addEventListener("click", () => ir("regraEditor", { regraId: novaRegra().id }));
   $("[data-macro]", raiz)?.addEventListener("click", () => ir("macro"));
   const contar = $("[data-contar]", raiz);
   if (contar) contar.addEventListener("click", abrirContarProcesso);
@@ -3055,6 +3205,21 @@ function ligarEditor(raiz) {
       salvar(true);
     }));
 
+    $$("[data-regra-passo]", bloco).forEach((chip) => chip.addEventListener("click", () => {
+      const id = chip.dataset.regraPasso;
+      s.regraIds = (s.regraIds || []).includes(id)
+        ? s.regraIds.filter((x) => x !== id)
+        : [...(s.regraIds || []), id];
+      chip.classList.toggle("on");
+      salvar(true);
+    }));
+
+    /* Criar já ligada ao passo: quem está escrevendo o passo é quem descobre a
+       regra, e obrigar a ir na Biblioteca e voltar é onde a marcação se perde. */
+    $("[data-nova-regra-aqui]", bloco)?.addEventListener("click", () => {
+      ir("regraEditor", { regraId: novaRegra(s).id });
+    });
+
     $("[data-ia-passo]", bloco)?.addEventListener("click", async (evento) => {
       if (await completarPassoComIA(evento.currentTarget, p, s)) render();
     });
@@ -3099,7 +3264,7 @@ function ligarEditor(raiz) {
   const novoPasso = $("[data-novo-passo]", raiz);
   if (novoPasso) novoPasso.addEventListener("click", () => {
     p.passos = p.passos || [];
-    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", sistemaIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", regra: "", imagem: "", videoUrl: "", seSim: "", seNao: "" });
+    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", sistemaIds: [], regraIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", imagem: "", videoUrl: "", proximos: [] });
     salvar(true);
     render();
     const blocos = $$(".step-editor[data-passo-id]");

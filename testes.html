@@ -806,6 +806,76 @@
 
       // ============================================================ TELA
 
+      grupo("Domínio · regra como objeto");
+
+      teste("texto solto de regra vira objeto e o passo aponta para ele", () => {
+        const p = procVivo({ passos: [passo({ id: "1", regra: "Pedido acima de 10 mil: 30/60/90/120" })] });
+        igual(state.regras.length, 1, "catalogou:");
+        igual(p.passos[0].regraIds, [state.regras[0].id], "o passo aponta:");
+        if ("regra" in p.passos[0]) throw new Error("o texto solto ficou para trás");
+      });
+
+      teste("a mesma regra em dois passos vira UMA regra — é o ganho todo", () => {
+        const texto = "Pedido acima de 10 mil: 30/60/90/120";
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", passos: [passo({ id: "1", regra: texto })] }),
+          proc({ id: "b", passos: [passo({ id: "2", regra: texto })] }),
+        ] });
+        igual(state.regras.length, 1);
+      });
+
+      teste("regra ganha código sequencial", () => {
+        state = normalizar({ ...semente(), regras: [
+          { id: "r1", titulo: "A", texto: "a" }, { id: "r2", titulo: "B", texto: "b" },
+        ] });
+        igual(state.regras.map((r) => r.codigo), ["RN-001", "RN-002"]);
+      });
+
+      teste("código que já existe não é remexido — código serve para conversar", () => {
+        state = normalizar({ ...semente(), regras: [
+          { id: "r1", codigo: "RN-004", titulo: "A", texto: "a" }, { id: "r2", titulo: "B", texto: "b" },
+        ] });
+        igual(state.regras.map((r) => r.codigo), ["RN-004", "RN-005"]);
+      });
+
+      teste("mudou a regra, quem é afetado?", () => {
+        const texto = "Pedido acima de 10 mil: 30/60/90/120";
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "Orçamento", passos: [passo({ id: "1", regra: texto })] }),
+          proc({ id: "b", nome: "Faturar", passos: [passo({ id: "2", regra: texto })] }),
+          proc({ id: "c", nome: "Outro", passos: [passo({ id: "3" })] }),
+        ] });
+        const onde = ondeApareceARegra(state.regras[0].id);
+        igual(onde.map((x) => x.processo.nome), ["Orçamento", "Faturar"]);
+      });
+
+      teste("a regra sabe quantos setores dependem dela", () => {
+        const texto = "vale em dois lugares";
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", setorId: "s-comercial", passos: [passo({ id: "1", regra: texto })] }),
+          proc({ id: "b", setorId: "s-tecnica", passos: [passo({ id: "2", regra: texto })] }),
+        ] });
+        igual(setoresQueDependemDaRegra(state.regras[0].id).map((s) => s.nome), ["Comercial", "Técnica"]);
+      });
+
+      teste("regras do processo vêm dos passos, nunca guardadas", () => {
+        const p = procVivo({ passos: [passo({ id: "1", regra: "uma" }), passo({ id: "2", regra: "outra" })] });
+        igual(regrasDoProcesso(p).length, 2);
+        if ("regraIds" in p) throw new Error("o processo guardou o que devia deduzir");
+      });
+
+      teste("apagar a regra limpa a referência nos passos", () => {
+        const p = procVivo({ passos: [passo({ id: "1", regra: "some depois" })] });
+        state.regras = [];
+        state = normalizar(state);
+        igual(state.processos[0].passos[0].regraIds, []);
+      });
+
+      teste("regra que ninguém aplica é sinalizada", () => {
+        state = normalizar({ ...semente(), regras: [{ id: "r1", titulo: "Solta", texto: "x" }] });
+        igual(regrasOrfas().map((r) => r.codigo), ["RN-001"]);
+      });
+
       grupo("Nuvem · estado vira peças e volta inteiro");
 
       function estadoCheio() {
@@ -816,6 +886,7 @@
           fins: [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", faseId: "", proximos: [] }],
           documentos: [{ id: "doc1", titulo: "POP", categoria: "pop", escopo: "", resumo: "", url: "", videoUrl: "" }],
           sistemas: [{ id: "sis1", nome: "CAD", descricao: "", url: "", critico: true }],
+          regras: [{ id: "r1", codigo: "RN-001", titulo: "Prazo por valor", texto: "acima de 10 mil, 30/60/90/120", vigenteDesde: "2026-08-03" }],
         });
       }
 

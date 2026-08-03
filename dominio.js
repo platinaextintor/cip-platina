@@ -81,6 +81,7 @@ function estadoVazio() {
     fins: [],
     documentos: [],
     sistemas: [],
+    regras: [],
     processos: [],
   };
 }
@@ -134,6 +135,46 @@ function normalizar(dados) {
     s.descricao = s.descricao || "";
     s.url = s.url || "";
     s.critico = !!s.critico;
+  });
+
+  /* A regra de negócio deixa de ser texto dentro do passo e vira objeto.
+     Motivo prático: "pedido acima de 10 mil pode ser faturado em 30/60/90/120"
+     não é regra de um processo — vale no Comercial ao orçar, no Financeiro ao
+     aprovar e no Faturamento ao emitir. Como texto, era a mesma frase digitada
+     três vezes, e mudar o valor exigia lembrar dos três lugares. */
+  dados.regras = Array.isArray(dados.regras) ? dados.regras : [];
+  dados.regras.forEach((r) => {
+    r.titulo = r.titulo || "";
+    r.texto = r.texto || "";
+    r.codigo = r.codigo || "";
+    r.vigenteDesde = r.vigenteDesde || "";
+  });
+
+  /* Base antiga: cada texto distinto vira uma regra, e o passo passa a apontar
+     para ela. Textos iguais viram UMA regra só — que é justamente o ganho. */
+  const regraPorTexto = new Map(dados.regras.map((r) => [r.texto.trim(), r]));
+  (dados.processos || []).forEach((p) => (p.passos || []).forEach((s) => {
+    const texto = typeof s.regra === "string" ? s.regra.trim() : "";
+    if (!texto) return;
+    let regra = regraPorTexto.get(texto);
+    if (!regra) {
+      regra = { id: uid("r"), codigo: "", titulo: primeiraLinha(texto), texto, vigenteDesde: "" };
+      dados.regras.push(regra);
+      regraPorTexto.set(texto, regra);
+    }
+    s.regraIds = [...new Set([...(Array.isArray(s.regraIds) ? s.regraIds : []), regra.id])];
+    delete s.regra;
+  }));
+
+  /* O código é sequencial e estável: quem já tem, mantém. RN-004 continua
+     RN-004 mesmo que a RN-002 seja apagada — código que se remexe deixa de
+     servir para conversar. */
+  let proximo = dados.regras.reduce((maior, r) => {
+    const n = Number(String(r.codigo).replace(/\D/g, ""));
+    return Number.isFinite(n) && n > maior ? n : maior;
+  }, 0);
+  dados.regras.forEach((r) => {
+    if (!r.codigo) r.codigo = `RN-${String(++proximo).padStart(3, "0")}`;
   });
 
   dados.setores.forEach((s) => {
@@ -221,6 +262,8 @@ function normalizar(dados) {
       /* Sistema que sobrou de um apagado vira lixo silencioso. */
       s.sistemaIds = (Array.isArray(s.sistemaIds) ? s.sistemaIds : [])
         .filter((id) => dados.sistemas.some((x) => x.id === id));
+      s.regraIds = (Array.isArray(s.regraIds) ? s.regraIds : [])
+        .filter((id) => dados.regras.some((x) => x.id === id));
     });
   });
 
@@ -515,6 +558,7 @@ function novoPasso(tipo) {
     tipo,
     cargoId: "",
     sistemaIds: [],
+    regraIds: [],
     oQue: "",
     comoFazer: "",
     porque: "",
@@ -565,7 +609,7 @@ function aplicarNoEstado(m) {
   }
   const [prefixo, ...resto] = m.peca.split(":");
   const id = resto.join(":");
-  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas" }[prefixo];
+  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas", r: "regras" }[prefixo];
   if (!lista) return;
   const i = state[lista].findIndex((x) => x.id === id);
 
@@ -588,6 +632,7 @@ const fase = (id) => state.fases.find((f) => f.id === id);
 const processo = (id) => state.processos.find((p) => p.id === id);
 
 const sistema = (id) => state.sistemas.find((s) => s.id === id);
+const regra = (id) => state.regras.find((r) => r.id === id);
 const documento = (id) => state.documentos.find((d) => d.id === id);
 
 const fim = (id) => state.fins.find((f) => f.id === id);
@@ -651,6 +696,51 @@ function ondeApareceOSistema(sistemaId, st = state) {
       passos: (p.passos || []).filter((s) => (s.sistemaIds || []).includes(sistemaId)),
     }))
     .filter((x) => x.passos.length);
+}
+
+/* Título quando a regra nasce de texto solto: a primeira linha costuma ser a
+   frase que resume. Cortada, porque título de lista não é parágrafo. */
+function primeiraLinha(texto, limite = 60) {
+  const linha = String(texto || "").split("\n")[0].trim();
+  return linha.length > limite ? `${linha.slice(0, limite - 1)}…` : linha;
+}
+
+/* A regra é objeto pela mesma razão que o sistema: ela vale em vários processos
+   ao mesmo tempo. "Pedido acima de 10 mil pode ser faturado em 30/60/90/120"
+   encosta no Comercial, no Financeiro e no Faturamento — escrita três vezes,
+   muda em três lugares e um dia fica diferente nos três. */
+
+/* Quais regras um processo aplica. Derivado dos passos, nunca guardado. */
+function regrasDoProcesso(p) {
+  const ids = [];
+  (p?.passos || []).forEach((s) => (s.regraIds || []).forEach((id) => {
+    if (!ids.includes(id)) ids.push(id);
+  }));
+  return ids.map(regra).filter(Boolean);
+}
+
+/* A pergunta que justifica ter feito isso: mudou a regra, quem é afetado?
+   Devolve os processos e os passos exatos que a aplicam. */
+function ondeApareceARegra(regraId, st = state) {
+  return st.processos
+    .map((p) => ({
+      processo: p,
+      passos: (p.passos || []).filter((s) => (s.regraIds || []).includes(regraId)),
+    }))
+    .filter((x) => x.passos.length);
+}
+
+/* Regra que ninguém aplica é regra que não existe na prática — ou o mapeamento
+   está incompleto. Nos dois casos, é para olhar. */
+function regrasOrfas(st = state) {
+  return st.regras.filter((r) => !ondeApareceARegra(r.id, st).length);
+}
+
+/* Quantos setores diferentes dependem da mesma regra. É o número que mostra
+   por que ela não podia morar dentro de um processo só. */
+function setoresQueDependemDaRegra(regraId, st = state) {
+  const ids = new Set(ondeApareceARegra(regraId, st).map((x) => x.processo.setorId).filter(Boolean));
+  return [...ids].map((id) => st.setores.find((s) => s.id === id)).filter(Boolean);
 }
 
 /* Sistema crítico sem nenhum passo declarado é suspeito: ou não é crítico, ou
