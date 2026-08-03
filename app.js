@@ -2,7 +2,7 @@
    Fase 1: organograma + fluxo macro + aula do processo.
    Sem backend. Os dados vivem no localStorage e saem por JSON. */
 
-const VERSAO = "v22";
+const VERSAO = "v23";
 
 /* Tela em branco não diz nada a quem está usando. Qualquer erro solto vira uma
    tarja vermelha no topo — mesmo os que acontecem antes do app existir. */
@@ -686,7 +686,8 @@ function soltarNo(processoId, raiaId, clienteX) {
    escreve depois precisa ver a forma aparecer no instante em que a cria. */
 
 
-/* O mapa: cada processo é um subprocesso colapsado; raia é setor ou fase. */
+/* O mapa: cada processo aparece colapsado — o desenho de dentro dele é o
+   subprocesso. Raia é setor ou fase. */
 
 
 function blocoBpmn(modelo, vazio) {
@@ -714,7 +715,7 @@ function legenda(quais) {
     inicio: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Início", ajuda: "Onde o processo começa" },
     fim: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="3.4"/>', nome: "Fim", ajuda: "Um desfecho. Vale nomear: nem todo fim é sucesso" },
     tarefa: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Etapa", ajuda: "Alguém faz alguma coisa" },
-    subprocesso: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13 14v5M10.5 16.5h5" stroke="currentColor" stroke-width="1.3"/>', nome: "Processo", ajuda: "Abre por dentro — clique no + do canto" },
+    subprocesso: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13 14v5M10.5 16.5h5" stroke="currentColor" stroke-width="1.3"/>', nome: "Processo", ajuda: "O + do canto abre o subprocesso dele" },
     evidencia: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M17 3h6l2 5h-8z" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Evidência", ajuda: "Produz prova: foto, assinatura, comprovante" },
     aprovacao: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 13l3 3 6-6" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Aprovação", ajuda: "Alguém precisa autorizar para seguir" },
     exclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 9.5l7 7M16.5 9.5l-7 7" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — ou um, ou outro", ajuda: "Só um caminho segue" },
@@ -877,7 +878,7 @@ function faixaDeSustentacao() {
           return `
             <button class="sustentacao-card${ui.macroSel === p.id ? " on" : ""}" data-sustenta="${esc(p.id)}" type="button">
               <span class="sustentacao-nome">${esc(p.nome)}</span>
-              <span class="sustentacao-meta">${esc(setor?.nome || "sem setor")} · ${(p.passos || []).length} subprocesso${(p.passos || []).length === 1 ? "" : "s"}</span>
+              <span class="sustentacao-meta">${esc(setor?.nome || "sem setor")} · ${(p.passos || []).length} passo${(p.passos || []).length === 1 ? "" : "s"}</span>
             </button>`;
         }).join("")}
       </div>`
@@ -889,10 +890,10 @@ function faixaDeSustentacao() {
 function inspetorProcessoMacro(p) {
   return `
     <div class="drawer-head"><h2>${esc(p.nome)}</h2></div>
-    <p class="sub">Processo · ${(p.passos || []).length} subprocesso${(p.passos || []).length === 1 ? "" : "s"}</p>
+    <p class="sub">Processo · o subprocesso tem ${(p.passos || []).length} passo${(p.passos || []).length === 1 ? "" : "s"}</p>
 
     <div class="btn-row" style="margin:14px 0 18px">
-      <button class="btn btn-primary btn-sm" data-desenhar="${p.id}" type="button">${icon("edit", 15)} Detalhar por dentro</button>
+      <button class="btn btn-primary btn-sm" data-desenhar="${p.id}" type="button">${icon("edit", 15)} Abrir o subprocesso</button>
       <button class="btn btn-sm" data-ligar-macro="${p.id}" type="button">${icon("link", 15)} Ligar</button>
     </div>
 
@@ -1321,7 +1322,7 @@ function viewDesenho() {
     <div class="desenho">
       <header class="desenho-topo">
         <button class="btn btn-sm btn-ghost" data-editar="${p.id}" type="button">${icon("back", 15)} Voltar ao processo</button>
-        <strong class="desenho-nome">${esc(p.nome)}</strong>
+        <strong class="desenho-nome">Subprocesso · ${esc(p.nome)}</strong>
 
         <div class="chips desenho-paleta">
           ${Object.entries(TIPOS).map(([chave, t]) => `
@@ -1793,7 +1794,7 @@ function telaAbertura(p) {
       </div>` : ""}
 
       ${passos.length ? `<div class="block">
-        <div class="block-label">O fluxo em BPMN 2.0</div>
+        <div class="block-label">O subprocesso, em BPMN 2.0</div>
         ${blocoBpmn(bpmnDoProcesso(p), "")}
       </div>` : ""}
 
@@ -2006,13 +2007,13 @@ function viewEditor() {
 
       ${(p.passos || []).length ? `
         <div class="section-title">
-          <h3>Fluxograma BPMN 2.0</h3><span class="line"></span>
+          <h3>O subprocesso</h3><span class="line"></span>
           <button class="btn btn-sm" data-desenhar="${p.id}" type="button">${icon("edit", 15)} Desenhar em tela cheia</button>
         </div>
-        <p class="hint">Desenhado a partir dos passos — e você também pode fazer o contrário: desenhe na tela cheia e os passos aparecem aqui.</p>
+        <p class="hint">O subprocesso é o desenho de dentro deste processo, em BPMN 2.0 — feito dos passos abaixo. E dá para fazer o contrário: desenhe na tela cheia e os passos aparecem aqui.</p>
         <div id="bpmnEditor">${blocoBpmn(bpmnDoProcesso(p), "")}</div>
       ` : `
-        <div class="section-title"><h3>Fluxograma BPMN 2.0</h3><span class="line"></span></div>
+        <div class="section-title"><h3>O subprocesso</h3><span class="line"></span></div>
         <div class="empty">
           Sem passos ainda. Escreva abaixo, ou
           <button class="btn btn-sm" data-desenhar="${p.id}" type="button" style="margin-left:6px">${icon("edit", 15)} desenhe o fluxo</button>
@@ -2212,7 +2213,7 @@ function viewTrilha() {
             <span class="proc-meta">
               <span class="tag ${mapeado(p) ? "green" : "amber"}"><span class="tag-dot"></span>${mapeado(p) ? "pronto" : "em construção"}</span>
               <span>${esc(fase(p.faseId)?.nome || "sem fase")}</span>
-              <span>${(p.passos || []).length} subprocessos</span>
+              <span>${(p.passos || []).length} passo${(p.passos || []).length === 1 ? "" : "s"}</span>
               ${faltando(p).length ? `<span class="tag red">falta ${esc(faltando(p).join(", "))}</span>` : ""}
             </span>
           </button>`).join("")}

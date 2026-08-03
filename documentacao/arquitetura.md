@@ -69,7 +69,19 @@ Aplicada em quatro lugares:
 }
 ```
 
-Dois níveis, e só dois: **processo** e **subprocesso**. O subprocesso aparece na aula como *passo* — mesma coisa, nome diferente conforme a tela.
+**O vocabulário, fechado com o Eric em 02/08/2026:**
+
+| Palavra | O que é | Exemplo |
+|---|---|---|
+| Macro | a *vista* que mostra todos os processos de uma vez | — |
+| **Processo** | uma caixa do macro | Orçamento |
+| **Subprocesso** | o desenho de dentro de um processo | o BPMN do Orçamento |
+| **Passo** | uma peça do subprocesso, onde mora o detalhe | Receber o pedido |
+| Setor | a raia — gente, não trabalho | Comercial |
+
+O subprocesso **não é um nível de dado**: é o desenho que os passos formam. Por isso `processo.passos[]` e nada entre os dois. Antes disso, a mesma coisa se chamava "subprocesso" no macro, "passo" no desenho e "etapa" na paleta — três nomes para duas coisas, e foi o que embaralhou a conversa.
+
+E o macro é vista, não nível: "Comercial" é setor, não processo.
 
 Os dois níveis têm a **mesma natureza**: um grafo de peças ligadas por `proximos`. Não são duas estruturas diferentes com duas telas diferentes — é `colunasDe()` calculando posição nos dois, `bpmn.js` desenhando os dois, o mesmo gesto de arrastar ligando os dois. O subprocesso era uma fila (a ordem do array virava a sequência) e deixou de ser: existe subprocesso que bifurca, que volta atrás, e que atravessa setor porque o passo é de outro cargo.
 
