@@ -217,7 +217,11 @@ body.deslogado #main { display: none; }
 
 /* ---------- shell ---------- */
 
-.page { max-width: 1180px; margin: 0 auto; padding: 26px 20px 80px; }
+/* `width: 100%` não é redundante: o #main virou coluna flex quando a rolagem
+   foi consertada, e item de flex encolhe até o conteúdo. Sem isso cada tela
+   ganhava uma largura diferente — a biblioteca 1036, o organograma 1180, o
+   editor 640 — e o app parecia quatro aplicativos. */
+.page { width: 100%; max-width: 1180px; margin: 0 auto; padding: 26px 20px 80px; }
 .page-head { margin-bottom: 22px; }
 .page-head .eyebrow { color: var(--ink-3); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
 .page-head h1 { margin-top: 4px; }
@@ -814,7 +818,9 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 }
 
 .desenho-lado {
-  width: 340px;
+  /* Era 340 fixo — apertado demais para um inspetor com dez campos e três
+     caixas de texto. Cresce com a tela, sem roubar o desenho. */
+  width: clamp(340px, 26vw, 480px);
   flex: none;
   overflow-y: auto;
   border-left: 1px solid var(--line);
@@ -868,7 +874,7 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 
 /* ---------- aula ---------- */
 
-.lesson { max-width: 720px; margin: 0 auto; padding: 18px 18px 90px; }
+.lesson { width: 100%; max-width: 720px; margin: 0 auto; padding: 18px 18px 90px; }
 .lesson-top { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
 .lesson-top .spacer { margin-left: auto; }
 
@@ -937,7 +943,11 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 
 /* ---------- editor ---------- */
 
-.editor { max-width: 800px; margin: 0 auto; padding: 18px 18px 90px; }
+/* O editor tinha 800px enquanto o resto do app tinha 1180 — quatro larguras
+   diferentes na mesma aplicação, e o formulário parecia versão de celular ao
+   lado do organograma. Agora acompanha o mesmo ritmo das outras telas.
+   A aula continua estreita de propósito: lá se lê, e linha longa cansa. */
+.editor { width: 100%; max-width: 1080px; margin: 0 auto; padding: 26px 20px 90px; }
 .field { display: grid; gap: 6px; }
 .field > label { color: var(--ink-3); font-size: 12px; }
 .field input, .field textarea, .field select {
@@ -948,7 +958,11 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
   padding: 9px 11px;
   font-size: 15px;
 }
-.field textarea { min-height: 68px; resize: vertical; line-height: 1.55; }
+.field textarea { min-height: 96px; resize: vertical; line-height: 1.55; }
+
+/* Campo de texto longo não acompanha a largura do container: passar de ~90
+   caracteres por linha cansa a leitura. Os curtos usam a largura toda. */
+.field textarea, .field input[type="text"]:not([data-curto]) { max-width: 78ch; }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--navy-2); outline: none; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
 .stack { display: grid; gap: 14px; }

@@ -219,6 +219,16 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
+## Uma largura só
+
+O Eric viu antes de mim: *"as caixas de texto estão pequenas e uma mais larga que as outras, tem lugares que parece versão mobile"*. Medindo, eram **quatro larguras diferentes** na mesma aplicação — organograma 1180, biblioteca 1036, editor de processo 800, editor de cargo 640.
+
+A causa foi minha, e recente: quando consertei a rolagem, `#main` virou coluna flex. **Item de flex encolhe até o conteúdo** — então cada tela passou a ter a largura do que havia dentro dela, e não a da página. Um `width: 100%` que parecia redundante era o que faltava.
+
+Hoje: página e listas em 1180, formulários em 1080, aula em 720 (estreita de propósito — lá se lê, e linha longa cansa), e o inspetor lateral cresce com a tela em vez de ficar preso em 340px.
+
+Campo de texto longo tem `max-width: 78ch`, independente do container: passar de ~90 caracteres por linha cansa a leitura mesmo num monitor grande.
+
 ## A raia do subprocesso: duas alturas de resposta
 
 Pergunta do Eric: *"no fluxograma do subprocesso não consigo inserir outros setores por quê? Embora o macro esteja definido em um setor, o subprocesso pode depender de vários."*
