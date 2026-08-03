@@ -1505,7 +1505,8 @@ function viewDesenho() {
             </div>
             <div class="note note-why" style="margin-top:12px">
               <div class="block-label">Quando depende de outro setor</div>
-              <p>Marque o cargo responsável pelo passo. É o cargo que diz de quem é a mão — e é por ele que o subprocesso atravessa a fronteira do setor sem sair do lugar.</p>
+              <p>Marque o <strong>cargo</strong> do passo — é ele que diz de quem é a mão. Se o cargo ainda não existe, marque só o <strong>setor</strong>: o passo ganha a raia daquela área do mesmo jeito.</p>
+              <p style="margin-top:8px">É assim que o subprocesso atravessa fronteiras: o processo é do Comercial, mas um passo pode ser do Financeiro e o seguinte da Logística.</p>
             </div>
           `}
         </aside>
@@ -1536,6 +1537,15 @@ function inspetorDesenho(p, s, indice) {
           <option value="">— o dono do processo</option>
           ${state.cargos.map((c) => `<option value="${c.id}"${c.id === s.cargoId ? " selected" : ""}>${esc(c.nome)}</option>`).join("")}
         </select>
+      </div>
+
+      <div class="field">
+        <label>Ou só o setor <span class="hint">— quando ainda não se sabe qual cargo</span></label>
+        <select data-d-passo="setorId"${s.cargoId ? " disabled" : ""}>
+          <option value="">—</option>
+          ${state.setores.map((x) => `<option value="${x.id}"${x.id === s.setorId ? " selected" : ""}>${esc(x.nome)}</option>`).join("")}
+        </select>
+        <p class="hint">${s.cargoId ? "O cargo já responde quem faz — o setor sai dele." : "O subprocesso pode atravessar setores mesmo que o processo seja de um só."}</p>
       </div>
       <div class="field">
         <label>Como fazer</label>
@@ -2305,6 +2315,14 @@ function editorPasso(s, i, total) {
             <select data-s="cargoId">
               <option value="">— o dono do processo</option>
               ${state.cargos.map((c) => `<option value="${c.id}"${c.id === s.cargoId ? " selected" : ""}>${esc(c.nome)}</option>`).join("")}
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Ou só o setor <span class="hint">— quando não se sabe o cargo</span></label>
+            <select data-s="setorId"${s.cargoId ? " disabled" : ""}>
+              <option value="">—</option>
+              ${state.setores.map((x) => `<option value="${x.id}"${x.id === s.setorId ? " selected" : ""}>${esc(x.nome)}</option>`).join("")}
             </select>
           </div>
         </div>
@@ -3153,6 +3171,7 @@ function abrirContarProcesso() {
         cargoId: existe(state.cargos, s.cargoId) ? s.cargoId : "",
         sistemaIds: [],
         regraIds: [],
+        setorId: "",
         oQue: s.oQue || "",
         comoFazer: s.comoFazer || "",
         porque: s.porque || "",
@@ -3623,7 +3642,7 @@ function ligarEditor(raiz) {
   const novoPasso = $("[data-novo-passo]", raiz);
   if (novoPasso) novoPasso.addEventListener("click", () => {
     p.passos = p.passos || [];
-    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", sistemaIds: [], regraIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", imagem: "", videoUrl: "", proximos: [] });
+    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", setorId: "", sistemaIds: [], regraIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", imagem: "", videoUrl: "", proximos: [] });
     salvar(true);
     render();
     const blocos = $$(".step-editor[data-passo-id]");

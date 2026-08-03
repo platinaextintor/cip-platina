@@ -219,6 +219,23 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
+## A raia do subprocesso: duas alturas de resposta
+
+Pergunta do Eric: *"no fluxograma do subprocesso não consigo inserir outros setores por quê? Embora o macro esteja definido em um setor, o subprocesso pode depender de vários."*
+
+Estava certo, e era limitação real. A raia era **estritamente um cargo** — e o macro dele tem 10 setores para 5 cargos. Financeiro, Compras, Logística, Produção, Inspeções e Faturamento não têm cargo cadastrado, então um passo dessas áreas não tinha onde ficar: caía na raia do dono do processo, que é justamente o que ele não é.
+
+Agora "quem faz" tem duas alturas:
+
+| Resposta | Quando |
+|---|---|
+| **cargo** | a fina — se sabe quem executa |
+| **setor** | a grossa — o cargo ainda não existe, ou ainda não se sabe qual |
+
+Cargo ganha do setor quando os dois estão preenchidos, porque é mais preciso. O passo que só tem setor entra como pendência de peso baixo — **agregada por processo**, não uma linha por passo: *"3 passos dizem o setor mas não qual cargo executa"*.
+
+É isso que faz o subprocesso atravessar fronteiras de verdade: o processo é do Comercial, um passo é do Financeiro e o seguinte da Logística.
+
 ## A seta e a saída não são a mesma coisa
 
 Pergunta do Eric, e ela cutuca a regra central: *"por que eu tenho que ligar a uma saída se o próprio fluxograma me dá isso?"*

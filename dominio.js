@@ -311,6 +311,9 @@ function normalizar(dados) {
          raia de ninguém — e a resposta certa é "sem responsável", não um id
          que não existe. */
       s.cargoId = existeCargo(s.cargoId) ? s.cargoId : "";
+      /* Setor do passo: a resposta grossa de "quem faz", para quando o cargo
+         ainda não existe. Setor apagado limpa, como tudo o mais. */
+      s.setorId = dados.setores.some((x) => x.id === s.setorId) ? s.setorId : "";
       s.proximos = normalizarSaidas(s.proximos).filter((x) => idsDePasso.has(x.para) && x.para !== s.id);
       /* Sistema que sobrou de um apagado vira lixo silencioso. */
       s.sistemaIds = (Array.isArray(s.sistemaIds) ? s.sistemaIds : [])
@@ -576,10 +579,21 @@ function bpmnDoProcesso(p) {
   const passos = p?.passos || [];
   if (!passos.length) return null;
 
-  const faixaDe = (s) => (s.cargoId && cargo(s.cargoId) ? s.cargoId : p.donoCargoId || "");
+  /* A raia é quem faz — e "quem faz" tem duas alturas de resposta.
 
-  /* A raia é o cargo, e o cargo pode ser de outro setor — é assim que um
-     subprocesso que depende de outra área aparece atravessando o desenho. */
+     A fina é o cargo. A grossa é o setor, para quando ainda não se sabe qual
+     cargo, ou quando o setor nem tem cargo cadastrado. O macro do Eric tem 10
+     setores e 5 cargos: sem a resposta grossa, um passo que depende do
+     Financeiro simplesmente não tinha onde ficar, e o subprocesso ficava preso
+     no setor do processo — que é justamente o que ele não é.
+
+     A ordem importa: cargo ganha do setor, porque é mais preciso. */
+  const faixaDe = (s) => {
+    if (s.cargoId && cargo(s.cargoId)) return `c:${s.cargoId}`;
+    if (s.setorId && setor(s.setorId)) return `s:${s.setorId}`;
+    return p.donoCargoId && cargo(p.donoCargoId) ? `c:${p.donoCargoId}` : "";
+  };
+
   const idsFaixa = [];
   passos.forEach((s) => {
     const id = faixaDe(s);
@@ -587,11 +601,12 @@ function bpmnDoProcesso(p) {
   });
   if (!idsFaixa.length) idsFaixa.push("");
 
-  const faixas = idsFaixa.map((id) => ({
-    id,
-    nome: cargo(id)?.nome || "Sem responsável",
-    cor: id ? corSetor(cargo(id)?.setorId) : "",
-  }));
+  const faixas = idsFaixa.map((id) => {
+    const [tipo, alvo] = id.split(":");
+    if (tipo === "c") return { id, nome: cargo(alvo)?.nome || "Sem responsável", cor: corSetor(cargo(alvo)?.setorId) };
+    if (tipo === "s") return { id, nome: setor(alvo)?.nome || "Sem setor", cor: corSetor(alvo) };
+    return { id, nome: "Sem responsável", cor: "" };
+  });
 
   const col = colunasDe(passos);
   const temEntrada = new Set();
@@ -753,6 +768,7 @@ function novoPasso(tipo) {
     cargoId: "",
     sistemaIds: [],
     regraIds: [],
+    setorId: "",
     oQue: "",
     comoFazer: "",
     porque: "",
@@ -1257,6 +1273,9 @@ function pendencias(st = state) {
     if (!(p.cargosIds || []).length) põe(2, "executor", p.nome, "nenhum cargo marcado como quem executa", abre);
     if (!(p.passos || []).length) põe(3, "passos", p.nome, "o subprocesso está vazio — a ficha existe, o trabalho não está descrito", abre);
     else if (!p.porque?.trim()) põe(3, "porque", p.nome, "não diz por que existe", abre);
+
+    const grossos = (p.passos || []).filter((s) => !s.cargoId && s.setorId).length;
+    if (grossos) põe(4, "quem faz", p.nome, `${grossos} passo${grossos === 1 ? " diz" : "s dizem"} o setor mas não qual cargo executa`, abre);
 
     if (p.revisado === false) põe(2, "revisao", p.nome, "escrito pela IA e ainda não revisado por ninguém — não pode ser aprovado assim", abre);
     if (situacaoDoProcesso(p) === "mudou") põe(2, "aprovacao", p.nome, "mudou depois de aprovado e ninguém aprovou de novo", abre);

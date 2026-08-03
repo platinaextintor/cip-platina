@@ -527,6 +527,56 @@
         igual(bpmnDoProcesso(p).faixas.length, 2);
       });
 
+      grupo("Domínio · o subprocesso atravessa setores");
+
+      teste("passo sem cargo mas com setor ganha raia própria", () => {
+        /* O caso do Eric: 10 setores, 5 cargos. Sem a resposta grossa, um passo
+           do Financeiro não tinha onde ficar e caía na raia do dono. */
+        const p = procVivo({ donoCargoId: "c-vendedor", passos: [
+          passo({ id: "1", cargoId: "c-vendedor" }),
+          passo({ id: "2", cargoId: "", setorId: "s-admin" }),
+        ] });
+        const faixas = bpmnDoProcesso(p).faixas.map((f) => f.nome);
+        igual(faixas, ["Vendedor", "Administrativo"]);
+      });
+
+      teste("cargo ganha do setor, porque é resposta mais precisa", () => {
+        const p = procVivo({ passos: [passo({ id: "1", cargoId: "c-tecnico", setorId: "s-admin" })] });
+        igual(bpmnDoProcesso(p).faixas.map((f) => f.nome), ["Técnico de Extintores"]);
+      });
+
+      teste("setor apagado limpa o passo, como o cargo já limpava", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "P", passos: [passo({ id: "1", cargoId: "", setorId: "s-admin" })] }),
+        ] });
+        state.setores = state.setores.filter((s) => s.id !== "s-admin");
+        state = normalizar(state);
+        igual(state.processos[0].passos[0].setorId, "");
+      });
+
+      teste("o desenho não quebra com raias de tipos misturados", () => {
+        const p = procVivo({ passos: [
+          passo({ id: "1", cargoId: "c-vendedor", proximos: [{ para: "2" }] }),
+          passo({ id: "2", cargoId: "", setorId: "s-tecnica", proximos: [{ para: "3" }] }),
+          passo({ id: "3", cargoId: "", setorId: "" }),
+        ] });
+        const html = bpmnDesenhar(bpmnDoProcesso(p));
+        if (/NaN|undefined/.test(html)) throw new Error("desenho quebrado");
+        igual(bpmnDoProcesso(p).faixas.length, 3);
+      });
+
+      teste("passo com setor e sem cargo vira pendência, agregada por processo", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "P", nome: "Atravessa", passos: [
+            passo({ id: "1", cargoId: "", setorId: "s-admin" }),
+            passo({ id: "2", cargoId: "", setorId: "s-tecnica" }),
+          ] }),
+        ] });
+        const p = pendencias().filter((x) => x.tipo === "quem faz");
+        igual(p.length, 1, "uma linha por processo, não por passo:");
+        if (!/2 passos/.test(p[0].detalhe)) throw new Error("não contou os passos: " + p[0].detalhe);
+      });
+
       grupo("Domínio · o caminho da aula");
 
       teste("a aula segue a primeira saída de cada passo", () => {
