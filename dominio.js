@@ -379,12 +379,40 @@ const SITUACOES = {
   mudou: { rotulo: "mudou desde a aprovação", classe: "red", ajuda: "Foi aprovado, mas alguém editou depois. Precisa de nova aprovação." },
 };
 
+/* O que impede de aprovar. Devolve o motivo, não um booleano: quem clica precisa
+   saber o que falta, não só que não pode.
+
+   A trava principal veio de uma auditoria externa em 03/08/2026, depois que a
+   IA rascunhou 51 passos: "o risco agora não é falta de estrutura, é alguém
+   aprovar rápido demais conteúdo plausível mas não confirmado". Estava certo —
+   dava para aprovar um rascunho de IA em dois cliques sem nunca ter lido. */
+function porQueNaoPodeAprovar(p, st = state) {
+  if (!p) return "processo não encontrado";
+  if (p.revisado === false) return "este texto foi escrito pela IA e ninguém revisou ainda";
+  if (!(p.passos || []).length) return "não há passos para aprovar";
+  if (!p.donoCargoId) return "sem dono, não há quem responda pela aprovação";
+  if (!(p.cargosIds || []).length) return "sem ninguém marcado como quem executa";
+  return "";
+}
+
+/* Revisar e aprovar são atos diferentes, e de propósito. Revisar é dizer "li e
+   está certo"; aprovar é assumir publicamente que o processo é esse. Colapsar
+   os dois num clique é o que transforma rascunho em verdade sem ninguém ler. */
+function marcarRevisado(p, nome, quando = new Date().toISOString()) {
+  if (!p || p.revisado !== false) return p;
+  p.revisado = true;
+  registrar(p, quando, nome, "revisou o rascunho da IA");
+  return p;
+}
+
 /* Aprovar é um ato com nome e data — é isso que separa governança de checkbox. */
 function aprovarProcesso(p, nome, quando = new Date().toISOString()) {
+  const impedimento = porQueNaoPodeAprovar(p);
+  if (impedimento) return { ok: false, motivo: impedimento };
   p.aprovacao = { nome: nome || "alguém", em: quando, assinatura: assinaturaDoProcesso(p) };
   p.status = "vigente";
   registrar(p, quando, nome, "aprovou");
-  return p;
+  return { ok: true, processo: p };
 }
 
 function retirarAprovacao(p, nome, quando = new Date().toISOString()) {
@@ -1125,6 +1153,7 @@ function pendencias(st = state) {
     if (!(p.passos || []).length) põe(3, "passos", p.nome, "o subprocesso está vazio — a ficha existe, o trabalho não está descrito", abre);
     else if (!p.porque?.trim()) põe(3, "porque", p.nome, "não diz por que existe", abre);
 
+    if (p.revisado === false) põe(2, "revisao", p.nome, "escrito pela IA e ainda não revisado por ninguém — não pode ser aprovado assim", abre);
     if (situacaoDoProcesso(p) === "mudou") põe(2, "aprovacao", p.nome, "mudou depois de aprovado e ninguém aprovou de novo", abre);
     if (situacaoDoProcesso(p) === "vigente" && !indicadoresDoProcesso(p.id, st).length) {
       põe(4, "indicador", p.nome, "está vigente mas ninguém mede", abre);

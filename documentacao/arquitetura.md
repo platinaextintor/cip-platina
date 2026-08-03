@@ -112,11 +112,12 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 14. **Ciclo fechado ainda tem porta.** Quando todo passo tem entrada, o primeiro vira a entrada — no desenho e na aula, pela mesma regra.
 15. **Cliente não apaga o que não entende.** A sincronia só considera "sumida" uma peça cujo tipo ele sabe escrever. Sem isso, uma aba com código velho lê uma linha nova, não a reconhece, conclui que sumiu e apaga o trabalho de quem está atualizado.
 16. **Toda lista do modelo tem linha no banco.** Um teste percorre o modelo e cobra: acrescentou lista, dá lugar para ela. `fins` viveu meses só no navegador porque ninguém cobrava.
-17. **Aprovação tem nome, data e assinatura do que foi aprovado.** O selo cai sozinho quando o conteúdo muda — selo que sobrevive a qualquer edição afirma que alguém conferiu o que ninguém conferiu. Só cai por mudança no que a aprovação de fato aprova: nome, motivo, entradas e saídas, responsáveis, e os passos com suas regras, sistemas e ligações. Trocar um vídeo ou anexar um arquivo não derruba.
-18. **"Pronto" passou a exigir aprovação.** Antes bastava estar preenchido — que é a definição de pronto que ninguém assina.
-19. **A regra e o indicador moram fora do processo.** Os dois valem em mais de um: a regra do prazo de pagamento pega Comercial, Financeiro e Faturamento; o prazo médio de entrega mede Comercial e Logística. Guardados dentro, seriam cópias que um dia divergem.
-20. **Mexer no indicador não derruba a aprovação do processo.** O número mede o processo, não faz parte dele. Se derrubasse, ajustar uma meta obrigaria a reaprovar o passo a passo — e ninguém ajustaria.
-21. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
+17. **Revisar e aprovar são dois atos, e o segundo exige o primeiro.** Rascunho de IA não pode ser aprovado sem alguém dizer "li e está certo", com nome. Veio de uma auditoria externa: depois que a IA escreveu 51 passos, *"o risco agora não é falta de estrutura, é alguém aprovar rápido demais conteúdo plausível mas não confirmado"*. Dava para aprovar em dois cliques sem ler — e `porQueNaoPodeAprovar()` devolve o motivo, não um booleano, porque quem clica precisa saber o que falta.
+18. **Aprovação tem nome, data e assinatura do que foi aprovado.** O selo cai sozinho quando o conteúdo muda — selo que sobrevive a qualquer edição afirma que alguém conferiu o que ninguém conferiu. Só cai por mudança no que a aprovação de fato aprova: nome, motivo, entradas e saídas, responsáveis, e os passos com suas regras, sistemas e ligações. Trocar um vídeo ou anexar um arquivo não derruba.
+19. **"Pronto" passou a exigir aprovação.** Antes bastava estar preenchido — que é a definição de pronto que ninguém assina.
+20. **A regra e o indicador moram fora do processo.** Os dois valem em mais de um: a regra do prazo de pagamento pega Comercial, Financeiro e Faturamento; o prazo médio de entrega mede Comercial e Logística. Guardados dentro, seriam cópias que um dia divergem.
+21. **Mexer no indicador não derruba a aprovação do processo.** O número mede o processo, não faz parte dele. Se derrubasse, ajustar uma meta obrigaria a reaprovar o passo a passo — e ninguém ajustaria.
+22. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 

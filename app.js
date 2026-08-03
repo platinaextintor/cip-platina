@@ -3336,6 +3336,7 @@ function blocoDeAprovacao(p) {
   const sit = situacaoDoProcesso(p);
   const s = SITUACOES[sit];
   const ap = p.aprovacao;
+  const impedimento = porQueNaoPodeAprovar(p);
   const historico = [...(p.historico || [])].reverse();
 
   return `
@@ -3346,10 +3347,19 @@ function blocoDeAprovacao(p) {
       </div>
       <p style="margin-top:8px">${esc(s.ajuda)}</p>
 
+      ${impedimento ? `<div class="note note-trap" style="margin-top:12px">
+        <div class="block-label">Ainda não dá para aprovar</div>
+        <p>${esc(impedimento)}.</p>
+        ${p.revisado === false ? `<div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-sm" data-revisei type="button">${icon("ok", 15)} Li tudo e está certo</button>
+          <span class="hint">Isso registra o seu nome como quem revisou. Aprovar vem depois.</span>
+        </div>` : ""}
+      </div>` : ""}
+
       <div class="btn-row" style="margin-top:12px">
         ${sit === "vigente"
           ? `<button class="btn btn-sm btn-ghost" data-tirar-aprovacao type="button">Tirar a aprovação</button>`
-          : `<button class="btn btn-sm btn-primary" data-aprovar type="button">${icon("ok", 15)} ${sit === "mudou" ? "Aprovar de novo" : "Aprovar este processo"}</button>`}
+          : `<button class="btn btn-sm btn-primary" data-aprovar type="button"${impedimento ? " disabled" : ""}>${icon("ok", 15)} ${sit === "mudou" ? "Aprovar de novo" : "Aprovar este processo"}</button>`}
         ${historico.length ? `<button class="btn btn-sm btn-ghost" data-ver-historico type="button">${historico.length} registro${historico.length === 1 ? "" : "s"} no histórico</button>` : ""}
       </div>
 
@@ -3427,10 +3437,19 @@ function ligarEditor(raiz) {
     });
   });
 
+  $("[data-revisei]", raiz)?.addEventListener("click", () => {
+    const nome = typeof nomeDoUsuario === "function" ? nomeDoUsuario() : "";
+    if (!confirm(`Confirmar que você leu os ${(p.passos || []).length} passos de "${p.nome}" e estão certos?\n\nSeu nome fica no histórico como quem revisou.`)) return;
+    marcarRevisado(p, nome);
+    salvar(true);
+    render();
+  });
+
   $("[data-aprovar]", raiz)?.addEventListener("click", () => {
     const nome = typeof nomeDoUsuario === "function" ? nomeDoUsuario() : "";
     if (!confirm(`Aprovar "${p.nome}" em nome de ${nome || "você"}?\n\nSeu nome fica registrado, e a aprovação cai sozinha se alguém editar o processo depois.`)) return;
-    aprovarProcesso(p, nome);
+    const r = aprovarProcesso(p, nome);
+    if (!r.ok) return alert(`Não deu para aprovar: ${r.motivo}.`);
     salvar(true);
     render();
   });
