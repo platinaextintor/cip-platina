@@ -492,10 +492,89 @@ function avisoDeMedicao() {
   </div>`;
 }
 
-/* Prende os nomes das raias na borda direita visível. O SVG não tem position:
+/* Navegar o desenho com o mouse, como em qualquer ferramenta de diagrama.
+
+   Três gestos, e nenhum deles pisa nos que já existiam:
+   · roda + Ctrl (ou pinça do trackpad) dá zoom NO PONTO DO CURSOR — zoom que
+     ignora onde você está olhando obriga a procurar o lugar de novo a cada passo
+   · roda sozinha rola; com Shift, rola de lado (é o comportamento nativo)
+   · arrastar o FUNDO move o desenho; arrastar uma peça continua movendo a peça
+
+   O zoom guarda o ponto do mundo sob o cursor antes de redesenhar e recoloca a
+   rolagem depois, senão o desenho salta a cada clique de roda. */
+function navegarComMouse(tela, lerZoom, gravarZoom) {
+  const svgDe = () => $("svg.bpmn", tela);
+
+  tela.addEventListener("wheel", (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;   // sem Ctrl, a roda rola: é o esperado
+    const svg = svgDe();
+    if (!svg) return;
+    e.preventDefault();
+
+    const zoomAntigo = lerZoom();
+    const fator = Math.exp(-e.deltaY * 0.0015);
+    const zoomNovo = Math.min(2, Math.max(0.1, Number((zoomAntigo * fator).toFixed(3))));
+    if (zoomNovo === zoomAntigo) return;
+
+    const caixaTela = tela.getBoundingClientRect();
+    const caixaSvg = svg.getBoundingClientRect();
+    const mundoX = (e.clientX - caixaSvg.left) / zoomAntigo;
+    const mundoY = (e.clientY - caixaSvg.top) / zoomAntigo;
+    const cursorX = e.clientX - caixaTela.left;
+    const cursorY = e.clientY - caixaTela.top;
+
+    gravarZoom(zoomNovo);
+    render();
+
+    const novaTela = $(`#${tela.id}`);
+    const novoSvg = novaTela && $("svg.bpmn", novaTela);
+    if (!novoSvg) return;
+
+    /* O recuo do desenho dentro da área rolável (padding + legenda) é medido
+       DEPOIS de redesenhar, nunca antes: supor que ele não muda foi o que fez
+       o zoom deslizar na vertical — a legenda muda de altura quando a barra de
+       rolagem horizontal aparece ou some. */
+    const t2 = novaTela.getBoundingClientRect();
+    const s2 = novoSvg.getBoundingClientRect();
+    const recuoX = s2.left - t2.left + novaTela.scrollLeft;
+    const recuoY = s2.top - t2.top + novaTela.scrollTop;
+
+    novaTela.scrollLeft = recuoX + mundoX * zoomNovo - cursorX;
+    novaTela.scrollTop = recuoY + mundoY * zoomNovo - cursorY;
+    novaTela.dispatchEvent(new Event("scroll"));
+  }, { passive: false });
+
+  /* Arrastar o fundo move. Só o fundo: em cima de uma peça ou da alça, quem
+     manda são os gestos de desenhar, que já existiam antes deste. */
+  let de = null;
+  tela.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 && e.button !== 1) return;
+    if (e.button === 0 && (e.target.closest("[data-bpmn-el]") || e.target.closest("[data-bpmn-alca]"))) return;
+    if (e.target.closest("details") || e.target.closest(".sustentacao")) return;
+    de = { x: e.clientX, y: e.clientY, sx: tela.scrollLeft, sy: tela.scrollTop, id: e.pointerId };
+    tela.setPointerCapture(e.pointerId);
+    tela.classList.add("movendo-tela");
+  });
+
+  tela.addEventListener("pointermove", (e) => {
+    if (!de || e.pointerId !== de.id) return;
+    tela.scrollLeft = de.sx - (e.clientX - de.x);
+    tela.scrollTop = de.sy - (e.clientY - de.y);
+  });
+
+  const soltar = (e) => {
+    if (!de || (e && e.pointerId !== de.id)) return;
+    de = null;
+    tela.classList.remove("movendo-tela");
+  };
+  tela.addEventListener("pointerup", soltar);
+  tela.addEventListener("pointercancel", soltar);
+}
+
+/* Prende os nomes das raias na borda esquerda visível. O SVG não tem position:
    sticky, então quem move é o transform: a cada rolagem, a camada dos nomes é
-   empurrada para onde a borda direita da janela está, em coordenadas do próprio
-   desenho. Rolando até o fim, o deslocamento vira zero e elas voltam ao lugar. */
+   empurrada para onde a borda esquerda da janela está, em coordenadas do próprio
+   desenho. No começo do desenho o deslocamento é zero e elas ficam no lugar. */
 function prenderNomesDeRaia(tela) {
   const ajustar = () => {
     const camada = $("svg.bpmn .bpmn-faixa-nomes", tela);
@@ -503,8 +582,7 @@ function prenderNomesDeRaia(tela) {
     if (!camada || !svg) return;
     const largura = Number(camada.dataset.largura) || 0;
     const escala = svg.clientWidth / largura || 1;
-    const bordaVisivel = (tela.scrollLeft + tela.clientWidth) / escala;
-    const dx = Math.min(0, bordaVisivel - largura);
+    const dx = Math.max(0, tela.scrollLeft / escala);
     camada.setAttribute("transform", `translate(${dx.toFixed(1)}, 0)`);
   };
   tela.addEventListener("scroll", ajustar, { passive: true });
@@ -515,6 +593,7 @@ function ligarFluxo(raiz) {
   const tela = $("#telaFluxo", raiz);
   if (!tela) return;
   prenderNomesDeRaia(tela);
+  navegarComMouse(tela, () => ui.zoomFluxo || 1, (z) => { ui.zoomFluxo = z; });
 
   /* Clicar numa peça abre o que ela é. Nesta tela não se desenha — se navega. */
   tela.addEventListener("click", (e) => {
@@ -591,7 +670,7 @@ function viewFluxo() {
         </div>
       </div>
 
-      <p class="hint" style="margin:10px 18px 14px">Clique num processo para abrir. Para mexer no desenho, use <strong>Desenhar o macro</strong>.</p>
+      <p class="hint" style="margin:10px 18px 14px">Clique num processo para abrir. Arraste o fundo para mover, <strong>Ctrl + roda</strong> para dar zoom. Para mexer no desenho, use <strong>Desenhar o macro</strong>.</p>
     </div>
   `;
 }
@@ -786,6 +865,8 @@ function viewMacro() {
                  <strong>Mover de raia:</strong> arraste a peça pelo corpo.<br>
                  <strong>Entrar no processo:</strong> clique no <strong>+</strong> do canto de baixo.<br>
                  <strong>Apagar:</strong> selecione e tecle Delete.</p>
+              <p style="margin-top:8px"><strong>Navegar:</strong> arraste o fundo para mover.
+                 <strong>Ctrl + roda</strong> (ou pinça no trackpad) dá zoom onde o cursor está.</p>
             </div>
             <div class="note note-why" style="margin-top:12px">
               <div class="block-label">A posição é automática</div>
@@ -1064,6 +1145,7 @@ function ligarMacro(raiz) {
   const tela = $("#telaMacro", raiz);
   if (tela) {
     prenderNomesDeRaia(tela);
+    navegarComMouse(tela, () => ui.zoomMacro || 1, (z) => { ui.zoomMacro = z; });
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl || null;
     let origem = null;
     let x0 = 0;
@@ -1335,7 +1417,8 @@ function viewDesenho() {
               <p><strong>Ligar:</strong> arraste a bolinha da borda de uma forma até outra.<br>
                  <strong>Renomear:</strong> duplo clique na forma, escreva, Enter.<br>
                  <strong>Reordenar:</strong> arraste a forma sobre outra.<br>
-                 <strong>Apagar:</strong> selecione e tecle Delete.</p>
+                 <strong>Apagar:</strong> selecione e tecle Delete.<br>
+                 <strong>Navegar:</strong> arraste o fundo; Ctrl + roda dá zoom.</p>
             </div>
             <div class="note note-why" style="margin-top:12px">
               <div class="block-label">Quando depende de outro setor</div>
@@ -1486,6 +1569,7 @@ function ligarDesenho(raiz) {
   const tela = $("#telaBpmn", raiz);
   if (tela) {
     prenderNomesDeRaia(tela);
+    navegarComMouse(tela, () => ui.zoom || 1, (z) => { ui.zoom = z; });
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl.split("::")[0] || null;
     const sobOPonteiro = (e) => idDe(document.elementFromPoint(e.clientX, e.clientY));
 

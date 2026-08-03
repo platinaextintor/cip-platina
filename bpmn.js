@@ -266,16 +266,16 @@ function bpmnDesenhar(modelo, opcoes = {}) {
   }).join("");
 
   /* O nome da raia sai do grupo dela e vira uma camada própria, desenhada por
-     último — para poder ser presa na borda enquanto o desenho rola por baixo.
-     Num macro de 6.000px de largura, rolar até o fim e não saber mais em que
-     setor cada linha está é o que torna o mapa inútil. */
+     último — para poder ser presa na borda esquerda enquanto o desenho rola por
+     baixo. Num macro de 6.000px de largura, rolar para o meio e não saber mais
+     em que setor cada linha está é o que torna o mapa inútil. */
   const nomesDeFaixa = l.faixas.map((f) => {
     const topo = l.topoDaFaixa[f.id] ?? BPMN.margem;
     const altura = l.alturaDaFaixa[f.id] ?? BPMN.slot;
     const meio = topo + altura / 2;
     const cabe = Math.max(6, Math.floor((altura - 16) / 7.3));
     const nome = f.nome.length > cabe ? `${f.nome.slice(0, cabe - 1)}…` : f.nome;
-    const x = l.largura - BPMN.margem - BPMN.faixaLabel;
+    const x = BPMN.margem;
     return `
       <g class="bpmn-faixa-etiqueta">
         <rect x="${x}" y="${topo}" width="${BPMN.faixaLabel}" height="${altura}" class="bpmn-faixa-fundo" />

@@ -181,7 +181,13 @@ A fase saiu em 03/08/2026, e a tela de cartões junto. Eram duas formas de agrup
 
 Hoje: **o setor agrupa, o BPMN desenha.** A tela de fluxo lê e navega; "Desenhar o macro" é a mesma coisa em modo de edição.
 
-**O nome da raia fica preso na borda direita.** Num macro de 6.000px, rolar até o fim e não saber mais em que setor cada linha está é o que torna o mapa inútil. O SVG não tem `position: sticky`, então a camada dos nomes é empurrada por `transform` a cada rolagem — quando o desenho chega ao fim, o deslocamento vira zero e ela volta ao lugar de origem.
+**O nome da raia fica preso na borda esquerda.** Num macro de 6.000px, rolar para o meio e não saber mais em que setor cada linha está é o que torna o mapa inútil. O SVG não tem `position: sticky`, então a camada dos nomes é empurrada por `transform` a cada rolagem — no começo do desenho o deslocamento é zero e ela fica no lugar de origem.
+
+**Navegar é com o mouse.** Arrastar o fundo move; `Ctrl` + roda dá zoom **no ponto do cursor**. Zoom que ignora onde você está olhando obriga a procurar o lugar de novo a cada passo. O ponto do mundo sob o cursor é guardado antes de redesenhar e a rolagem é recolocada depois — medindo o recuo do desenho **depois** do redesenho, nunca antes: supor que ele não muda foi o que fez o zoom deslizar na vertical.
+
+Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são os gestos de desenhar, que existiam antes deste.
+
+**A casca tem altura definida e um lugar só rola por vez.** `.desenho` tinha `height: calc(100vh - 61px)` — um palpite sobre a altura da topbar. Qualquer faixa de aviso empurrava o desenho para fora da janela e quem passava a rolar era a PÁGINA, não a tela. Com a página rolando, o zoom no cursor não tinha como corrigir a vertical: a compensação simplesmente não era aplicada, e o desvio media exatamente o tamanho dela.
 
 ## Carga de dados é fora do app
 

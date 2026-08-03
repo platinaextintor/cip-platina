@@ -34,12 +34,27 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
+  /* A página é uma coluna: topbar, avisos e #main. Quem sobra fica com o resto
+     da altura — é o que permite a tela de desenho rolar por dentro em vez de
+     esticar a página inteira. */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* no celular a barra do navegador some e volta */
+  overflow: hidden;
   background: var(--bg);
   color: var(--ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
   line-height: 1.6;
 }
+
+/* #main é quem rola nas telas de página; nas de desenho ele não rola, porque
+   o desenho ocupa exatamente a altura dele e rola por dentro. */
+#main { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; }
+/* Numa tela de desenho quem rola é o desenho. Sem isso saem duas barras de
+   rolagem verticais, e a de fora rouba a roda do mouse. */
+#main:has(.desenho) { overflow: hidden; }
 
 h1, h2, h3, h4 { margin: 0; font-weight: 600; line-height: 1.25; }
 h1 { font-size: 28px; }
@@ -617,7 +632,11 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 
 /* ---------- tela de desenho ---------- */
 
-.desenho { display: flex; flex-direction: column; height: calc(100vh - 61px); }
+/* Sem altura chutada: ocupa o que sobrou. Era `calc(100vh - 61px)`, um palpite
+   sobre a altura da topbar — e qualquer faixa de aviso empurrava o desenho para
+   fora da janela, fazendo a PÁGINA rolar em vez da tela. Com a página rolando,
+   o zoom no cursor não tinha como corrigir a vertical. */
+.desenho { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 .desenho-topo {
   display: flex;
@@ -657,6 +676,14 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 
 /* a etiqueta da raia fica por cima do desenho, presa na borda */
 .bpmn-faixa-etiqueta { pointer-events: none; }
+/* mover o desenho arrastando o fundo */
+.desenho-tela { cursor: grab; }
+.desenho-tela.movendo-tela { cursor: grabbing; user-select: none; }
+.desenho-tela [data-bpmn-el],
+.desenho-tela details,
+.desenho-tela .sustentacao { cursor: default; }
+.desenho-tela [data-bpmn-el] { cursor: pointer; }
+
 /* A etiqueta é um trilho, não uma mancha: fundo opaco para o desenho passar
    por baixo sem borrar o nome do setor. */
 .bpmn-faixa-fundo { fill: var(--paper); }
