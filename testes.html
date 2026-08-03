@@ -84,7 +84,7 @@
       /* Um processo mínimo, para os testes não repetirem 15 campos. */
       function proc(extra = {}) {
         return {
-          id: "p1", nome: "Processo", setorId: "s-comercial", faseId: "f-orcar",
+          id: "p1", nome: "Processo", setorId: "s-comercial",
           donoCargoId: "c-supervisor", cargosIds: [], status: "rascunho", revisado: true,
           videoUrl: "", porque: "", seErrar: "", anexos: [], passos: [], perguntas: [],
           proximos: [], ...extra,
@@ -157,6 +157,15 @@
         if ("faseId" in d.processos[0]) throw new Error("o processo ainda carrega faseId");
       });
 
+      /* A guarda que faltava, e que pegou um bug real: a estrutura gravada no
+         banco continuava carregando `fases`. Escrever a chave de volta a cada
+         gravação faria a fase ressuscitar do próprio banco. */
+      teste("a estrutura gravada no banco não leva fase junto", () => {
+        state = semente();
+        const estrutura = pecasDoEstado(state).find((p) => p.tipo === "estrutura");
+        if ("fases" in estrutura.dados) throw new Error("a fase foi para o banco");
+      });
+
       grupo("Domínio · a régua do que está pronto");
 
       teste("processo sem porquê não conta como pronto", () =>
@@ -221,7 +230,7 @@
       teste("decisão entra na conta das colunas", () => {
         state = semente();
         state.processos = [proc({ id: "a", proximos: [{ para: "d1", rotulo: "" }] }), proc({ id: "b" })];
-        state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial", faseId: "f-orcar", proximos: [{ para: "b", rotulo: "sim" }] }];
+        state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial", proximos: [{ para: "b", rotulo: "sim" }] }];
         igual([colunas().a, colunas().d1, colunas().b], [0, 1, 2]);
       });
 
@@ -339,7 +348,7 @@
       teste("entrada vinda de uma decisão também conta", () => {
         state = semente();
         state.processos = [proc({ id: "b", nome: "Análise", entrada: "" })];
-        state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial", faseId: "f-orcar",
+        state.decisoes = [{ id: "d1", pergunta: "Aprovado?", setorId: "s-comercial",
           proximos: [{ para: "b", rotulo: "sim" }] }];
         igual(elosFracos().map((x) => x.falta), ["entrada"]);
       });
@@ -774,7 +783,7 @@
       teste("exclusivo desenha X, inclusivo desenha círculo", () => {
         state = semente();
         state.processos = [proc({ id: "a", proximos: [{ para: "d1", rotulo: "" }] })];
-        state.decisoes = [{ id: "d1", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        state.decisoes = [{ id: "d1", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s-comercial", proximos: [] }];
         const m = bpmnDoMapa();
         igual(m.elementos.find((e) => e.id === "d1").simbolo, "O");
         state.decisoes[0].tipo = "exclusivo";
@@ -784,7 +793,7 @@
       teste("fim nomeado entra no grafo com o nome dele", () => {
         state = semente();
         state.processos = [proc({ id: "a", proximos: [{ para: "f1", rotulo: "não" }] })];
-        state.fins = [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        state.fins = [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", proximos: [] }];
         const m = bpmnDoMapa();
         const f = m.elementos.find((e) => e.id === "f1");
         igual([f.tipo, f.rotulo], ["fim", "Proposta não aprovada"]);
@@ -793,7 +802,7 @@
       teste("quem termina em fim nomeado não ganha fim automático", () => {
         state = semente();
         state.processos = [proc({ id: "a", proximos: [{ para: "f1", rotulo: "" }] })];
-        state.fins = [{ id: "f1", nome: "Concluído", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        state.fins = [{ id: "f1", nome: "Concluído", setorId: "s-comercial", proximos: [] }];
         const fins = bpmnDoMapa().elementos.filter((e) => e.tipo === "fim");
         igual(fins.length, 1, "deveria haver só o nomeado:");
       });
@@ -815,7 +824,7 @@
 
       teste("o fim não recebe alça de saída — dele não sai nada", () => {
         state = semente();
-        state.fins = [{ id: "f1", nome: "Fim", setorId: "s-comercial", faseId: "f-orcar", proximos: [] }];
+        state.fins = [{ id: "f1", nome: "Fim", setorId: "s-comercial", proximos: [] }];
         state.processos = [proc({ id: "a", proximos: [{ para: "f1", rotulo: "" }] })];
         const html = bpmnDesenhar(bpmnDoMapa(), { interativo: true, ligavel: true });
         const alcas = [...html.matchAll(/data-bpmn-alca="([^"]+)"/g)].map((m) => m[1]);
@@ -1069,8 +1078,8 @@
         return normalizar({
           ...semente(),
           processos: [proc({ id: "p1", proximos: [{ para: "d1", rotulo: "" }] })],
-          decisoes: [{ id: "d1", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s-comercial", faseId: "", proximos: [{ para: "f1", rotulo: "Contrato" }] }],
-          fins: [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", faseId: "", proximos: [] }],
+          decisoes: [{ id: "d1", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s-comercial", proximos: [{ para: "f1", rotulo: "Contrato" }] }],
+          fins: [{ id: "f1", nome: "Proposta não aprovada", setorId: "s-comercial", proximos: [] }],
           documentos: [{ id: "doc1", titulo: "POP", categoria: "pop", escopo: "", resumo: "", url: "", videoUrl: "" }],
           sistemas: [{ id: "sis1", nome: "CAD", descricao: "", url: "", critico: true }],
           regras: [{ id: "r1", codigo: "RN-001", titulo: "Prazo por valor", texto: "acima de 10 mil, 30/60/90/120", vigenteDesde: "2026-08-03" }],

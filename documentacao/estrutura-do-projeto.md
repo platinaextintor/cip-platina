@@ -49,15 +49,21 @@ Lido de cima para baixo, na ordem em que aparece:
   setores:  [{ id, nome }],
   cargos:   [{ id, setorId, nome, reportaA, missao, expectativas, conhecimentos,
                trilha: [{ id, tipo, titulo, url, duracao, obrigatorio, nota, documentoId }] }],
-  fases:    [{ id, nome }],
   documentos:[{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
-  decisoes: [{ id, pergunta, setorId, faseId, proximos }],   // os losangos do macro
+  sistemas: [{ id, nome, descricao, url, critico }],
+  regras:   [{ id, codigo, titulo, texto, vigenteDesde }],   // RN-001, vale na empresa
+  indicadores:[{ id, nome, pergunta, unidade, direcao, meta, frequencia, processoIds[] }],
+  decisoes: [{ id, tipo, pergunta, setorId, proximos }],     // os losangos do macro
+  fins:     [{ id, nome, setorId }],                         // desfechos nomeados
   processos:[{
-    id, nome, faseId, setorId, donoCargoId, cargosIds[], status, videoUrl,
+    id, nome, setorId, donoCargoId, cargosIds[], consultadosIds[], informadosIds[],
+    status, revisado, aprovacao, historico[], videoUrl,
     proximos: [{ para, rotulo }],   // as setas do macro, com "sim"/"não"
-    porque, seErrar,
+    entrada, saida, porque, seErrar,
     anexos: [{ id, titulo, url }],
-    passos: [{ id, tipo, oQue, comoFazer, porque, armadilha, regra, imagem, videoUrl, seSim, seNao }],
+    passos: [{ id, tipo, cargoId, oQue, comoFazer, porque, armadilha,
+               sistemaIds[], regraIds[], imagem, videoUrl,
+               proximos: [{ para, rotulo }] }],              // o subprocesso é grafo
     perguntas: [{ id, pergunta, resposta }]
   }]
 }
@@ -69,7 +75,7 @@ Quatro decisões que sustentam o resto:
 
 **`reportaA` no cargo** é o que faz o organograma ser hierarquia de verdade, e não uma lista agrupada por setor. O setor virou atributo (a cor), não nível da árvore.
 
-**`fases`** transforma o fluxo macro numa cadeia de valor — da primeira mensagem do cliente ao pós-venda — em vez de uma lista solta de processos.
+**O que vale em mais de um processo mora fora dele.** Sistema, regra e indicador são objetos próprios, referenciados pelos passos. A regra do prazo de pagamento pega Comercial, Financeiro e Faturamento; guardada dentro de cada um, seriam três cópias que um dia divergem.
 
 **O passo é a unidade**, não o processo. Não existe um campo `detalhes` com um parágrafão: quem quiser escrever um, precisa quebrar em passos. É estrutural de propósito.
 
@@ -77,7 +83,7 @@ Quatro decisões que sustentam o resto:
 
 ## Detalhes que importam na hora de mexer
 
-O `tipo` do passo (`etapa`, `decisao`, `evidencia`, `aprovacao`) aparece na tela em três lugares: a cor da borda no editor, os pontinhos no cartão do fluxo e a etiqueta na aula. Ao criar um tipo novo, atualize o objeto `TIPOS`.
+O `tipo` do passo (`etapa`, `decisao`, `evidencia`, `aprovacao`) aparece na tela em três lugares: a cor da borda no editor, a forma no BPMN e a etiqueta na aula. Ao criar um tipo novo, atualize o objeto `TIPOS`.
 
 As imagens são reduzidas para no máximo 1000px de largura e salvas como JPEG base64 dentro do próprio estado — por isso o painel de dados mostra o espaço usado.
 
@@ -136,7 +142,7 @@ A função recebe `{ acao, entrada, contexto }` e devolve `{ dados }`. Cada aç�
 
 Três regras que estão no código e valem manter:
 
-**`contextoBase()` manda os ids reais** de setor, fase e cargo junto com o pedido, e o cliente valida o que volta — id que não existe cai no primeiro da lista. Sem isso a IA inventa referência.
+**`contextoBase()` manda os ids reais** de setor e cargo junto com o pedido, e o cliente valida o que volta — id que não existe cai no primeiro da lista. Sem isso a IA inventa referência.
 
 **`preencherVazios()` nunca sobrescreve.** A IA só entra onde o campo está vazio. O texto do gestor é a fonte; o da IA é o preenchimento.
 

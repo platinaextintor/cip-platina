@@ -48,18 +48,18 @@ Painel em tela cheia, paleta em cima, inspetor à direita.
 - **Processo** e **Decisão** na paleta. A peça nova já nasce **ligada** à que estava selecionada — é assim que se desenha uma cadeia sem parar para ligar uma por uma.
 - **Decisão** é o losango. No inspetor você escreve a pergunta ("Aprovado?") e dá um rótulo a cada saída ("sim", "não"). Os rótulos aparecem nas setas.
 - **Ligar** aponta uma peça para outra, inclusive de volta para um setor anterior.
-- **Duplo clique num processo** desce para o nível do subprocesso.
+- **Duplo clique** numa peça renomeia ali mesmo. Para entrar no processo, clique no **+** do canto de baixo.
 - A **posição é automática**: ligou, andou para a direita. Arrastar serve para mudar de raia.
 
 O exemplo que motivou isso: *Orçamento* no Comercial → decisão *Aprovado?* → pelo "sim" sobe para *Análise de crédito* no Administrativo → volta para *Cadastro de pedido* no Comercial. Tudo isso é desenhável.
 
-O **Fluxo macro** em cartões continua existindo como visão de acompanhamento — quantos processos estão prontos, quem é dono de quê.
+O **Fluxo macro** mostra esse mesmo desenho em modo de leitura: clique numa peça e ela abre. Para mexer no desenho, **Desenhar o macro**.
 
 ## O mapa da operação
 
 O fluxo macro é um fluxograma editável, na mesma linguagem visual do organograma.
 
-**Raias.** Alterne entre agrupar **por setor** (quem faz) e **por fase** (quando acontece) — os mesmos processos, duas leituras. Renomeie uma raia clicando no nome dela.
+**Raias são os setores** — quem faz. O nome da raia fica preso na borda direita: num macro largo, rolar até o fim e não saber mais em que setor está cada linha é o que torna o mapa inútil. Renomeie uma raia clicando no nome dela.
 
 **Ligações.** O ícone de corrente no nó entra em modo ligação; clique no processo que vem depois e a seta é desenhada. Clique numa seta para desfazer. `Esc` cancela.
 
@@ -100,7 +100,7 @@ O caminho também corre ao contrário: **você desenha e os passos aparecem**. N
 
 Não existem dois lugares para manter. O desenho é a lista de passos, vista de outro jeito: o que você faz num aparece no outro na mesma hora. Por quê, armadilha, regra, foto e vídeo continuam no editor — no canvas fica o esqueleto do fluxo.
 
-No **macro** cada processo vira um subprocesso colapsado (o retângulo com +), as raias são os setores — ou as fases —, as ligações viram sequence flows, e quem não tem ninguém antes ou depois ganha evento de início ou de fim. As raias aparecem mesmo vazias: o quadro em branco já mostra a empresa inteira esperando ser preenchida.
+No **macro** cada processo vira um subprocesso colapsado (o retângulo com +), as raias são os setores, as ligações viram sequence flows, e quem não tem ninguém antes ou depois ganha evento de início ou de fim. As raias aparecem mesmo vazias: o quadro em branco já mostra a empresa inteira esperando ser preenchida.
 
 ## A IA que escuta
 
@@ -127,7 +127,7 @@ Isso não é timidez: extintor mal recarregado mata gente, e um prazo errado esc
 
 Todo processo que passou pela IA entra como **não revisado**. Enquanto estiver assim, ele **não conta como pronto** no contador do topo, e o editor mostra um aviso vermelho.
 
-Você lê, corrige o que estiver torto e clica em "Revisei". Só então ele entra na conta.
+Você lê, corrige o que estiver torto e clica em "Revisei". Depois disso ainda falta a **aprovação com nome** — são duas coisas: revisar o que a IA escreveu, e assumir publicamente que o processo é esse.
 
 ### Onde a chave da IA mora
 
@@ -140,9 +140,9 @@ Para a IA funcionar, a variável `ANTHROPIC_API_KEY` precisa estar nos secrets d
 
 Sem ela, os botões de IA respondem com uma mensagem clara dizendo exatamente isso.
 
-A função só aceita chamadas vindas de `localhost:8777`, `127.0.0.1:8777` ou de arquivo aberto direto do disco, e trava em 12 chamadas por minuto para segurar um laço acidental.
+A função **exige usuário autenticado**, aceita chamadas só das origens da Platina e trava em 12 chamadas por minuto para segurar um laço acidental. Como o cadastro público está desligado no Supabase, quem não tem conta criada por você não chega nela.
 
-Isso reduz o abuso casual, mas **não é proteção de verdade** — a chave pública está no `app.js` e um contador em memória não vale como cota, porque a função sobe em várias cópias. Proteção real vem com login, na Fase 3. Até lá, a trava que mais importa é um **limite de gasto no console da Anthropic**. Não publique a pasta na internet ainda.
+Ainda assim, vale manter um **limite de gasto no console da Anthropic**: é a trava que não depende de nada dar certo.
 
 ## Onde entram vídeo e documento
 
@@ -169,9 +169,11 @@ Passos de decisão ganham dois caminhos (se sim / se não). Cada tipo de passo �
 
 ## Como usar
 
-Abra `index.html` no navegador. Não precisa instalar nada.
+**No ar em https://platinaextintor.github.io/cip-platina/**, com login. O conteúdo vive no Supabase e a edição é ao vivo — o que uma pessoa faz, a outra vê.
 
-O CIP começa **vazio de conteúdo**: vêm só os 4 setores, os 5 cargos com a hierarquia e as 6 fases da cadeia de valor. Missão, processo, subprocesso, trilha e documento são escritos por você — não há exemplo pré-carregado para confundir com dado real.
+Para mexer no código, `index.html` abre direto no navegador; não precisa instalar nada.
+
+O CIP começa **vazio de conteúdo**: vêm só os 4 setores e os 5 cargos com a hierarquia. Missão, processo, subprocesso, trilha e documento são escritos por você — não há exemplo pré-carregado para confundir com dado real.
 
 Se algo travar, abra com `?seguro=1` no fim do endereço: o app inicia vazio **sem gravar por cima** do que está salvo, e oferece baixar o backup.
 
@@ -182,7 +184,7 @@ Se algo travar, abra com `?seguro=1` no fim do endereço: o app inicia vazio **s
 5. **Aula** — clique em qualquer cartão do fluxo para ver como o colaborador vê.
 6. **Biblioteca** — cadastre o regimento e as políticas, e depois aponte a trilha para eles.
 
-Um processo conta como **pronto** quando tem o "por que existe" e pelo menos 3 passos escritos. O contador no topo mostra quantos já estão prontos.
+Um processo conta como **pronto** quando tem o "por que existe", pelo menos 3 passos escritos **e uma aprovação com nome**. Editar um processo aprovado derruba o selo — a tela passa a dizer "mudou desde a aprovação", e alguém precisa aprovar de novo.
 
 Vá um processo por vez. O de maior volume primeiro.
 
@@ -193,23 +195,25 @@ Vá um processo por vez. O de maior volume primeiro.
 3. Nada publicado sem dono.
 4. Processo não consultado em 90 dias volta pra revisão do gestor.
 
-## Escopo desta versão (Fase 1)
+## Onde os dados vivem
 
-Protótipo local, sem backend. Os dados vivem no `localStorage` deste navegador, na chave `cip.platina.v3`.
+No **Supabase**, uma linha por peça: a estrutura da empresa, cada processo, cada decisão, cada fim nomeado, cada documento, sistema, regra e indicador. Repartir assim é o que permite três pessoas editarem ao mesmo tempo sem uma apagar o trabalho da outra.
 
-**Isso significa:** outro computador abre o CIP vazio, e limpar os dados do navegador apaga tudo. **Exporte o JSON com frequência** — botão de banco de dados no topo à direita. É o seu backup.
+O `localStorage` continua sendo usado como cópia local enquanto você trabalha. **Exporte o JSON de vez em quando** — botão de banco de dados no topo à direita.
 
-As imagens são reduzidas para ~1000px antes de guardar, mas ainda assim são o que mais ocupa espaço. O painel de dados mostra quanto já foi usado (o limite fica em torno de 5 MB).
+As imagens são reduzidas para ~1000px antes de guardar, mas ainda assim são o que mais ocupa espaço.
 
 ## O caminho daqui
 
-| Fase | O que entrega |
-|---|---|
-| ~~1~~ | ~~organograma + trilha do cargo + fluxo macro + aula + biblioteca~~ ✔ |
-| ~~2~~ | ~~autoria com IA — você conta, ela estrutura~~ ✔ |
-| 3 | Supabase: banco, login por cargo, upload real de arquivo |
-| 4 | o mapa como porta de entrada do colaborador |
-| 5 | comunicados por cargo, confirmação de leitura, versão de processo |
-| 6 | busca e medição |
+| Etapa | O que entrega | |
+|---|---|---|
+| 1 | organograma + trilha do cargo + fluxo macro + aula + biblioteca | ✔ |
+| 2 | autoria com IA — você conta, ela estrutura | ✔ |
+| 3 | Supabase: banco, login, edição ao vivo entre três pessoas | ✔ |
+| 4 | sistema, regra de negócio e indicador como objetos de primeira classe | ✔ |
+| 5 | governança: aprovação com nome, RACI completo, histórico | ✔ |
+| 6 | validade de treinamento — NR e reciclagem vencem | |
+| 7 | o mapa como porta de entrada do colaborador | |
+| 8 | comunicados por cargo e confirmação de leitura | |
 
-A Fase 3 é o degrau que transforma o CIP de ferramenta pessoal em sistema da empresa. Até lá, o JSON exportado é a única cópia que existe fora deste navegador.
+O que entrou até aqui responde as perguntas inversas: *o que para se o CAD cair?*, *quem é afetado se a regra do prazo mudar?*, *quem aprovou este processo e ele mudou desde então?*

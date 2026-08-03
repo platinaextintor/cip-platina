@@ -110,7 +110,7 @@ function pecasDoEstado(st) {
     {
       id: "estrutura",
       tipo: "estrutura",
-      dados: { empresa: st.empresa, setores: st.setores, cargos: st.cargos, fases: st.fases },
+      dados: { empresa: st.empresa, setores: st.setores, cargos: st.cargos },
     },
   ];
   (st.processos || []).forEach((p) => pecas.push({ id: `p:${p.id}`, tipo: "processo", dados: p }));

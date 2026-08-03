@@ -1,6 +1,8 @@
 /* CIP · Central Inteligente de Processos — Platina Extintores
-   Fase 1: organograma + fluxo macro + aula do processo.
-   Sem backend. Os dados vivem no localStorage e saem por JSON. */
+
+   A camada de tela: telas, eventos, arrastar, teclado. Tudo que toca o DOM, e
+   só isso — o que o CIP É mora em dominio.js, como é desenhado em bpmn.js e
+   onde é guardado em nuvem.js. */
 
 const VERSAO = "v28";
 
@@ -3696,7 +3698,7 @@ $("#openData").addEventListener("click", () => {
 
 function exportar() {
   const payload = JSON.stringify({
-    projeto: { nome: "CIP", empresa: state.empresa?.nome, versao: "1.0-fase1", exportadoEm: new Date().toISOString() },
+    projeto: { nome: "CIP", empresa: state.empresa?.nome, versao: VERSAO, exportadoEm: new Date().toISOString() },
     dados: state,
   }, null, 2);
   const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));

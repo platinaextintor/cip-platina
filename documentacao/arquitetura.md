@@ -171,7 +171,7 @@ O desenho precisa se explicar sozinho e obedecer ao gesto que a pessoa já conhe
 
 **As setas vêm só do `sequenceFlow`.** Os `<incoming>`/`<outgoing>` dentro de cada elemento são cópia da mesma informação — e no arquivo da Platina eles já discordam entre si (`Task_Faturar` declara receber `F23`, que na verdade vai para `Task_Devolver`). Ler a cópia seria escolher a versão errada de uma verdade duplicada; é o mesmo motivo pelo qual o CIP não guarda nada duas vezes.
 
-O import **não encosta** em cargo, documento, sistema nem trilha: o arquivo não sabe nada disso, e apagar o que ele não conhece seria perda pura. Também não inventa fase — quem importa atribui depois.
+O import **não encosta** em cargo, documento, sistema nem trilha: o arquivo não sabe nada disso, e apagar o que ele não conhece seria perda pura. Também não inventa nada que o arquivo não diga.
 
 O que o leitor **não** lê: pool, fluxo de mensagem, evento de borda, e a posição (`bpmndi`). Posição o CIP calcula das ligações — é invariante, não omissão.
 
