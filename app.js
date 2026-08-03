@@ -2133,10 +2133,18 @@ function viewEditor() {
           <div class="field">
             <label for="e-entrada">O que chega <span class="hint">— a entrada</span></label>
             <input id="e-entrada" data-p="entrada" value="${esc(p.entrada || "")}" placeholder="Proposta aprovada pelo cliente" />
+            ${entradasSugeridas(p).length ? `<div class="chips" style="margin-top:8px">
+              ${entradasSugeridas(p).map((s) => `
+                <button class="chip" data-usar-entrada="${esc(s.texto)}" type="button" title="É a saída de ${esc(s.de)}">
+                  ${icon("link", 12)} ${esc(s.texto)}
+                </button>`).join("")}
+            </div>
+            <p class="hint">É o que o processo anterior declarou entregar. Clique para usar, ou escreva outra coisa se for diferente.</p>` : ""}
           </div>
           <div class="field">
             <label for="e-saida">O que sai <span class="hint">— a saída</span></label>
             <input id="e-saida" data-p="saida" value="${esc(p.saida || "")}" placeholder="Pedido criado no sistema" />
+            ${quemRecebeDe(p).length ? `<p class="hint" style="margin-top:8px">Quem recebe: <strong>${esc(quemRecebeDe(p).join(", "))}</strong>. A seta já diz para quem vai — aqui você diz <em>o que</em> vai.</p>` : ""}
           </div>
         </div>
 
@@ -3392,6 +3400,12 @@ function ligarEditor(raiz) {
     p.cargosIds = p.cargosIds.includes(id) ? p.cargosIds.filter((x) => x !== id) : [...p.cargosIds, id];
     chip.classList.toggle("on");
     salvar(true);
+  }));
+
+  $$("[data-usar-entrada]", raiz).forEach((b) => b.addEventListener("click", () => {
+    p.entrada = b.dataset.usarEntrada;
+    salvar(true);
+    render();
   }));
 
   $("[data-novo-indicador]", raiz)?.addEventListener("click", () => {

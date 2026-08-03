@@ -924,6 +924,62 @@
         igual(regrasOrfas().map((r) => r.codigo), ["RN-001"]);
       });
 
+      grupo("Domínio · a seta e a saída dizem coisas diferentes");
+
+      teste("a entrada de quem recebe é oferecida a partir da saída de quem entrega", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "Orçamento", saida: "Proposta aprovada", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", nome: "Pedido", entrada: "" }),
+        ] });
+        igual(entradasSugeridas(state.processos[1]).map((x) => x.texto), ["Proposta aprovada"]);
+      });
+
+      teste("quem vem depois de uma decisão herda a saída de quem entrou nela", () => {
+        /* O losango escolhe o caminho, não transforma o que passa. */
+        state = normalizar({ ...semente(),
+          decisoes: [{ id: "d1", tipo: "exclusivo", pergunta: "Aprovou?", setorId: "s-comercial", proximos: [{ para: "b", rotulo: "Sim" }] }],
+          processos: [
+            proc({ id: "a", nome: "Orçamento", saida: "Proposta aprovada", proximos: [{ para: "d1", rotulo: "" }] }),
+            proc({ id: "b", nome: "Crédito", entrada: "" }),
+          ] });
+        igual(entradasSugeridas(state.processos[1]).map((x) => x.texto), ["Proposta aprovada"]);
+      });
+
+      teste("duas origens com saídas diferentes oferecem as duas", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "Compra", saida: "Material recebido", proximos: [{ para: "c", rotulo: "" }] }),
+          proc({ id: "b", nome: "Pedido", saida: "Pedido criado", proximos: [{ para: "c", rotulo: "" }] }),
+          proc({ id: "c", nome: "Agenda", entrada: "" }),
+        ] });
+        igual(entradasSugeridas(state.processos[2]).map((x) => x.texto).sort(), ["Material recebido", "Pedido criado"]);
+      });
+
+      teste("saída repetida não é oferecida duas vezes", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", nome: "A", saida: "Mesma coisa", proximos: [{ para: "c", rotulo: "" }] }),
+          proc({ id: "b", nome: "B", saida: "Mesma coisa", proximos: [{ para: "c", rotulo: "" }] }),
+          proc({ id: "c", nome: "C", entrada: "" }),
+        ] });
+        igual(entradasSugeridas(state.processos[2]).length, 1);
+      });
+
+      teste("a sugestão nunca preenche sozinha — só oferece", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "a", saida: "Proposta aprovada", proximos: [{ para: "b", rotulo: "" }] }),
+          proc({ id: "b", entrada: "" }),
+        ] });
+        igual(state.processos[1].entrada, "", "normalizar não pode inventar entrada:");
+      });
+
+      teste("quem recebe atravessa a decisão para achar o processo real", () => {
+        state = normalizar({ ...semente(),
+          decisoes: [{ id: "d1", tipo: "exclusivo", pergunta: "?", setorId: "s-comercial",
+                       proximos: [{ para: "b", rotulo: "Sim" }, { para: "f1", rotulo: "Não" }] }],
+          fins: [{ id: "f1", nome: "Recusado", setorId: "s-comercial", proximos: [] }],
+          processos: [proc({ id: "a", proximos: [{ para: "d1", rotulo: "" }] }), proc({ id: "b", nome: "Crédito" })] });
+        igual(quemRecebeDe(state.processos[0]).sort(), ["Crédito", "Recusado"]);
+      });
+
       grupo("Domínio · governança");
 
       teste("processo novo é rascunho — ninguém aprovou nada ainda", () => {

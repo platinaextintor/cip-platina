@@ -219,6 +219,21 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
+## A seta e a saída não são a mesma coisa
+
+Pergunta do Eric, e ela cutuca a regra central: *"por que eu tenho que ligar a uma saída se o próprio fluxograma me dá isso?"*
+
+Porque as duas dizem coisas diferentes:
+
+- a **seta** diz **para quem** o trabalho vai
+- a **saída** diz **o que** vai
+
+Duas peças podem apontar para o mesmo destino entregando coisas diferentes, e é a saída que permite verificar se a cadeia fecha — se o que A entrega é mesmo o que B espera receber. Sem ela o desenho mostra o caminho e não mostra a carga. Foi exatamente o que uma auditoria externa chamou de "31 elos sem declarar": o mapa desenhava o percurso e não dizia o que passava por ele.
+
+**Mas metade da crítica procede.** A entrada de B costuma ser *literalmente* a saída de A — e digitar as duas é copiar à mão o que o sistema já sabe. Agora `entradasSugeridas()` oferece: a tela mostra a saída de quem entrega, com um clique para usar.
+
+**Oferece, não preenche.** Às vezes o que chega não é o que saiu — houve transformação no meio, ou o processo recebe de dois lugares. Preencher sozinho criaria dado plausível e não verificado, que é o oposto do que o CIP existe para fazer. E a decisão é tratada como passagem, não destino: quem vem depois de um losango herda a saída de quem entrou nele, porque o losango escolhe o caminho, não transforma a carga.
+
 ## O critério de processo pronto
 
 **Um só, e cobrado num lugar só.** Antes eram dois e discordavam: dava para aprovar um processo de dois passos e o contador continuar dizendo que não estava pronto, porque `mapeado()` exigia três. O ensaio geral pegou na primeira rodada.

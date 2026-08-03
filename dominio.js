@@ -847,6 +847,64 @@ const linhas = (texto) => String(texto || "").split("\n").map((l) => l.trim()).f
    outro — isso é leitura humana. O que dá para conferir é a ausência: peça que
    entrega para alguém sem dizer o que entrega, ou que recebe sem dizer o que
    recebe. É o suficiente para apontar onde olhar. */
+/* A seta e a saída dizem coisas diferentes, e é por isso que as duas existem:
+   a seta diz PARA QUEM vai, a saída diz O QUE vai. Duas peças podem apontar
+   para o mesmo lugar entregando coisas diferentes.
+
+   Mas há redundância de verdade num ponto: a entrada de B costuma ser
+   exatamente a saída de A. Digitar as duas é copiar à mão o que o sistema já
+   sabe. Aqui ele oferece — não preenche sozinho, porque às vezes é mesmo
+   diferente, e inventar seria pior que perguntar. */
+function entradasSugeridas(p, st = state) {
+  if (!p) return [];
+  const vindoDe = [];
+  st.processos.forEach((a) => {
+    if (a.id === p.id) return;
+    if ((a.proximos || []).some((x) => x.para === p.id) && a.saida?.trim()) {
+      vindoDe.push({ de: a.nome, texto: a.saida.trim() });
+    }
+  });
+
+  /* Quem chega por uma decisão herda a saída de quem entrou nela — o losango
+     não transforma o que passa, só escolhe o caminho. */
+  st.decisoes.forEach((dec) => {
+    if (!(dec.proximos || []).some((x) => x.para === p.id)) return;
+    st.processos.forEach((a) => {
+      if ((a.proximos || []).some((x) => x.para === dec.id) && a.saida?.trim()) {
+        vindoDe.push({ de: `${a.nome} → ${dec.pergunta || "decisão"}`, texto: a.saida.trim() });
+      }
+    });
+  });
+
+  const vistos = new Set();
+  return vindoDe.filter((x) => !vistos.has(x.texto) && vistos.add(x.texto));
+}
+
+/* Para quem este processo entrega. Serve de contexto ao escrever a saída:
+   você está escrevendo o que ELES vão receber. */
+function quemRecebeDe(p, st = state) {
+  /* A decisão é passagem, não destino: quem recebe de verdade é o que está do
+     outro lado dela — e o outro lado pode ser um processo OU um fim nomeado. */
+  const nomeDe = (id) => {
+    const proc = st.processos.find((n) => n.id === id);
+    if (proc) return proc.nome;
+    const fim = st.fins.find((n) => n.id === id);
+    return fim ? fim.nome : "";
+  };
+
+  const nomes = [];
+  (p?.proximos || []).forEach((x) => {
+    const direto = nomeDe(x.para);
+    if (direto) return nomes.push(direto);
+    const dec = st.decisoes.find((n) => n.id === x.para);
+    if (dec) (dec.proximos || []).forEach((y) => {
+      const atras = nomeDe(y.para);
+      if (atras) nomes.push(atras);
+    });
+  });
+  return [...new Set(nomes)].filter(Boolean);
+}
+
 function elosFracos(st = state) {
   const falhas = [];
   const temEntrada = new Set();
