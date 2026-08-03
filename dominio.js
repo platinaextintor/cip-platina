@@ -681,3 +681,163 @@ function processosQueSustentam(st = state) {
   if (!existeFluxo) return [];
   return st.processos.filter((p) => !estaNoFluxo(p.id, st));
 }
+
+/* ------------------------------------------------------------------ ler BPMN
+
+   Ler um .bpmn de fora e virar mapa do CIP.
+
+   Sem DOMParser de propósito: o domínio não pode depender do navegador, e o
+   pedaço do BPMN que interessa é raso — elementos com atributos, sem
+   aninhamento além da raia. Um scanner pequeno lê isso e roda em qualquer
+   lugar, inclusive no teste.
+
+   O que entra:  raia → setor, subprocesso/tarefa → processo, gateway → decisão,
+                 fim → fim nomeado, sequenceFlow → ligação.
+   O que fica de fora: início (o CIP deduz), posição (deduzida das ligações),
+                 pool, evento de borda, fluxo de mensagem.
+
+   As setas vêm SÓ do sequenceFlow. Os <incoming>/<outgoing> dentro de cada
+   elemento são cópia da mesma informação — e no arquivo da Platina eles já
+   discordam entre si. Ler a cópia seria escolher a versão errada. */
+
+const BPMN_TAREFA = ["subProcess", "task", "userTask", "serviceTask", "manualTask", "businessRuleTask", "scriptTask", "sendTask", "receiveTask", "callActivity"];
+
+function bpmnAtributo(trecho, nome) {
+  const m = trecho.match(new RegExp(`\\s${nome}\\s*=\\s*"([^"]*)"`));
+  return m ? bpmnDesescapar(m[1]) : "";
+}
+
+function bpmnDesescapar(texto) {
+  return String(texto)
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&amp;/g, "&");
+}
+
+/* Casa a tag com ou sem prefixo: bpmn:lane, semantic:lane ou lane. Cada
+   ferramenta escolhe o seu, e o prefixo não muda o significado. */
+function bpmnAchar(xml, tag) {
+  const re = new RegExp(`<(?:[\\w.-]+:)?${tag}\\b([^>]*?)(/?)>`, "g");
+  return [...xml.matchAll(re)].map((m) => ({ attrs: m[1], vazio: m[2] === "/", indice: m.index }));
+}
+
+function lerBpmn(xml, st = state) {
+  const texto = String(xml || "");
+  if (!/<(?:[\w.-]+:)?definitions\b/.test(texto)) {
+    throw new Error("Isso não parece um arquivo BPMN.");
+  }
+
+  const avisos = [];
+  const semAcento = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+
+  /* --- raias viram setores, reaproveitando os que já existem --- */
+  const setores = st.setores.map((s) => ({ ...s }));
+  const setorDoNo = {};
+  const acharSetor = (nome) => setores.find((s) => semAcento(s.nome) === semAcento(nome));
+
+  const blocosDeRaia = texto.split(/<(?:[\w.-]+:)?lane\b/).slice(1);
+  blocosDeRaia.forEach((bloco) => {
+    const nome = bpmnAtributo("<lane " + bloco.split(">")[0] + ">", "name") || "Sem nome";
+    let setor = acharSetor(nome);
+    if (!setor) {
+      setor = { id: uid("s"), nome, camada: "principal" };
+      setores.push(setor);
+    }
+    const corpo = bloco.split(/<\/(?:[\w.-]+:)?lane>/)[0];
+    [...corpo.matchAll(/<(?:[\w.-]+:)?flowNodeRef\b[^>]*>([^<]*)</g)]
+      .forEach((m) => { setorDoNo[m[1].trim()] = setor.id; });
+  });
+
+  /* --- os nós --- */
+  const processos = [];
+  const decisoes = [];
+  const fins = [];
+  const inicios = new Set();
+  const conhecido = {};
+
+  const registrar = (attrs, criar) => {
+    const id = bpmnAtributo(`<x${attrs}>`, "id");
+    if (!id) return;
+    const nome = bpmnAtributo(`<x${attrs}>`, "name");
+    criar(id, nome);
+  };
+
+  BPMN_TAREFA.forEach((tag) => bpmnAchar(texto, tag).forEach(({ attrs }) => registrar(attrs, (id, nome) => {
+    processos.push({
+      id, nome: nome || "Sem nome", faseId: "", setorId: setorDoNo[id] || "",
+      donoCargoId: "", cargosIds: [], status: "rascunho", revisado: true,
+      videoUrl: "", entrada: "", saida: "", porque: "", seErrar: "",
+      anexos: [], passos: [], perguntas: [], proximos: [],
+    });
+    conhecido[id] = "processo";
+  })));
+
+  [["exclusiveGateway", "exclusivo"], ["inclusiveGateway", "inclusivo"], ["parallelGateway", "inclusivo"], ["eventBasedGateway", "exclusivo"]]
+    .forEach(([tag, tipo]) => bpmnAchar(texto, tag).forEach(({ attrs }) => registrar(attrs, (id, nome) => {
+      if (tag === "parallelGateway") avisos.push(`"${nome || id}" é um gateway paralelo; virou inclusivo — o CIP não separa os dois.`);
+      decisoes.push({ id, tipo, pergunta: nome || "", setorId: setorDoNo[id] || "", faseId: "", proximos: [] });
+      conhecido[id] = "decisao";
+    })));
+
+  bpmnAchar(texto, "endEvent").forEach(({ attrs }) => registrar(attrs, (id, nome) => {
+    fins.push({ id, nome: nome || "Fim", setorId: setorDoNo[id] || "", faseId: "", proximos: [] });
+    conhecido[id] = "fim";
+  }));
+
+  /* O início do arquivo não vira peça: no CIP quem não recebe seta já é
+     entrada, e o desenho põe o círculo sozinho. */
+  bpmnAchar(texto, "startEvent").forEach(({ attrs }) => registrar(attrs, (id) => inicios.add(id)));
+
+  /* --- as setas --- */
+  const porId = {};
+  [...processos, ...decisoes, ...fins].forEach((n) => { porId[n.id] = n; });
+  let ligacoes = 0;
+
+  bpmnAchar(texto, "sequenceFlow").forEach(({ attrs }) => {
+    const trecho = `<x${attrs}>`;
+    const de = bpmnAtributo(trecho, "sourceRef");
+    const para = bpmnAtributo(trecho, "targetRef");
+    const rotulo = bpmnAtributo(trecho, "name");
+    if (inicios.has(de)) return;              // o início some, e o alvo dele vira entrada
+    if (!porId[de] || !porId[para]) {
+      if (!inicios.has(para)) avisos.push(`Uma seta apontava para algo que o CIP não representa (${de || "?"} → ${para || "?"}) e foi descartada.`);
+      return;
+    }
+    if (conhecido[de] === "fim") {
+      avisos.push(`"${porId[de].nome}" é um fim e tinha saída; a seta foi descartada — de um fim não sai nada.`);
+      return;
+    }
+    porId[de].proximos.push({ para, rotulo });
+    ligacoes++;
+  });
+
+  /* Processo com duas saídas e nenhum gateway é bifurcação implícita: o BPMN
+     aceita, mas ninguém que lê o desenho sabe se os dois caminhos acontecem
+     juntos ou se é um ou outro. Vale avisar em vez de desenhar em silêncio. */
+  processos.filter((p) => p.proximos.length > 1).forEach((p) => {
+    avisos.push(`"${p.nome}" sai por ${p.proximos.length} caminhos sem uma decisão no meio. Vale conferir se os dois acontecem juntos.`);
+  });
+
+  return {
+    setores, processos, decisoes, fins, avisos,
+    resumo: { setores: setores.length - st.setores.length, processos: processos.length, decisoes: decisoes.length, fins: fins.length, ligacoes },
+  };
+}
+
+/* O import não encosta em cargo, documento, sistema nem trilha: o .bpmn não
+   sabe nada disso, e apagar o que ele não conhece seria perda pura. */
+function estadoComBpmn(xml, st = state) {
+  const lido = lerBpmn(xml, st);
+  return {
+    estado: normalizar({
+      ...st,
+      setores: lido.setores,
+      processos: lido.processos,
+      decisoes: lido.decisoes,
+      fins: lido.fins,
+    }),
+    avisos: lido.avisos,
+    resumo: lido.resumo,
+  };
+}

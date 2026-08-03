@@ -120,6 +120,10 @@ Cobre as três camadas, porque os três bugs que mais custaram nesta semana fora
 | apagar tudo deixava o estado incompleto | domínio | 3 telas quebradas |
 | DELETE do Realtime lido do campo errado | nuvem | remoção não propagava |
 | `hidden` perdendo para `.classe { display }` | tela | 6 rodadas de diagnóstico |
+| "Ajustar" medindo o ícone da legenda | tela | zoom no teto, mapa ilegível |
+| rótulo de gateway colidindo | desenho | 3 tentativas antes de parar de calcular |
+
+Os dois últimos só apareceram quando o macro real da Platina entrou — 16 processos e 7 raias fazem perguntas que 3 caixas de teste não fazem. **Importar dado de verdade é teste.**
 
 Testar só função pura teria pego um de três.
 
@@ -140,6 +144,25 @@ O desenho precisa se explicar sozinho e obedecer ao gesto que a pessoa já conhe
 **Selecionar não redesenha a tela.** Clicar numa peça troca a classe no SVG e reconstrói só o painel lateral. Não é só performance: o navegador **só dispara `dblclick` quando os dois cliques caem no mesmo elemento** — com `render()` no clique, o elemento é trocado no meio do gesto e o duplo clique nunca chega a existir. Foi assim que o renomear "não funcionou" na primeira tentativa, com o código todo certo.
 
 **Entrar no processo é o `+` do canto.** O marcador de subprocesso do BPMN virou alvo clicável, com área de toque maior que o desenho. Antes era duplo clique — que agora tem outro dono.
+
+## Ler um BPMN de fora
+
+`lerBpmn(xml)` mora no domínio e **não usa DOMParser**. Não é purismo: o domínio precisa rodar em qualquer lugar, inclusive num teste sem navegador, e o pedaço do BPMN que interessa é raso — elementos com atributos, sem aninhamento além da raia. Um scanner de ~40 linhas dá conta, e casa a tag com qualquer prefixo (`bpmn:`, `semantic:` ou nenhum), porque cada ferramenta escolhe o seu.
+
+| Do arquivo | Vira |
+|---|---|
+| `lane` | setor — reaproveitando o que já existe, sem acento e sem caixa |
+| `subProcess`, `task` e variantes | processo |
+| `exclusiveGateway` / `inclusiveGateway` | decisão exclusiva / inclusiva |
+| `endEvent` | fim nomeado |
+| `sequenceFlow` | ligação, com o `name` virando rótulo |
+| `startEvent` | **nada** — o CIP deduz quem é entrada |
+
+**As setas vêm só do `sequenceFlow`.** Os `<incoming>`/`<outgoing>` dentro de cada elemento são cópia da mesma informação — e no arquivo da Platina eles já discordam entre si (`Task_Faturar` declara receber `F23`, que na verdade vai para `Task_Devolver`). Ler a cópia seria escolher a versão errada de uma verdade duplicada; é o mesmo motivo pelo qual o CIP não guarda nada duas vezes.
+
+O import **não encosta** em cargo, documento, sistema nem trilha: o arquivo não sabe nada disso, e apagar o que ele não conhece seria perda pura. Também não inventa fase — quem importa atribui depois.
+
+O que o leitor **não** lê: pool, fluxo de mensagem, evento de borda, e a posição (`bpmndi`). Posição o CIP calcula das ligações — é invariante, não omissão.
 
 ## O que ainda não está separado
 

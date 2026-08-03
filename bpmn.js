@@ -223,13 +223,14 @@ function bpmnFluxo(fluxo, porId, ordem = 0) {
      "não" se escrevem um por cima do outro. */
   let rotulo = "";
   if (fluxo.rotulo) {
-    const dy = para.y - de.y;
+    /* O rótulo não persegue a sua linha: ele se empilha ao lado do nó de onde
+       sai, na ordem da saída. Tentei derivar a posição da direção do destino e
+       colidiu três vezes seguidas — mesma raia contra mesma raia, dois descendo,
+       e um descendo contra um subindo. Empilhar é distinto por construção, e é
+       também como o BPMN costuma ser lido: o rótulo pertence ao gateway, não
+       ao caminho. */
     const x = de.x + bpmnMeia(de).x + 10;
-    /* Quando os dois caminhos do gateway ficam na MESMA raia, `dy` é zero para
-       ambos e os rótulos se escreveriam um sobre o outro. Por isso a ordem da
-       saída também afasta — não só a diferença de altura. */
-    const base = Math.abs(dy) < 2 ? de.y - 8 : dy > 0 ? de.y + 20 : de.y - 16;
-    const y = base + (Math.abs(dy) < 2 ? ordem * 15 : 0);
+    const y = de.y - 10 + ordem * 15;
     rotulo = `<text x="${x}" y="${y}" class="bpmn-rotulo-fluxo" text-anchor="start">${bpmnEsc(fluxo.rotulo)}</text>`;
   }
 

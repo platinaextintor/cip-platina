@@ -563,6 +563,125 @@
         if (!bpmnDoMapa().elementos.some((e) => e.id === "rh")) throw new Error("sumiu do mapa");
       });
 
+      grupo("Domínio · ler BPMN de fora");
+
+      /* Um BPMN mínimo, escrito à mão, com tudo que importa: raia, tarefa,
+         gateway, fim nomeado, início (que deve sumir) e uma seta rotulada. */
+      const XML = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <bpmn:process id="P1">
+    <bpmn:laneSet id="LS">
+      <bpmn:lane id="L1" name="Comercial"><bpmn:flowNodeRef>S1</bpmn:flowNodeRef><bpmn:flowNodeRef>T1</bpmn:flowNodeRef><bpmn:flowNodeRef>G1</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="L2" name="Faturamento"><bpmn:flowNodeRef>T2</bpmn:flowNodeRef><bpmn:flowNodeRef>E1</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="S1" name="Chegou" />
+    <bpmn:subProcess id="T1" name="Fazer proposta" />
+    <bpmn:exclusiveGateway id="G1" name="Aprovou?" />
+    <bpmn:subProcess id="T2" name="Emitir NF" />
+    <bpmn:endEvent id="E1" name="Recusado" />
+    <bpmn:sequenceFlow id="F1" sourceRef="S1" targetRef="T1" />
+    <bpmn:sequenceFlow id="F2" sourceRef="T1" targetRef="G1" />
+    <bpmn:sequenceFlow id="F3" name="Sim" sourceRef="G1" targetRef="T2" />
+    <bpmn:sequenceFlow id="F4" name="Não" sourceRef="G1" targetRef="E1" />
+  </bpmn:process>
+</bpmn:definitions>`;
+
+      teste("arquivo que não é BPMN é recusado", () => {
+        state = semente();
+        try { lerBpmn("{\"oi\": 1}"); } catch (e) { return; }
+        throw new Error("aceitou lixo");
+      });
+
+      teste("tarefa e subprocesso viram processo", () => {
+        state = semente();
+        igual(lerBpmn(XML).processos.map((p) => p.nome), ["Fazer proposta", "Emitir NF"]);
+      });
+
+      teste("gateway vira decisão com a pergunta do arquivo", () => {
+        state = semente();
+        const d = lerBpmn(XML).decisoes;
+        igual(d.map((x) => [x.pergunta, x.tipo]), [["Aprovou?", "exclusivo"]]);
+      });
+
+      teste("gateway inclusivo do arquivo continua inclusivo", () => {
+        state = semente();
+        const xml = XML.replace("exclusiveGateway", "inclusiveGateway").replace("exclusiveGateway", "inclusiveGateway");
+        igual(lerBpmn(xml).decisoes[0].tipo, "inclusivo");
+      });
+
+      teste("fim do arquivo mantém o nome — o desfecho é informação", () => {
+        state = semente();
+        igual(lerBpmn(XML).fins.map((f) => f.nome), ["Recusado"]);
+      });
+
+      teste("o início do arquivo não vira peça", () => {
+        state = semente();
+        const lido = lerBpmn(XML);
+        const tudo = [...lido.processos, ...lido.decisoes, ...lido.fins];
+        if (tudo.some((n) => n.id === "S1")) throw new Error("o início virou peça");
+      });
+
+      teste("a seta que saía do início some, e o alvo dela vira entrada", () => {
+        state = estadoComBpmn(XML, semente()).estado;
+        const estado = state;
+        const recebe = (id) => [...estado.processos, ...estado.decisoes].some((n) => n.proximos.some((x) => x.para === id));
+        if (recebe("T1")) throw new Error("T1 ainda recebe seta");
+        if (!bpmnDoMapa().elementos.some((e) => e.tipo === "inicio")) throw new Error("ficou sem início nenhum");
+      });
+
+      teste("o rótulo da seta vem junto", () => {
+        state = semente();
+        igual(lerBpmn(XML).decisoes[0].proximos.map((x) => x.rotulo).sort(), ["Não", "Sim"]);
+      });
+
+      teste("raia vira setor, e a que já existe é reaproveitada", () => {
+        state = semente();
+        const lido = lerBpmn(XML, state);
+        const comercial = lido.setores.filter((s) => s.nome === "Comercial");
+        igual(comercial.length, 1, "Comercial não pode duplicar:");
+        if (!lido.setores.some((s) => s.nome === "Faturamento")) throw new Error("Faturamento não foi criado");
+      });
+
+      teste("raia sem acento acha o setor com acento", () => {
+        state = normalizar({ ...semente(), setores: [{ id: "s1", nome: "Inspeções", camada: "principal" }] });
+        const xml = XML.replace('name="Faturamento"', 'name="INSPECOES"');
+        igual(lerBpmn(xml, state).setores.filter((s) => /inspe/i.test(s.nome)).length, 1);
+      });
+
+      teste("cada processo cai na raia que o arquivo mandou", () => {
+        state = semente();
+        const lido = lerBpmn(XML, state);
+        const nomeDoSetor = (p) => lido.setores.find((s) => s.id === p.setorId)?.nome;
+        igual(lido.processos.map(nomeDoSetor), ["Comercial", "Faturamento"]);
+      });
+
+      teste("importar não encosta em cargo nem em documento", () => {
+        state = semente();
+        const antes = { cargos: state.cargos.length, docs: state.documentos.length };
+        const { estado } = estadoComBpmn(XML, state);
+        igual([estado.cargos.length, estado.documentos.length], [antes.cargos, antes.docs]);
+      });
+
+      teste("prefixo diferente de bpmn: também é lido", () => {
+        state = semente();
+        const xml = XML.replace(/bpmn:/g, "semantic:");
+        igual(lerBpmn(xml).processos.length, 2);
+      });
+
+      teste("bifurcação sem gateway vira aviso, não silêncio", () => {
+        state = semente();
+        const xml = XML.replace('<bpmn:sequenceFlow id="F2" sourceRef="T1" targetRef="G1" />',
+          '<bpmn:sequenceFlow id="F2" sourceRef="T1" targetRef="G1" /><bpmn:sequenceFlow id="F5" sourceRef="T1" targetRef="T2" />');
+        if (!lerBpmn(xml).avisos.some((a) => /caminhos sem uma decisão/.test(a))) throw new Error("passou calado");
+      });
+
+      teste("o desenho do que foi importado não sai quebrado", () => {
+        const { estado } = estadoComBpmn(XML, semente());
+        state = estado;
+        const html = bpmnDesenhar(bpmnDoMapa());
+        if (/NaN|undefined/.test(html)) throw new Error("coordenada quebrada");
+      });
+
       grupo("BPMN · desenho");
 
       teste("desenha SVG com raias e formas", () => {
@@ -583,6 +702,43 @@
         const alt = [...html.matchAll(/<text x="[\d.]+" y="([\d.]+)" class="bpmn-rotulo-fluxo"/g)].map((m) => m[1]);
         const todos = ys.length ? ys : alt;
         if (todos.length >= 2 && new Set(todos).size !== todos.length) throw new Error("rótulos empilhados em " + todos);
+      });
+
+      teste("rótulo de gateway nunca colide, qualquer que seja a direção", () => {
+        /* Os três arranjos que já colidiram de verdade: os dois na mesma raia,
+           os dois descendo, e um na mesma raia contra um subindo. */
+        const arranjos = [["s1", "s1"], ["s2", "s3"], ["s1", "s0"]];
+        arranjos.forEach(([d1, d2], n) => {
+          state = normalizar({ ...semente(),
+            setores: ["s0", "s1", "s2", "s3"].map((id, i) => ({ id, nome: `Setor ${i}`, camada: "principal" })),
+            decisoes: [{ id: "g", tipo: "exclusivo", pergunta: "?", setorId: "s1",
+              proximos: [{ para: "a", rotulo: "Sim" }, { para: "b", rotulo: "Não" }] }],
+            processos: [proc({ id: "a", setorId: d1 }), proc({ id: "b", setorId: d2 })],
+          });
+          const html = bpmnDesenhar(bpmnDoMapa());
+          const ys = [...html.matchAll(/<text x="[\d.-]+" y="([\d.-]+)" class="bpmn-rotulo-fluxo"/g)].map((m) => Number(m[1]));
+          const perto = ys.some((a, i) => ys.slice(i + 1).some((b) => Math.abs(a - b) < 12));
+          if (perto) throw new Error(`arranjo ${n} empilhou em ${ys}`);
+        });
+      });
+
+      teste("dois rótulos que descem para raias diferentes não se sobrepõem", () => {
+        /* O caso real do macro da Platina: "Venda/recarga" e "Contrato" saem do
+           mesmo gateway e descem as duas — mesmo sinal, mesma base. */
+        state = normalizar({ ...semente(),
+          setores: [
+            { id: "s1", nome: "Comercial", camada: "principal" },
+            { id: "s2", nome: "Logística", camada: "principal" },
+            { id: "s3", nome: "Inspeções", camada: "principal" },
+          ],
+          decisoes: [{ id: "g", tipo: "inclusivo", pergunta: "Modalidade?", setorId: "s1",
+            proximos: [{ para: "a", rotulo: "Venda/recarga" }, { para: "b", rotulo: "Contrato" }] }],
+          processos: [proc({ id: "a", setorId: "s2" }), proc({ id: "b", setorId: "s3" })],
+        });
+        const html = bpmnDesenhar(bpmnDoMapa());
+        const ys = [...html.matchAll(/class="bpmn-rotulo-fluxo"[^>]*>|<text x="[\d.-]+" y="([\d.-]+)" class="bpmn-rotulo-fluxo"/g)]
+          .map((m) => m[1]).filter(Boolean);
+        if (ys.length >= 2 && new Set(ys).size !== ys.length) throw new Error("rótulos empilhados em " + ys);
       });
 
       grupo("BPMN · gateway inclusivo e fim nomeado");
@@ -645,6 +801,23 @@
       });
 
       // ============================================================ TELA
+
+      grupo("Tela · medir a coisa certa");
+
+      /* A legenda mora dentro da mesma tela do desenho e também tem <svg>.
+         Sem a classe, "Ajustar" mediu um ícone de 24px e o zoom foi para o
+         teto — bug real, achado só porque eu olhei a tela depois de importar. */
+      teste("o desenho é achável sem pegar o ícone da legenda", () => {
+        const caixa = document.createElement("div");
+        caixa.id = "telaDeMentira";
+        caixa.innerHTML = `<details><summary>legenda</summary><svg viewBox="0 0 24 24" width="14"></svg></details>
+          ${bpmnDesenhar(bpmnDoProcesso(procVivo({ passos: [passo({ id: "1" }), passo({ id: "2" })] })))}`;
+        document.body.appendChild(caixa);
+        const achado = caixa.querySelector("svg.bpmn");
+        const largura = Number(achado.getAttribute("viewBox").split(" ")[2]);
+        caixa.remove();
+        if (largura <= 24) throw new Error("pegou o ícone da legenda, não o desenho");
+      });
 
       grupo("Tela · o que o CSS pode esconder");
 
