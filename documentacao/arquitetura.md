@@ -191,6 +191,22 @@ Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são
 
 **A casca tem altura definida e um lugar só rola por vez.** `.desenho` tinha `height: calc(100vh - 61px)` — um palpite sobre a altura da topbar. Qualquer faixa de aviso empurrava o desenho para fora da janela e quem passava a rolar era a PÁGINA, não a tela. Com a página rolando, o zoom no cursor não tinha como corrigir a vertical: a compensação simplesmente não era aplicada, e o desvio media exatamente o tamanho dela.
 
+## Backup não mora no schema público
+
+Em 03/08/2026 o Supabase mandou alerta **crítico**: tabela publicamente acessível. Eram as duas tabelas de backup que eu tinha criado antes de carregar o macro e antes de gravar os rascunhos.
+
+A causa é uma armadilha que vale registrar: **`create table as select` não herda RLS.** A tabela original tem RLS e quatro políticas; a cópia nasce sem nada. E no schema `public` toda tabela ganha porta na API automaticamente. Somando as duas coisas — e a chave pública estar num repositório aberto, como sempre esteve por desenho — a cópia integral do conteúdo do CIP ficou legível e gravável por qualquer um.
+
+A correção não foi só ligar RLS. Foi tirar do schema exposto:
+
+```
+public.pecas_backup_*  →  backup.pecas_backup_*
+```
+
+`backup` não está entre os schemas que a API expõe, os privilégios de `anon` e `authenticated` foram revogados, e RLS ficou ligado sem política nenhuma — só o `service_role` passa.
+
+**A regra que fica:** nada que não seja dado de aplicação entra em `public`. Backup, tabela temporária, resultado de análise — tudo isso tem porta na API se estiver ali, e ninguém lembra de conferir depois.
+
 ## Carga de dados é fora do app
 
 Não existe botão de importar `.bpmn` na tela, e é decisão, não pendência: o import substitui o fluxo macro inteiro, e um clique errado num seletor de arquivo apagaria o trabalho de três pessoas. `lerBpmn()` fica no domínio como a **regra de tradução, testada**, e a carga é operação de uma vez, feita fora do app, com backup da tabela antes.
