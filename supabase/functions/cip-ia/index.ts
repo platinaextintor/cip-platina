@@ -210,6 +210,14 @@ Escopo: para quem vale.`,
 
 /* Lê o campo `role` do token sem validar assinatura — quem valida é o gateway
    do Supabase, antes de a função rodar. Aqui só se distingue anon de pessoa. */
+/* ATENÇÃO: isto NÃO autentica. Lê o `role` do JWT sem verificar assinatura, e
+   só serve para separar "anônimo" de "logado" DEPOIS que a plataforma já
+   validou o token. Quem garante a autenticidade é `verify_jwt = true` no
+   config.toml — testado em 03/08/2026 com um JWT forjado: a borda devolve 401
+   antes da função rodar.
+   Se algum dia alguém desligar `verify_jwt` (para um webhook, por exemplo),
+   esta função vira porta aberta para a chave da Anthropic. Não desligue sem
+   trocar isto por verificação de assinatura de verdade. */
 function papelDoToken(cabecalho: string | null): string {
   try {
     const token = (cabecalho || "").replace(/^Bearer\s+/i, "");

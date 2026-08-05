@@ -137,7 +137,46 @@ function normalizarSaidas(bruto) {
     .filter((x) => x.para);
 }
 
+/* Id é chave, não texto: entra em atributo HTML, em seletor CSS e em
+   comparação. Quando nasce de uid() é seguro por construção — mas ele também
+   pode vir de um .bpmn ou de um JSON importado, e aí é texto de estranho.
+
+   Um id como `a" onmouseover="alert(1)` sai do atributo e vira código na tela
+   de quem abrir o processo — e, com a sincronia ao vivo, na tela dos outros
+   dois também. Escapar em cada uso seria trinta lugares para acertar e um para
+   esquecer; a porta é aqui, onde todo estado entra. */
+const ID_SEGURO = /^[A-Za-z0-9_:.-]{1,120}$/;
+
+function sanearIds(dados) {
+  const listas = ["setores", "cargos", "processos", "decisoes", "fins", "documentos", "sistemas", "regras", "indicadores"];
+  const trocas = new Map();
+
+  const registrar = (obj) => {
+    if (!obj || typeof obj.id !== "string" || ID_SEGURO.test(obj.id)) return;
+    if (!trocas.has(obj.id)) trocas.set(obj.id, uid("x"));
+  };
+
+  listas.forEach((k) => (dados[k] || []).forEach(registrar));
+  (dados.processos || []).forEach((p) => (p.passos || []).forEach(registrar));
+  (dados.cargos || []).forEach((c) => (c.trilha || []).forEach(registrar));
+  if (!trocas.size) return dados;
+
+  /* Troca por valor em toda a árvore: id é string opaca, então qualquer campo
+     que contenha exatamente o id velho é uma referência a ele. Assim nenhuma
+     ligação se perde, inclusive as que eu ainda não escrevi. */
+  const trocar = (no) => {
+    if (typeof no === "string") return trocas.get(no) ?? no;
+    if (Array.isArray(no)) return no.map(trocar);
+    if (no && typeof no === "object") {
+      Object.keys(no).forEach((k) => { no[k] = trocar(no[k]); });
+    }
+    return no;
+  };
+  return trocar(dados);
+}
+
 function normalizar(dados) {
+  dados = sanearIds(dados);
   dados.empresa = dados.empresa || { nome: "Empresa" };
   dados.documentos = Array.isArray(dados.documentos) ? dados.documentos : [];
   dados.documentos.forEach((doc) => {
@@ -1197,9 +1236,14 @@ function processosQueSustentam(st = state) {
 
 const BPMN_TAREFA = ["subProcess", "task", "userTask", "serviceTask", "manualTask", "businessRuleTask", "scriptTask", "sendTask", "receiveTask", "callActivity"];
 
+/* XML aceita aspas simples e duplas. Lendo só as duplas, um elemento escrito
+   com simples fica sem id e é descartado em silêncio — some do mapa sem
+   ninguém saber. Achado numa auditoria de segurança, testando com aspas
+   simples de propósito. */
 function bpmnAtributo(trecho, nome) {
-  const m = trecho.match(new RegExp(`\\s${nome}\\s*=\\s*"([^"]*)"`));
-  return m ? bpmnDesescapar(m[1]) : "";
+  const m = trecho.match(new RegExp(`\\s${nome}\\s*=\\s*("([^"]*)"|'([^']*)')`));
+  if (!m) return "";
+  return bpmnDesescapar(m[2] !== undefined ? m[2] : m[3]);
 }
 
 function bpmnDesescapar(texto) {

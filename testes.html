@@ -173,6 +173,67 @@
         if ("fases" in estrutura.dados) throw new Error("a fase foi para o banco");
       });
 
+      grupo("Domínio · id é chave, não texto de estranho");
+
+      /* Id normalmente nasce de uid(). Mas também vem de .bpmn e de JSON
+         importado — e entra em atributo HTML em trinta lugares. Um id com aspas
+         sai do atributo e vira código na tela de quem abrir, e dos outros dois
+         pela sincronia ao vivo. */
+      teste("id perigoso é trocado na entrada", () => {
+        const mau = 'a" onmouseover="alert(1)';
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], documentos: [], sistemas: [],
+          processos: [{ id: mau, nome: "x", setorId: "", cargosIds: [], passos: [], proximos: [] }] });
+        if (d.processos[0].id === mau) throw new Error("o id perigoso passou");
+        if (!/^[A-Za-z0-9_:.-]+$/.test(d.processos[0].id)) throw new Error("o substituto também é perigoso");
+      });
+
+      teste("trocar o id não quebra as ligações que apontavam para ele", () => {
+        /* Sem `</scr`+`ipt>` literal: dentro de um .html isso encerra o bloco
+           e o arquivo inteiro para de rodar. Aconteceu ao escrever este teste. */
+        const mau = '<' + 'script>x</scr' + 'ipt>';
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], documentos: [], sistemas: [],
+          processos: [
+            { id: "a", nome: "A", setorId: "", cargosIds: [], passos: [], proximos: [{ para: mau, rotulo: "" }] },
+            { id: mau, nome: "B", setorId: "", cargosIds: [], passos: [], proximos: [] },
+          ] });
+        const novoId = d.processos.find((p) => p.nome === "B").id;
+        igual(d.processos[0].proximos.map((x) => x.para), [novoId], "a seta acompanhou:");
+      });
+
+      teste("id de passo também é saneado, e a ligação interna segue", () => {
+        const mau = 'p"><img src=x onerror=alert(1)>';
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], documentos: [], sistemas: [],
+          processos: [{ id: "P", nome: "x", setorId: "", cargosIds: [], proximos: [], passos: [
+            { id: "s1", tipo: "etapa", oQue: "um", proximos: [{ para: mau, rotulo: "" }] },
+            { id: mau, tipo: "etapa", oQue: "dois", proximos: [] },
+          ] }] });
+        const passos = d.processos[0].passos;
+        if (passos.some((s) => s.id === mau)) throw new Error("o id perigoso do passo passou");
+        igual(passos[0].proximos.map((x) => x.para), [passos[1].id]);
+      });
+
+      teste("id bom não é remexido — trocar id à toa quebraria referência de fora", () => {
+        const d = normalizar({ empresa: {}, setores: [], cargos: [], documentos: [], sistemas: [],
+          processos: [{ id: "Task_Proposta", nome: "x", setorId: "", cargosIds: [], passos: [], proximos: [] }] });
+        igual(d.processos[0].id, "Task_Proposta");
+      });
+
+      teste("atributo com aspas simples é lido — XML aceita as duas", () => {
+        const xml = `<?xml version="1.0"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <bpmn:process id='P'><bpmn:subProcess id='T1' name='Com aspas simples' /></bpmn:process></bpmn:definitions>`;
+        state = semente();
+        igual(lerBpmn(xml).processos.map((p) => p.nome), ["Com aspas simples"]);
+      });
+
+      teste("id importado do BPMN passa pelo saneamento", () => {
+        const xml = `<?xml version="1.0"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+          <bpmn:process id="P"><bpmn:subProcess id='mau" onclick="alert(1)' name="Perigoso" /></bpmn:process></bpmn:definitions>`;
+        const { estado } = estadoComBpmn(xml, semente());
+        const p = estado.processos.find((x) => x.nome === "Perigoso");
+        if (!p) throw new Error("o processo sumiu");
+        if (/[<>"']/.test(p.id)) throw new Error("id perigoso sobreviveu ao import: " + p.id);
+      });
+
       grupo("Domínio · a régua do que está pronto");
 
       teste("processo sem porquê não conta como pronto", () =>

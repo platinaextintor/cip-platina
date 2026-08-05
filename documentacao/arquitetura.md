@@ -191,6 +191,34 @@ Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são
 
 **A casca tem altura definida e um lugar só rola por vez.** `.desenho` tinha `height: calc(100vh - 61px)` — um palpite sobre a altura da topbar. Qualquer faixa de aviso empurrava o desenho para fora da janela e quem passava a rolar era a PÁGINA, não a tela. Com a página rolando, o zoom no cursor não tinha como corrigir a vertical: a compensação simplesmente não era aplicada, e o desvio media exatamente o tamanho dela.
 
+## Auditoria de segurança · 03/08/2026
+
+Feita depois do alerta do Supabase, testando contra o sistema no ar — não lendo código e supondo.
+
+**O que resistiu ao teste:**
+
+| Ataque | Resultado |
+|---|---|
+| JWT forjado com `role: authenticated` na função de IA | 401 na borda, antes da função rodar |
+| Chave pública tentando usar a IA | 401 — "Entre na sua conta" |
+| Anônimo lendo `pecas` | 200 com lista vazia — RLS não deixa ver |
+| Anônimo gravando em `pecas` | 401 — viola política |
+| Anônimo apagando `pecas` | 204 com **zero linhas** afetadas |
+| Cadastro público | `signup_disabled` |
+| Tabela de backup pela API | 404 — fora do schema exposto |
+
+O 204 do DELETE assusta e não é nada: PostgREST devolve 204 mesmo quando nenhuma linha casou. Conferi a contagem antes e depois — intacta. **Código de resposta não é evidência; o dado é.**
+
+**O que estava furado:**
+
+**Id vindo de arquivo entrava em atributo HTML sem escape.** Ids nascem de `uid()` e são seguros — mas também vêm de `.bpmn` e de JSON importado, e são interpolados crus em trinta `data-*`. Um id como `a" onmouseover="…` sai do atributo e vira código na tela de quem abrir — e dos outros dois, pela sincronia ao vivo.
+
+Escapar em cada uso seria trinta lugares para acertar e um para esquecer. A correção é `sanearIds()`, na porta por onde todo estado entra: id fora de `[A-Za-z0-9_:.-]` é trocado, e a substituição percorre a árvore inteira por valor — nenhuma ligação se perde, inclusive as que eu ainda não escrevi.
+
+**`papelDoToken` não autentica.** Lê o `role` do JWT sem verificar assinatura. É seguro só porque `verify_jwt = true` já validou na borda — e agora isso está escrito na função, porque desligar o `verify_jwt` um dia transformaria a chave da Anthropic em porta aberta.
+
+**Achado de brinde:** o leitor de BPMN só aceitava aspas duplas. XML aceita as duas, e um elemento com aspas simples sumia do mapa em silêncio.
+
 ## Backup não mora no schema público
 
 Em 03/08/2026 o Supabase mandou alerta **crítico**: tabela publicamente acessível. Eram as duas tabelas de backup que eu tinha criado antes de carregar o macro e antes de gravar os rascunhos.
