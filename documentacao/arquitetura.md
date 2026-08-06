@@ -191,6 +191,18 @@ Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são
 
 **A casca tem altura definida e um lugar só rola por vez.** `.desenho` tinha `height: calc(100vh - 61px)` — um palpite sobre a altura da topbar. Qualquer faixa de aviso empurrava o desenho para fora da janela e quem passava a rolar era a PÁGINA, não a tela. Com a página rolando, o zoom no cursor não tinha como corrigir a vertical: a compensação simplesmente não era aplicada, e o desvio media exatamente o tamanho dela.
 
+## Varredura de telas
+
+`node ferramentas/varredura.js`
+
+Acha a classe de defeito que os testes não pegam e o olho não vê: **botão desenhado que ninguém escuta**, e **handler que escuta algo que já não existe**. Não quebra nada, não gera erro no console, não falha teste — só não faz nada quando clicado.
+
+Nasceu de um relato do Eric: *"não encontrei a opção de inserir setor"*. O botão **estava lá**, no organograma, sem nenhum `addEventListener`. Ficou órfão quando o mapa de cartões saiu e levou junto o código que o ligava.
+
+A varredura achou seis coisas: três eram contêineres de dado (falso positivo, agora na lista de exceções) e três eram reais — o botão morto, e dois handlers escutando botões que já não existem, sobras de telas removidas. Junto veio uma função inteira morta que **ainda referenciava uma variável apagada**: teria estourado se alguém a chamasse.
+
+Rodar isso depois de remover uma tela é obrigatório. Remover tela é justamente o que deixa peça solta.
+
 ## Auditoria de segurança · 03/08/2026
 
 Feita depois do alerta do Supabase, testando contra o sistema no ar — não lendo código e supondo.

@@ -2212,6 +2212,31 @@ function viewEditor() {
         </div>
       </div>
 
+      ${(() => {
+        const regras = regrasDoProcesso(p);
+        const sistemas = sistemasDoProcesso(p);
+        const avisar = quemAvisar(p);
+        if (!regras.length && !sistemas.length && !avisar.length) return "";
+        return `
+          <div class="section-title"><h3>Do que este processo depende</h3><span class="line"></span></div>
+          <p class="hint">Nada aqui se digita: sai dos passos e do RACI. Serve para responder, sem abrir passo por passo, o que quebra se algo mudar.</p>
+          <div class="stack" style="margin-top:12px">
+            ${regras.length ? `<div class="note note-rule">
+              <div class="block-label">Regras que valem aqui</div>
+              <div class="btn-row">${regras.map((r) => `<button class="btn btn-sm link-btn" data-regra="${esc(r.id)}" type="button">${esc(r.codigo)} · ${esc(r.titulo || "sem título")}</button>`).join("")}</div>
+            </div>` : ""}
+            ${sistemas.length ? `<div class="note note-why">
+              <div class="block-label">Sistemas usados</div>
+              <div class="btn-row">${sistemas.map((s) => `<button class="btn btn-sm link-btn" data-sistema="${esc(s.id)}" type="button">${esc(s.nome)}${s.critico ? " (crítico)" : ""}</button>`).join("")}</div>
+            </div>` : ""}
+            ${avisar.length ? `<div class="note note-why">
+              <div class="block-label">Quem precisa saber quando este processo mudar</div>
+              <p>${avisar.map((c) => esc(c.nome)).join(" · ")}</p>
+            </div>` : ""}
+          </div>
+        `;
+      })()}
+
       <div class="section-title"><h3>Material de apoio</h3><span class="line"></span><span class="muted">${documentosDoProcesso(p).length}</span></div>
       <p class="hint">Norma, formulário, modelo — o que a pessoa precisa abrir enquanto executa. Vem da Biblioteca: um documento, um lugar.</p>
 
@@ -3416,24 +3441,11 @@ function ligarEventos(raiz) {
     render();
   });
 
-  $$("[data-agrupar]", raiz).forEach((b) => b.addEventListener("click", () => {
-    ui.agrupar = b.dataset.agrupar;
-    ui.ligando = null;
-    render();
-  }));
-
+  /* Os dois caminhos de criar setor: a pastilha do organograma e a paleta do
+     macro. O do organograma estava desenhado e sem ninguém escutando — botão
+     morto desde que o mapa de cartões saiu. */
   $("[data-nova-raia]", raiz)?.addEventListener("click", novoSetor);
-
-  $$("[data-renomear-raia]", raiz).forEach((b) => b.addEventListener("click", () => {
-    const lista = state.setores;
-    const item = lista.find((x) => x.id === b.dataset.renomearRaia);
-    if (!item) return;
-    const nome = prompt("Novo nome:", item.nome);
-    if (!nome?.trim()) return;
-    item.nome = nome.trim();
-    salvar(true);
-    render();
-  }));
+  $("[data-novo-setor]", raiz)?.addEventListener("click", novoSetor);
 
   $$("[data-no]", raiz).forEach((node) => {
     node.addEventListener("dragstart", (e) => {
@@ -3479,7 +3491,6 @@ function ligarEventos(raiz) {
   const limpar = $("[data-limpar-cargo]", raiz);
   if (limpar) limpar.addEventListener("click", () => { ui.cargoSel = null; render(); });
 
-  $$("[data-novo-processo]", raiz).forEach((b) => b.addEventListener("click", () => novoProcesso(b.dataset.novoProcesso)));
   const nc = $("[data-novo-cargo]", raiz);
   if (nc) nc.addEventListener("click", novoCargo);
   const nd = $("[data-novo-doc]", raiz);
@@ -3859,27 +3870,6 @@ function comprimirImagem(file, larguraMax = 1000) {
 }
 
 /* ---------------------------------------------------------------- criação */
-
-function novoProcesso(raiaId) {
-  const p = {
-    id: uid("p"),
-    nome: "Novo processo",
-    setorId: (porSetor ? raiaId : "") || state.setores[0]?.id || "",
-    donoCargoId: state.cargos[0]?.id || "",
-    cargosIds: ui.cargoSel ? [ui.cargoSel] : [],
-    status: "rascunho",
-    videoUrl: "",
-    porque: "",
-    seErrar: "",
-    documentoIds: [],
-    passos: [],
-    perguntas: [],
-    proximos: [],
-  };
-  state.processos.push(p);
-  salvar(true);
-  ir("editor", { processoId: p.id });
-}
 
 function novoCargo() {
   const nome = prompt("Nome do cargo:");
