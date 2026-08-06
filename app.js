@@ -121,7 +121,7 @@ async function perguntarAConsultora(mensagens, onde) {
       authorization: `Bearer ${token}`,
       apikey: IA.chave,
     },
-    body: JSON.stringify({ mensagens, contexto: contextoParaIA(), onde }),
+    body: JSON.stringify({ mensagens, contexto: contextoParaIA(state, { processoId: ui.processoId }), onde }),
   });
   const corpo = await resposta.json().catch(() => ({}));
   if (!resposta.ok || corpo.erro) throw new Error(corpo.erro || `Falha ${resposta.status}`);

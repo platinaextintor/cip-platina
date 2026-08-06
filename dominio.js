@@ -894,9 +894,19 @@ function textoDoProcesso(p) {
 
    Vai texto, não estrutura: ids não servem para conversar, e passo com id é
    ruído que ocupa espaço no lugar do conteúdo. */
-function contextoParaIA(st = state) {
+/* Duas camadas, e o motivo é aritmético: com 19 processos de 8 passos bem
+   escritos o contexto dá 61 mil caracteres, e o teto do servidor é 60 mil.
+   Mandar tudo sempre significava o servidor fatiar o JSON no meio de uma
+   palavra — a IA recebia lixo e respondia pior sem ninguém perceber.
+
+   Então: o mapa inteiro sempre (nomes de tudo, que é barato), e os passos só
+   do processo que está aberto. É como um consultor trabalha — conhece a
+   empresa toda de leve e o assunto de agora a fundo. E o contexto para de
+   crescer junto com a empresa. */
+function contextoParaIA(st = state, foco = {}) {
   const nomeCargo = (id) => st.cargos.find((c) => c.id === id)?.nome || "";
   const nomeSetor = (id) => st.setores.find((s) => s.id === id)?.nome || "";
+  const aberto = foco.processoId || "";
 
   return {
     empresa: st.empresa?.nome,
@@ -908,22 +918,34 @@ function contextoParaIA(st = state) {
       cobrado_por: cobrancasDoCargo(c.id, st).map((x) => x.indicador.nome),
       treinamentos: (c.trilha || []).length,
     })),
-    processos: st.processos.map((p) => ({
-      nome: p.nome, setor: nomeSetor(p.setorId), dono: nomeCargo(p.donoCargoId),
-      executam: (p.cargosIds || []).map(nomeCargo).filter(Boolean),
-      porque: p.porque || "", entrada: p.entrada || "", saida: p.saida || "",
-      situacao: situacaoDoProcesso(p),
-      passos: (p.passos || []).map((s) => ({
-        tipo: s.tipo, o_que: s.oQue || "", como: s.comoFazer || "",
-        por_que: s.porque || "", onde_erra: s.armadilha || "", quem: nomeCargo(s.cargoId),
-      })),
-    })),
+    processos: st.processos.map((p) => {
+      const base = {
+        nome: p.nome, setor: nomeSetor(p.setorId), dono: nomeCargo(p.donoCargoId),
+        executam: (p.cargosIds || []).map(nomeCargo).filter(Boolean),
+        porque: p.porque || "", entrada: p.entrada || "", saida: p.saida || "",
+        situacao: situacaoDoProcesso(p),
+      };
+      if (p.id !== aberto) return { ...base, quantos_passos: (p.passos || []).length };
+      return {
+        ...base,
+        documentos: documentosDoProcesso(p, st).map((d) => d.titulo),
+        passos: (p.passos || []).map((s) => ({
+          tipo: s.tipo, o_que: s.oQue || "", como: s.comoFazer || "",
+          por_que: s.porque || "", onde_erra: s.armadilha || "", quem: nomeCargo(s.cargoId),
+        })),
+      };
+    }),
     decisoes: st.decisoes.map((d) => ({ pergunta: d.pergunta, setor: nomeSetor(d.setorId) })),
     fins: st.fins.map((f) => ({ nome: f.nome, setor: nomeSetor(f.setorId) })),
     documentos: st.documentos.map((d) => ({ titulo: d.titulo, tipo: d.categoria, resumo: d.resumo || "" })),
     sistemas: st.sistemas.map((s) => ({ nome: s.nome, critico: !!s.critico })),
     indicadores: st.indicadores.map((i) => ({ nome: i.nome, meta: i.meta, unidade: i.unidade })),
     o_que_falta: pendencias(st).slice(0, 30).map((x) => `${x.titulo}: ${x.detalhe}`),
+    /* Dito em voz alta para a IA não achar que os outros processos estão
+       vazios: eles têm passos, só não vieram nesta pergunta. */
+    nota: aberto
+      ? "Os passos vieram só do processo aberto. Os outros têm passos também — peça para a pessoa abrir o processo se precisar vê-los."
+      : "Nenhum processo aberto agora, então nenhum passo veio. Peça para a pessoa abrir o processo sobre o qual quer falar.",
   };
 }
 

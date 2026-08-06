@@ -164,7 +164,15 @@ Deno.serve(async (req: Request) => {
     return json(req, { erro: "A última fala precisa ser uma pergunta." }, 400);
   }
 
-  const contexto = corpo.contexto ? JSON.stringify(corpo.contexto).slice(0, 60000) : "";
+  /* Fatiar JSON no caractere N parte o texto no meio de uma palavra e entrega
+     um objeto quebrado — a IA lê lixo e responde pior sem ninguém perceber. O
+     cliente manda o contexto em duas camadas justamente para caber; se ainda
+     assim estourar, é melhor mandar nada e dizer que mandou nada. */
+  const TETO_CONTEXTO = 60000;
+  const bruto = corpo.contexto ? JSON.stringify(corpo.contexto) : "";
+  const contexto = bruto.length <= TETO_CONTEXTO
+    ? bruto
+    : `(O CIP ficou grande demais para caber nesta pergunta: ${bruto.length} caracteres, o limite é ${TETO_CONTEXTO}. Você está sem o contexto desta vez. Diga isso a quem perguntou, em uma linha, antes de responder.)`;
   const onde = String(corpo.onde ?? "").slice(0, 300);
 
   /* O contexto entra no system, não na conversa: ele muda a cada pergunta

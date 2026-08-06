@@ -1126,12 +1126,52 @@
       /* A IA deixou de preencher campo e passou a opinar. Para opinar sobre um
          processo ela precisa ver o processo — o contexto antigo mandava só
          setores e cargos, que bastava para não inventar id. */
+      /* O teto do servidor é 60 mil caracteres. Mandando os passos de todos os
+         processos, 19 processos bem escritos davam 61 mil — e o servidor
+         fatiava o JSON no meio de uma palavra. Só os passos do processo aberto
+         vêm; o resto é o mapa. */
+      teste("só o processo aberto traz os passos", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "A", nome: "Aberto", passos: [passo({ id: "1", oQue: "Fazer" })] }),
+          proc({ id: "B", nome: "Fechado", passos: [passo({ id: "2", oQue: "Outra coisa" })] }),
+        ] });
+        const c = contextoParaIA(state, { processoId: "A" });
+        const aberto = c.processos.find((p) => p.nome === "Aberto");
+        const fechado = c.processos.find((p) => p.nome === "Fechado");
+        igual(aberto.passos.length, 1, "o aberto traz passos:");
+        if ("passos" in fechado) throw new Error("o fechado mandou passos junto");
+        igual(fechado.quantos_passos, 1, "mas diz quantos tem:");
+      });
+
+      /* Sem a nota, a IA lê "processo sem passos" e conclui que o trabalho não
+         foi descrito — quando ele foi, só não veio nesta pergunta. */
+      teste("o contexto avisa que os passos dos outros ficaram de fora", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "A" })] });
+        if (!contextoParaIA(state, { processoId: "A" }).nota) throw new Error("sem aviso");
+        if (!contextoParaIA(state).nota) throw new Error("sem aviso quando nada está aberto");
+      });
+
+      teste("um CIP grande continua cabendo no teto do servidor", () => {
+        const cheio = (n) => ({ id: "p" + n, nome: "Processo " + n, setorId: "s-comercial",
+          donoCargoId: "c-supervisor", cargosIds: ["c-vendedor"], status: "rascunho", videoUrl: "",
+          porque: "Existe para garantir que o cliente receba o que comprou.",
+          entrada: "Pedido", saida: "Serviço feito", documentoIds: [], perguntas: [], proximos: [],
+          passos: Array.from({ length: 8 }, (_, i) => passo({ id: n + "-" + i,
+            oQue: "Conferir a etiqueta do extintor e registrar o número de série",
+            comoFazer: "Abra o app, tire a foto da etiqueta, confira se o número bate e salve.",
+            porque: "Sem o número a rastreabilidade se perde e o laudo não vale.",
+            armadilha: "Etiqueta apagada: não invente o número, chame o supervisor." })) });
+        state = normalizar({ ...semente(), processos: Array.from({ length: 150 }, (_, n) => cheio(n)) });
+        const tamanho = JSON.stringify(contextoParaIA(state, { processoId: "p0" })).length;
+        if (tamanho > 60000) throw new Error(`estourou o teto: ${tamanho} caracteres`);
+      });
+
       teste("o contexto leva os processos, com passos e situação", () => {
         state = normalizar({ ...semente(), processos: [
           proc({ id: "P", nome: "Orçamento", setorId: "s-comercial", donoCargoId: "c-supervisor",
                  cargosIds: ["c-vendedor"], passos: [passo({ id: "1", oQue: "Pedir a foto" })] }),
         ] });
-        const c = contextoParaIA();
+        const c = contextoParaIA(state, { processoId: "P" });
         igual(c.processos.length, 1, "processos:");
         igual(c.processos[0].passos[0].o_que, "Pedir a foto", "o passo:");
         igual(c.processos[0].dono, "Supervisor Operacional", "o dono vem por nome:");
