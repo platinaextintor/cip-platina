@@ -15,21 +15,26 @@ const fs = require("fs");
 const path = require("path");
 
 const raiz = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(raiz, "app.js"), "utf8");
+
+/* Quem DESENHA são dois arquivos: app.js e bpmn.js. Ler só o primeiro fazia a
+   ferramenta acusar de morto um handler que escutava algo desenhado no
+   desenhista — falso positivo que ela mesma me deu na primeira vez. */
+const desenha = ["app.js", "bpmn.js"].map((n) => fs.readFileSync(path.join(raiz, n), "utf8")).join("\n");
+const escuta = fs.readFileSync(path.join(raiz, "app.js"), "utf8");
 
 /* Atributos que carregam dado para o código ler depois, e que nunca são alvo
    de clique. Não entram na conta. */
 const SO_DADO = new Set([
-  "bpmn-el", "bpmn-faixa", "bpmn-alca", "bpmn-abrir", "largura", "curto",
-  "doc-ligado", "saida", "saida-passo", "anexo-id", "passo-id", "pergunta-id", "indicador-id",
+  "largura", "curto",
+  "doc-ligado", "saida", "saida-passo", "passo-id", "pergunta-id", "indicador-id",
 ]);
 
 const desenhados = new Set();
-for (const m of src.matchAll(/\bdata-([a-z0-9-]+)\s*=\s*"/g)) desenhados.add(m[1]);
-for (const m of src.matchAll(/\bdata-([a-z0-9-]+)(?=[\s>])/g)) desenhados.add(m[1]);
+for (const m of desenha.matchAll(/\bdata-([a-z0-9-]+)\s*=\s*["'`$]/g)) desenhados.add(m[1]);
+for (const m of desenha.matchAll(/\bdata-([a-z0-9-]+)(?=[\s>])/g)) desenhados.add(m[1]);
 
 const escutados = new Set();
-for (const m of src.matchAll(/\[data-([a-z0-9-]+)[\]=]/g)) escutados.add(m[1]);
+for (const m of escuta.matchAll(/\[data-([a-z0-9-]+)[\]=]/g)) escutados.add(m[1]);
 
 const fora = (a, b) => [...a].filter((x) => !b.has(x) && !SO_DADO.has(x)).sort();
 const mortos = fora(desenhados, escutados);

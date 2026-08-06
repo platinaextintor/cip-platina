@@ -277,10 +277,10 @@ function bpmnDesenhar(modelo, opcoes = {}) {
     const nome = f.nome.length > cabe ? `${f.nome.slice(0, cabe - 1)}…` : f.nome;
     const x = BPMN.margem;
     return `
-      <g class="bpmn-faixa-etiqueta">
+      <g class="bpmn-faixa-etiqueta${opcoes.interativo ? " clicavel" : ""}"${opcoes.interativo ? ` data-bpmn-faixa-nome="${bpmnEsc(f.id)}"` : ""}>
         <rect x="${x}" y="${topo}" width="${BPMN.faixaLabel}" height="${altura}" class="bpmn-faixa-fundo" />
         <rect x="${x}" y="${topo}" width="${BPMN.faixaLabel}" height="${altura}" class="bpmn-faixa-banda" style="${f.cor ? `fill:${f.cor}1f` : ""}" />
-        <text transform="translate(${x + BPMN.faixaLabel / 2}, ${meio}) rotate(-90)" class="bpmn-faixa-nome">${bpmnEsc(nome)}<title>${bpmnEsc(f.nome)}</title></text>
+        <text transform="translate(${x + BPMN.faixaLabel / 2}, ${meio}) rotate(-90)" class="bpmn-faixa-nome">${bpmnEsc(nome)}<title>${bpmnEsc(f.nome)}${opcoes.interativo ? " — clique para editar" : ""}</title></text>
       </g>
     `;
   }).join("");

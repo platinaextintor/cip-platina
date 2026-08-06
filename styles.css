@@ -679,7 +679,12 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 .desenho-vazio p { margin-top: 8px; }
 
 /* a etiqueta da raia fica por cima do desenho, presa na borda */
+/* A etiqueta não intercepta o desenho — exceto quando é clicável, e aí ela é o
+   caminho para editar o setor de dentro do mapa. */
 .bpmn-faixa-etiqueta { pointer-events: none; }
+.bpmn-faixa-etiqueta.clicavel { pointer-events: auto; cursor: pointer; }
+.bpmn-faixa-etiqueta.clicavel:hover .bpmn-faixa-banda { stroke: var(--navy-2); stroke-width: 1.5; }
+.bpmn-faixa-etiqueta.clicavel:hover .bpmn-faixa-nome { fill: var(--navy-2); font-weight: 600; }
 /* o retrato do Bloco 1 e a lista do que falta */
 .retrato { display: grid; gap: 8px; margin-top: 12px; }
 .retrato-linha { display: grid; grid-template-columns: minmax(0, 1fr) 200px 56px; gap: 12px; align-items: center; }

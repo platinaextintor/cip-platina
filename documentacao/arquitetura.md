@@ -191,6 +191,20 @@ Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são
 
 **A casca tem altura definida e um lugar só rola por vez.** `.desenho` tinha `height: calc(100vh - 61px)` — um palpite sobre a altura da topbar. Qualquer faixa de aviso empurrava o desenho para fora da janela e quem passava a rolar era a PÁGINA, não a tela. Com a página rolando, o zoom no cursor não tinha como corrigir a vertical: a compensação simplesmente não era aplicada, e o desvio media exatamente o tamanho dela.
 
+## Setor: um cadastro, duas portas
+
+O setor se cria e se edita de **duas telas**, e não há dois cadastros — há um só:
+
+| Onde | Como |
+|---|---|
+| Organograma | botão **Novo setor**; pastilha do setor abre o painel |
+| Desenhar o macro | chip **+ Setor**; **clicar no nome da raia** abre o mesmo painel |
+| Fluxo macro (leitura) | clicar no nome da raia abre o mesmo painel |
+
+O chip do macro dizia "Raia" e escondia o que era. **Raia é como o setor aparece no desenho, não outra coisa** — quem procura "setor" precisa achar "setor".
+
+No subprocesso a raia pode ser um **cargo** em vez de setor. O prefixo do id (`c:` ou `s:`) diz qual, e cada um abre a sua tela: clicar em "Vendedor" leva ao cargo, clicar em "Financeiro" leva ao setor.
+
 ## Varredura de telas
 
 `node ferramentas/varredura.js`
@@ -198,6 +212,8 @@ Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são
 Acha a classe de defeito que os testes não pegam e o olho não vê: **botão desenhado que ninguém escuta**, e **handler que escuta algo que já não existe**. Não quebra nada, não gera erro no console, não falha teste — só não faz nada quando clicado.
 
 Nasceu de um relato do Eric: *"não encontrei a opção de inserir setor"*. O botão **estava lá**, no organograma, sem nenhum `addEventListener`. Ficou órfão quando o mapa de cartões saiu e levou junto o código que o ligava.
+
+Na primeira versão ela lia só `app.js` — e me devolveu um falso positivo assim que a etiqueta da raia, desenhada em `bpmn.js`, ganhou um handler. Ferramenta que acusa errado ensina a ignorá-la; agora lê **quem desenha de verdade**, que são os dois arquivos, e a lista de exceções encolheu à metade.
 
 A varredura achou seis coisas: três eram contêineres de dado (falso positivo, agora na lista de exceções) e três eram reais — o botão morto, e dois handlers escutando botões que já não existem, sobras de telas removidas. Junto veio uma função inteira morta que **ainda referenciava uma variável apagada**: teria estourado se alguém a chamasse.
 

@@ -584,6 +584,26 @@ function navegarComMouse(tela, lerZoom, gravarZoom) {
    sticky, então quem move é o transform: a cada rolagem, a camada dos nomes é
    empurrada para onde a borda esquerda da janela está, em coordenadas do próprio
    desenho. No começo do desenho o deslocamento é zero e elas ficam no lugar. */
+/* Clicar no nome da raia abre o painel do setor — o MESMO do organograma. É o
+   que faz as duas telas conversarem de verdade: não há dois cadastros de setor,
+   há um só, alcançável de onde a pessoa estiver olhando.
+
+   No subprocesso a raia pode ser um cargo em vez de setor; o prefixo diz qual,
+   e cada um abre a sua tela. */
+function ligarNomesDeRaia(tela) {
+  tela.addEventListener("click", (e) => {
+    const etiqueta = e.target.closest("[data-bpmn-faixa-nome]");
+    if (!etiqueta) return;
+    e.stopPropagation();
+    const bruto = etiqueta.dataset.bpmnFaixaNome;
+    if (!bruto) return;
+
+    const [prefixo, alvo] = bruto.includes(":") ? bruto.split(":") : ["s", bruto];
+    if (prefixo === "c" && cargo(alvo)) return ir("cargoEditor", { cargoSel: alvo });
+    if (setor(alvo)) abrirDrawerSetor(alvo);
+  }, true);
+}
+
 function prenderNomesDeRaia(tela) {
   const ajustar = () => {
     const camada = $("svg.bpmn .bpmn-faixa-nomes", tela);
@@ -673,6 +693,7 @@ function ligarFluxo(raiz) {
   const tela = $("#telaFluxo", raiz);
   if (!tela) return;
   prenderNomesDeRaia(tela);
+  ligarNomesDeRaia(tela);
   navegarComMouse(tela, () => ui.zoomFluxo || 1, (z) => { ui.zoomFluxo = z; });
 
   /* Clicar numa peça abre o que ela é. Nesta tela não se desenha — se navega. */
@@ -771,7 +792,7 @@ function viewFluxo() {
         </div>
       </div>
 
-      <p class="hint" style="margin:10px 18px 14px">Clique num processo para abrir. Arraste o fundo para mover, <strong>Ctrl + roda</strong> para dar zoom. Para mexer no desenho, use <strong>Desenhar o macro</strong>.</p>
+      <p class="hint" style="margin:10px 18px 14px">Clique num processo para abrir, ou no nome da raia para editar o setor. Arraste o fundo para mover, <strong>Ctrl + roda</strong> para dar zoom. Para mexer no desenho, use <strong>Desenhar o macro</strong>.</p>
     </div>
   `;
 }
@@ -925,7 +946,7 @@ function viewMacro() {
           <button class="chip" data-add-macro="processo" type="button" title="Novo processo${sel ? " ligado ao selecionado" : ""}">${icon("plus", 13)} Processo</button>
           <button class="chip" data-add-macro="decisao" type="button" title="Nova decisão${sel ? " ligada ao selecionado" : ""}">${icon("plus", 13)} Decisão</button>
           <button class="chip" data-add-macro="fim" type="button" title="Um desfecho nomeado">${icon("plus", 13)} Fim</button>
-          <button class="chip" data-nova-raia type="button" title="Cria um setor, que vira uma raia">${icon("plus", 13)} Raia</button>
+          <button class="chip" data-nova-raia type="button" title="O mesmo setor do organograma — aqui ele vira uma raia">${icon("plus", 13)} Setor</button>
         </div>
 
 
@@ -965,7 +986,8 @@ function viewMacro() {
                  <strong>Renomear:</strong> duplo clique na peça, escreva, Enter.<br>
                  <strong>Mover de raia:</strong> arraste a peça pelo corpo.<br>
                  <strong>Entrar no processo:</strong> clique no <strong>+</strong> do canto de baixo.<br>
-                 <strong>Apagar:</strong> selecione e tecle Delete.</p>
+                 <strong>Apagar:</strong> selecione e tecle Delete.<br>
+                 <strong>Editar o setor:</strong> clique no nome da raia, na lateral.</p>
               <p style="margin-top:8px"><strong>Navegar:</strong> arraste o fundo para mover.
                  <strong>Ctrl + roda</strong> (ou pinça no trackpad) dá zoom onde o cursor está.</p>
             </div>
@@ -1246,6 +1268,7 @@ function ligarMacro(raiz) {
   const tela = $("#telaMacro", raiz);
   if (tela) {
     prenderNomesDeRaia(tela);
+    ligarNomesDeRaia(tela);
     navegarComMouse(tela, () => ui.zoomMacro || 1, (z) => { ui.zoomMacro = z; });
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl || null;
     let origem = null;
@@ -1680,6 +1703,7 @@ function ligarDesenho(raiz) {
   const tela = $("#telaBpmn", raiz);
   if (tela) {
     prenderNomesDeRaia(tela);
+    ligarNomesDeRaia(tela);
     navegarComMouse(tela, () => ui.zoom || 1, (z) => { ui.zoom = z; });
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl.split("::")[0] || null;
     const sobOPonteiro = (e) => idDe(document.elementFromPoint(e.clientX, e.clientY));
