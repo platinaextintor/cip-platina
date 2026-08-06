@@ -302,7 +302,11 @@ function normalizar(dados) {
     p.proximos = normalizarSaidas(p.proximos);
     p.entrada = p.entrada || "";
     p.saida = p.saida || "";
-    p.revisado = p.revisado !== false;
+    /* `revisado` existia porque a IA escrevia direto nos campos: texto entrava
+       no sistema sem passar por uma cabeça humana, e a trava dizia "ninguém
+       conferiu isto ainda". A IA não escreve mais em lugar nenhum — todo texto
+       daqui foi digitado ou colado por alguém. A trava perdeu o objeto. */
+    delete p.revisado;
 
     /* RACI completo. R e A já existiam com outros nomes — quem executa e o dono.
        Faltavam C e I, que são justamente os que ninguém lembra de avisar. */
@@ -516,7 +520,6 @@ function faltaParaAprovar(p, st = state) {
   const recebe = [...st.processos, ...st.decisoes].some((n) => (n.proximos || []).some((x) => x.para === p.id));
   const entrega = (p.proximos || []).length > 0;
 
-  if (p.revisado === false) faltas.push("este texto foi escrito pela IA e ninguém revisou ainda");
   if (!(p.passos || []).length) faltas.push("não há passos escritos");
   else if ((p.passos || []).some((s) => !s.oQue?.trim())) faltas.push("há passo sem título");
   if (!p.donoCargoId) faltas.push("sem dono, não há quem responda pela aprovação");
@@ -525,16 +528,6 @@ function faltaParaAprovar(p, st = state) {
   if (recebe && !p.entrada?.trim()) faltas.push("recebe de outra peça mas não diz o que recebe");
   if (entrega && !p.saida?.trim()) faltas.push("entrega para outra peça mas não diz o que entrega");
   return faltas;
-}
-
-/* Revisar e aprovar são atos diferentes, e de propósito. Revisar é dizer "li e
-   está certo"; aprovar é assumir publicamente que o processo é esse. Colapsar
-   os dois num clique é o que transforma rascunho em verdade sem ninguém ler. */
-function marcarRevisado(p, nome, quando = new Date().toISOString()) {
-  if (!p || p.revisado !== false) return p;
-  p.revisado = true;
-  registrar(p, quando, nome, "revisou o rascunho da IA");
-  return p;
 }
 
 /* Aprovar é um ato com nome e data — é isso que separa governança de checkbox. */
@@ -881,19 +874,42 @@ function textoDoProcesso(p) {
   ].filter(Boolean).join("\n");
 }
 
-function contextoBase() {
-  return {
-    empresa: state.empresa?.nome,
-    setores: state.setores.map((s) => ({ id: s.id, nome: s.nome })),
-    cargos: state.cargos.map((c) => ({ id: c.id, nome: c.nome, setor: setor(c.setorId)?.nome || "" })),
-  };
-}
+/* O CIP inteiro, do jeito que a consultora precisa ler.
 
-function preencherVazios(alvo, sugestao, campos) {
-  campos.forEach((campo) => {
-    const novo = String(sugestao?.[campo] ?? "").trim();
-    if (novo && !String(alvo[campo] ?? "").trim()) alvo[campo] = novo;
-  });
+   Antes daqui existia `contextoBase`, que mandava só setores e cargos — o
+   bastante para a IA não inventar id ao preencher um campo. Agora ela não
+   preenche nada, ela opina; e opinião sobre processo exige ver o processo.
+
+   Vai texto, não estrutura: ids não servem para conversar, e passo com id é
+   ruído que ocupa espaço no lugar do conteúdo. */
+function contextoParaIA(st = state) {
+  const nomeCargo = (id) => st.cargos.find((c) => c.id === id)?.nome || "";
+  const nomeSetor = (id) => st.setores.find((s) => s.id === id)?.nome || "";
+
+  return {
+    empresa: st.empresa?.nome,
+    setores: st.setores.map((s) => ({ nome: s.nome, camada: s.camada })),
+    cargos: st.cargos.map((c) => ({
+      nome: c.nome, setor: nomeSetor(c.setorId), responde_a: nomeCargo(c.reportaA),
+      missao: c.missao || "", treinamentos: (c.trilha || []).length,
+    })),
+    processos: st.processos.map((p) => ({
+      nome: p.nome, setor: nomeSetor(p.setorId), dono: nomeCargo(p.donoCargoId),
+      executam: (p.cargosIds || []).map(nomeCargo).filter(Boolean),
+      porque: p.porque || "", entrada: p.entrada || "", saida: p.saida || "",
+      situacao: situacaoDoProcesso(p),
+      passos: (p.passos || []).map((s) => ({
+        tipo: s.tipo, o_que: s.oQue || "", como: s.comoFazer || "",
+        por_que: s.porque || "", onde_erra: s.armadilha || "", quem: nomeCargo(s.cargoId),
+      })),
+    })),
+    decisoes: st.decisoes.map((d) => ({ pergunta: d.pergunta, setor: nomeSetor(d.setorId) })),
+    fins: st.fins.map((f) => ({ nome: f.nome, setor: nomeSetor(f.setorId) })),
+    documentos: st.documentos.map((d) => ({ titulo: d.titulo, tipo: d.categoria, resumo: d.resumo || "" })),
+    sistemas: st.sistemas.map((s) => ({ nome: s.nome, critico: !!s.critico })),
+    indicadores: st.indicadores.map((i) => ({ nome: i.nome, meta: i.meta, unidade: i.unidade })),
+    o_que_falta: pendencias(st).slice(0, 30).map((x) => `${x.titulo}: ${x.detalhe}`),
+  };
 }
 
 function aplicarNoEstado(m) {
@@ -1232,7 +1248,7 @@ function lerBpmn(xml, st = state) {
   BPMN_TAREFA.forEach((tag) => bpmnAchar(texto, tag).forEach(({ attrs }) => registrar(attrs, (id, nome) => {
     processos.push({
       id, nome: nome || "Sem nome", setorId: setorDoNo[id] || "",
-      donoCargoId: "", cargosIds: [], status: "rascunho", revisado: true,
+      donoCargoId: "", cargosIds: [], status: "rascunho",
       videoUrl: "", entrada: "", saida: "", porque: "", seErrar: "",
       documentoIds: [], passos: [], perguntas: [], proximos: [],
     });
@@ -1344,7 +1360,6 @@ function pendencias(st = state) {
     const grossos = (p.passos || []).filter((s) => !s.cargoId && s.setorId).length;
     if (grossos) põe(4, "quem faz", p.nome, `${grossos} passo${grossos === 1 ? " diz" : "s dizem"} o setor mas não qual cargo executa`, abre);
 
-    if (p.revisado === false) põe(2, "revisao", p.nome, "escrito pela IA e ainda não revisado por ninguém — não pode ser aprovado assim", abre);
     if (situacaoDoProcesso(p) === "mudou") põe(2, "aprovacao", p.nome, "mudou depois de aprovado e ninguém aprovou de novo", abre);
     if (situacaoDoProcesso(p) === "vigente" && !indicadoresDoProcesso(p.id, st).length) {
       põe(4, "indicador", p.nome, "está vigente mas ninguém mede", abre);

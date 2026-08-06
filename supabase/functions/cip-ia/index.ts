@@ -1,7 +1,18 @@
 import Anthropic from "npm:@anthropic-ai/sdk";
 
 /* Edge Function do CIP — a chave da Anthropic vive aqui, nunca no navegador.
-   O navegador manda o que o gestor contou; volta o rascunho estruturado.
+
+   Esta função já preencheu campo. Recebia um relato e devolvia JSON no formato
+   exato de um passo, de um cargo, de uma trilha — e o navegador jogava aquilo
+   dentro do modelo. Funcionava, e era justamente o problema: texto entrava no
+   sistema sem passar por uma cabeça humana. Para nos defender disso tínhamos
+   cinco mecanismos (o campo `revisado`, a tarja vermelha, o selo de rascunho, a
+   trava na aprovação e a cobrança em "O que falta"). Todos existiam por causa
+   desta função.
+
+   Agora ela conversa. Lê o CIP inteiro, opina, critica, sugere texto — e não
+   tem caminho nenhum até os campos. Quem quiser aproveitar uma frase, copia e
+   cola. O copiar e colar não é atrito: é o ato humano de decidir.
 
    Implantada no projeto Supabase "CIP Platina" (zxbjluzxmucpzvgwtkns) com o
    nome `cip-ia` e verify_jwt ligado. Este arquivo é a cópia versionada do que
@@ -9,12 +20,13 @@ import Anthropic from "npm:@anthropic-ai/sdk";
 
 const MODELO = "claude-opus-5";
 
-/* Só as origens onde o CIP roda hoje. Enquanto não existe login, a chave
-   pública do Supabase é o único portão; restringir a origem tira o abuso
-   casual de quem apenas copiou o endereço da função. */
+/* Só as origens onde o CIP roda hoje. Restringir a origem tira o abuso casual
+   de quem apenas copiou o endereço da função. */
 const ORIGENS = [
   "https://platinaextintor.github.io", // publicado
-  "http://localhost:8777",             // desenvolvimento
+  "http://localhost:8765",             // desenvolvimento
+  "http://127.0.0.1:8765",
+  "http://localhost:8777",
   "http://127.0.0.1:8777",
   "null",                              // arquivo aberto direto do disco
 ];
@@ -31,9 +43,9 @@ function cors(req: Request) {
 
 /* Freio de mão por instância. Não é cota de verdade — a Edge Function sobe
    várias cópias e cada uma tem o seu contador. Serve para segurar um laço
-   acidental que chamaria a IA sem parar. Cota real só com banco, na Fase 3. */
+   acidental que chamaria a IA sem parar. */
 const JANELA_MS = 60_000;
-const TETO_POR_JANELA = 12;
+const TETO_POR_JANELA = 20;
 const batidas: number[] = [];
 
 function excedeuOTeto() {
@@ -44,178 +56,48 @@ function excedeuOTeto() {
   return false;
 }
 
-const SISTEMA = `Você é um especialista em processos ajudando o gestor da Platina Extintores, uma empresa de extintores de incêndio, a transformar o que ele sabe de cabeça em processo escrito e ensinável.
+const SISTEMA = `Você é a consultora de processos da Platina Extintores, uma empresa de extintores de incêndio. Conversa com o gestor e com a equipe que está mapeando o trabalho da empresa no CIP.
 
-Como você escreve:
-- Português do Brasil, direto, na voz de quem explica para um colega que entrou ontem.
-- "O que fazer" é uma frase curta começando por verbo: "Peça a foto da etiqueta", não "É necessário solicitar a foto".
-- "Como fazer" é o detalhe prático: a ordem, as palavras, a ferramenta.
-- "Por quê" é a razão que faz a pessoa lembrar quando estiver sozinha em campo.
-- "A armadilha" é o erro concreto que acontece na prática, não um risco genérico. O inegociável e o momento de parar e chamar o supervisor entram aqui.
-- Passo do tipo decisão sempre traz os dois caminhos preenchidos.
+O QUE VOCÊ FAZ
+Você opina, critica, pergunta o que ficou vago e sugere texto. Você é muito mais útil achando buraco do que preenchendo buraco — quando alguém te mostra um processo, o primeiro reflexo é procurar o que está ambíguo, o que não diz quem faz, o passo que só funciona se a pessoa já souber fazer.
 
-O limite mais importante:
-Você NÃO inventa número, prazo, valor, percentual, norma técnica nem exigência legal. Extintor mal recarregado mata gente, e um prazo errado escrito como se fosse oficial é pior que um campo vazio. Se o gestor não disse, deixe o campo em branco — a tela mostra o espaço para ele preencher. Nunca preencha um vazio com algo plausível.
+O QUE VOCÊ NÃO FAZ
+Você não escreve nada dentro do sistema. Não existe caminho entre você e os campos, e isso é de propósito. Quem gostar de uma frase sua copia e cola. Nunca diga que "preencheu", "atualizou" ou "salvou" nada.
 
-Você também não inventa nome de documento, sistema, modelo ou link que o gestor não tenha mencionado.
+QUANDO SUGERIR TEXTO
+Ponha o texto colável num bloco de código com três crases, sozinho, sem comentário dentro. O sistema desenha um botão de copiar em cada bloco desses. Fora dos blocos, converse normalmente. Não use bloco de código para outra coisa.
 
-Tudo que você escreve é rascunho. O gestor revisa antes de publicar.`;
+O VOCABULÁRIO DO CIP — use exatamente assim
+- Setor: uma área da empresa (Comercial, Técnica). Vira raia no fluxograma.
+- Cargo: uma função dentro de um setor (Vendedor, Técnico de Extintores).
+- Macro: a visão de cima, onde os processos se ligam ponta a ponta.
+- Processo: uma peça do macro (Orçamento, Recarga). Tem dono, executor, entrada e saída.
+- Subprocesso: o desenho de dentro de um processo, feito de passos.
+- Passo: a unidade menor — o que fazer, como fazer, quem faz, por quê, onde todo mundo erra.
+- POP: no CIP o POP é o passo a passo do processo. Não é documento separado.
+- Documento: norma, política, manual, formulário, contrato. Regra de negócio que precisa estar escrita mora aqui, como documento do tipo política ou norma — não existe cadastro separado de "regra".
+- Indicador: o número que mede o processo.
+- Decisão: uma bifurcação. É passagem, não destino.
+- Fim: um desfecho nomeado. Nem todo fim é sucesso.
 
-const PASSO = {
-  type: "object",
-  additionalProperties: false,
-  required: ["tipo", "cargoId", "oQue", "comoFazer", "porque", "armadilha", "seSim", "seNao"],
-  properties: {
-    tipo: { type: "string", enum: ["etapa", "decisao", "evidencia", "aprovacao"] },
-    cargoId: { type: "string", description: "Id do cargo que executa este passo, entre os ids do contexto. Vazio se o relato não deixar claro." },
-    oQue: { type: "string", description: "Uma frase, verbo no início." },
-    comoFazer: { type: "string" },
-    porque: { type: "string" },
-    armadilha: { type: "string", description: "O erro concreto, e o inegociável se houver. Vazio se não souber." },
-    seSim: { type: "string", description: "Só para tipo decisao. Vazio nos outros." },
-    seNao: { type: "string", description: "Só para tipo decisao. Vazio nos outros." },
-  },
-};
+Um processo conta como pronto quando tem dono, executor, o porquê, entrada (se recebe), saída (se entrega) e passos com título.
 
-const PERGUNTA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["pergunta", "resposta"],
-  properties: {
-    pergunta: { type: "string", description: "Uma cena real: o que chega e o que a pessoa faz." },
-    resposta: { type: "string" },
-  },
-};
+COMO VOCÊ ESCREVE
+Português do Brasil, direto, na voz de quem explica para um colega que entrou ontem. Frases curtas. Sem consultorês. "O que fazer" começa por verbo: "Peça a foto da etiqueta", não "É necessário solicitar a foto".
 
-const RECEITAS: Record<string, { instrucao: string; schema: unknown }> = {
-  processo: {
-    instrucao: `Transforme o relato do gestor em um processo do CIP.
+Responda curto quando a pergunta for curta. Ninguém pediu relatório.
 
-Use exclusivamente os ids de setor, fase e cargo que aparecem no contexto — nunca invente um id.
-O dono do processo é quem aprova exceção ou responde por ele; em geral um cargo de supervisão.
-Quebre em 3 a 8 passos, na ordem em que acontecem de verdade.
-Condição no relato ("se o cliente pedir desconto acima de X") vira passo do tipo decisao ou aprovacao.
-Evidência exigida (foto, comprovante, assinatura) vira passo do tipo evidencia.
-Atribua o cargoId de cada passo a quem realmente executa aquele passo — é isso que separa as raias do fluxograma e mostra a passagem de bastão entre cargos. Se o relato não disser quem faz, deixe vazio.
-Escreva 3 perguntas de situação para o fim da aula.`,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["nome", "setorId", "faseId", "donoCargoId", "cargosIds", "porque", "seErrar", "passos", "perguntas"],
-      properties: {
-        nome: { type: "string", description: "Curto e reconhecível pela equipe." },
-        setorId: { type: "string", description: "Um dos ids de setor do contexto." },
-        faseId: { type: "string", description: "Um dos ids de fase do contexto." },
-        donoCargoId: { type: "string", description: "Um dos ids de cargo do contexto." },
-        cargosIds: { type: "array", items: { type: "string" }, description: "Ids dos cargos que executam." },
-        porque: { type: "string", description: "Por que o processo existe." },
-        seErrar: { type: "string", description: "O prejuízo concreto quando sai errado." },
-        passos: { type: "array", items: PASSO },
-        perguntas: { type: "array", items: PERGUNTA },
-      },
-    },
-  },
-
-  passo: {
-    instrucao: `Complete um passo que o gestor começou a escrever.
-
-Devolva os campos do passo. Onde já houver texto, melhore sem trocar o sentido; onde estiver vazio, escreva.
-Se o passo for uma decisão, preencha os dois caminhos.
-Não invente prazo, valor nem norma que não esteja no contexto.`,
-    schema: PASSO,
-  },
-
-  perguntas: {
-    instrucao: `Escreva 3 perguntas de situação sobre este processo, para o fim da aula.
-
-Cada pergunta descreve uma cena concreta que acontece de verdade nesse trabalho — não pergunte a definição de nada.
-A resposta diz o que a pessoa deve fazer e por quê, em duas ou três frases.`,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["perguntas"],
-      properties: { perguntas: { type: "array", items: PERGUNTA } },
-    },
-  },
-
-  cargo: {
-    instrucao: `Descreva um cargo da empresa a partir do nome dele, do setor e dos processos que ele executa.
-
-Missão: uma frase — se esse cargo sumisse amanhã, o que deixaria de acontecer.
-Expectativas: 3 a 5 comportamentos esperados de quem ocupa, cada um em uma linha.
-Conhecimentos: 3 a 6 temas que a pessoa precisa dominar, cada um em uma linha curta.`,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["missao", "expectativas", "conhecimentos"],
-      properties: {
-        missao: { type: "string" },
-        expectativas: { type: "array", items: { type: "string" } },
-        conhecimentos: { type: "array", items: { type: "string" } },
-      },
-    },
-  },
-
-  trilha: {
-    instrucao: `Sugira treinamentos para este cargo, a partir do que ele precisa dominar e dos processos que executa.
-
-Entre 3 e 6 itens. Tipos possíveis: video, curso, leitura, pratica, documento.
-NUNCA invente link — deixe url sempre vazio, o gestor cola o link que ele aprovar.
-Marque como obrigatório o que ninguém deveria executar o trabalho sem ter feito.
-Duração é uma estimativa curta ("30 min", "1 semana") ou vazio.`,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["trilha"],
-      properties: {
-        trilha: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["tipo", "titulo", "duracao", "obrigatorio", "nota"],
-            properties: {
-              tipo: { type: "string", enum: ["video", "curso", "leitura", "pratica", "documento"] },
-              titulo: { type: "string" },
-              duracao: { type: "string" },
-              obrigatorio: { type: "boolean" },
-              nota: { type: "string", description: "Quando fazer, o que observar." },
-            },
-          },
-        },
-      },
-    },
-  },
-
-  documento: {
-    instrucao: `Descreva um documento da biblioteca da empresa a partir do título.
-
-Resumo: duas linhas dizendo do que trata e para que serve.
-Categoria: uma palavra (RH, Comercial, Técnico, Segurança, Financeiro...).
-Escopo: para quem vale.`,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["resumo", "categoria", "escopo"],
-      properties: {
-        resumo: { type: "string" },
-        categoria: { type: "string" },
-        escopo: { type: "string" },
-      },
-    },
-  },
-};
+O LIMITE MAIS IMPORTANTE
+Você NÃO inventa número, prazo, valor, percentual, norma técnica nem exigência legal. Extintor mal recarregado mata gente, e um prazo errado dito com segurança é pior que um espaço em branco. Se não souber, diga que não sabe e pergunte. Você também não inventa nome de documento, sistema, cargo ou processo que não esteja no contexto — se precisar citar algo que não existe ainda, deixe claro que é sugestão de criar.`;
 
 /* Lê o campo `role` do token sem validar assinatura — quem valida é o gateway
-   do Supabase, antes de a função rodar. Aqui só se distingue anon de pessoa. */
-/* ATENÇÃO: isto NÃO autentica. Lê o `role` do JWT sem verificar assinatura, e
-   só serve para separar "anônimo" de "logado" DEPOIS que a plataforma já
-   validou o token. Quem garante a autenticidade é `verify_jwt = true` no
-   config.toml — testado em 03/08/2026 com um JWT forjado: a borda devolve 401
-   antes da função rodar.
-   Se algum dia alguém desligar `verify_jwt` (para um webhook, por exemplo),
-   esta função vira porta aberta para a chave da Anthropic. Não desligue sem
-   trocar isto por verificação de assinatura de verdade. */
+   do Supabase, antes de a função rodar. Aqui só se distingue anon de pessoa.
+
+   ATENÇÃO: isto NÃO autentica. Quem garante a autenticidade é `verify_jwt =
+   true` no config.toml — testado em 03/08/2026 com um JWT forjado: a borda
+   devolve 401 antes da função rodar. Se algum dia alguém desligar `verify_jwt`
+   (para um webhook, por exemplo), esta função vira porta aberta para a chave da
+   Anthropic. Não desligue sem trocar isto por verificação de assinatura. */
 function papelDoToken(cabecalho: string | null): string {
   try {
     const token = (cabecalho || "").replace(/^Bearer\s+/i, "");
@@ -235,6 +117,8 @@ function json(req: Request, corpo: unknown, status = 200) {
   });
 }
 
+type Fala = { papel?: string; texto?: string };
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(req) });
   if (req.method !== "POST") return json(req, { erro: "Use POST." }, 405);
@@ -245,68 +129,75 @@ Deno.serve(async (req: Request) => {
   }
 
   /* `verify_jwt` aceita qualquer token do projeto — inclusive a chave pública,
-     que está à vista no código publicado. Aqui exigimos que seja o token de uma
-     pessoa que entrou de verdade. */
+     que está à vista no código publicado. Aqui exigimos o token de uma pessoa
+     que entrou de verdade. */
   const papel = papelDoToken(req.headers.get("authorization"));
   if (papel !== "authenticated") {
     return json(req, { erro: "Entre na sua conta para usar a IA." }, 401);
   }
 
   if (excedeuOTeto()) {
-    return json(req, { erro: "Muitas chamadas seguidas. Espere um minuto e tente de novo." }, 429);
+    return json(req, { erro: "Muitas perguntas seguidas. Espere um minuto e tente de novo." }, 429);
   }
 
-  let corpo: { acao?: string; entrada?: string; contexto?: unknown };
+  let corpo: { mensagens?: Fala[]; contexto?: unknown; onde?: string };
   try {
     corpo = await req.json();
   } catch {
     return json(req, { erro: "Corpo da requisição não é JSON válido." }, 400);
   }
 
-  const receita = RECEITAS[String(corpo.acao ?? "")];
-  if (!receita) return json(req, { erro: `Ação desconhecida: ${corpo.acao}` }, 400);
+  /* A conversa inteira vem do navegador a cada pergunta: a função não guarda
+     estado entre chamadas, e cada instância dela é descartável. Quem guarda o
+     histórico é o banco, por pessoa. */
+  const falas = Array.isArray(corpo.mensagens) ? corpo.mensagens : [];
+  const mensagens = falas
+    .map((m) => ({
+      role: m?.papel === "assistente" ? ("assistant" as const) : ("user" as const),
+      content: String(m?.texto ?? "").slice(0, 20000),
+    }))
+    .filter((m) => m.content.trim())
+    .slice(-24); // as últimas trocas bastam, e seguram o custo
 
-  const entrada = String(corpo.entrada ?? "").trim();
-  if (!entrada) return json(req, { erro: "Nada foi escrito." }, 400);
-  if (entrada.length > 20000) return json(req, { erro: "Texto longo demais. Quebre em partes menores." }, 400);
+  if (!mensagens.length) return json(req, { erro: "Nada foi perguntado." }, 400);
+  if (mensagens[mensagens.length - 1].role !== "user") {
+    return json(req, { erro: "A última fala precisa ser uma pergunta." }, 400);
+  }
 
-  const contexto = corpo.contexto ? JSON.stringify(corpo.contexto).slice(0, 40000) : "";
+  const contexto = corpo.contexto ? JSON.stringify(corpo.contexto).slice(0, 60000) : "";
+  const onde = String(corpo.onde ?? "").slice(0, 300);
+
+  /* O contexto entra no system, não na conversa: ele muda a cada pergunta
+     (o gestor navega enquanto conversa) e não deve virar histórico. */
+  const sistema = [
+    SISTEMA,
+    contexto ? `---\n\nO CIP da Platina neste momento:\n${contexto}` : "",
+    onde ? `---\n\nOnde a pessoa está agora na tela: ${onde}\nSe a pergunta for vaga ("isso está claro?"), é disto que ela está falando.` : "",
+  ].filter(Boolean).join("\n\n");
 
   const cliente = new Anthropic({ apiKey: chave });
 
   try {
     const resposta = await cliente.messages.create({
       model: MODELO,
-      max_tokens: 16000,
-      system: `${SISTEMA}\n\n---\n\n${receita.instrucao}`,
-      output_config: { format: { type: "json_schema", schema: receita.schema } },
-      messages: [
-        {
-          role: "user",
-          content: contexto
-            ? `Contexto atual do CIP (use os ids daqui):\n${contexto}\n\n---\n\nO que o gestor contou:\n${entrada}`
-            : `O que o gestor contou:\n${entrada}`,
-        },
-      ],
+      max_tokens: 4000,
+      system: sistema,
+      messages,
     });
 
     if (resposta.stop_reason === "refusal") {
-      return json(req, { erro: "A IA recusou esse pedido. Reescreva o relato e tente de novo." }, 422);
+      return json(req, { erro: "A IA recusou essa pergunta. Reescreva e tente de novo." }, 422);
     }
 
-    const bloco = resposta.content.find((b) => b.type === "text");
-    if (!bloco || bloco.type !== "text") {
-      return json(req, { erro: "A IA não devolveu conteúdo." }, 502);
-    }
+    const texto = resposta.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("\n")
+      .trim();
 
-    let dados: unknown;
-    try {
-      dados = JSON.parse(bloco.text);
-    } catch {
-      return json(req, { erro: "A IA devolveu algo fora do formato esperado.", bruto: bloco.text.slice(0, 500) }, 502);
-    }
+    if (!texto) return json(req, { erro: "A IA não devolveu conteúdo." }, 502);
 
-    return json(req, { dados, uso: resposta.usage });
+    return json(req, { texto, uso: resposta.usage });
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : "Falha ao falar com a IA.";
     return json(req, { erro: mensagem }, 502);

@@ -91,6 +91,7 @@ button { cursor: pointer; }
   background: none;
   padding: 0;
   text-align: left;
+  min-width: 0;
 }
 .brand-mark {
   display: grid;
@@ -104,7 +105,11 @@ button { cursor: pointer; }
   font-weight: 600;
   letter-spacing: 0.04em;
 }
-.brand-text strong { display: block; font-size: 14px; font-weight: 600; }
+/* Uma linha só, cortada com reticências se faltar espaço. Com a consultora
+   aberta a topbar perde 380px, e o nome quebrando em duas linhas empurrava a
+   altura do cabeçalho inteiro. */
+.brand-text { min-width: 0; }
+.brand-text strong { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-text small { display: block; font-size: 11px; color: var(--red); letter-spacing: 0.06em; text-transform: uppercase; }
 
 .tabs { display: flex; gap: 2px; min-width: 0; }
@@ -1282,3 +1287,135 @@ a.btn, .link-btn {
 .atalhos button:hover { background: var(--bg); color: var(--navy-2); }
 .atalhos button:last-child:hover { color: var(--red); }
 .atalhos .simbolo { display: block; }
+
+/* ---------------------------------------------------------------- consultora
+
+   O painel é fixo à direita e empurra o corpo inteiro com um padding no body —
+   topbar junto. Sobrepor a tela daria um painel flutuando por cima do desenho,
+   e desenho é justamente onde mais se pergunta. */
+.consultora {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border-left: 1px solid var(--line);
+  z-index: 40;
+}
+.consultora[hidden] { display: none; }
+body.com-consultora { padding-right: 380px; }
+
+.ia-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 16px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.ia-marca { display: inline-flex; align-items: center; gap: 7px; color: var(--navy); font-size: 14px; }
+.ia-topo .spacer { flex: 1; }
+
+.ia-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ia-boas-vindas { color: var(--ink-2); font-size: 14px; }
+.ia-boas-vindas p { margin: 0 0 8px; }
+
+.ia-fala { font-size: 14px; line-height: 1.6; border-radius: var(--radius); }
+.ia-pessoa {
+  align-self: flex-end;
+  max-width: 88%;
+  padding: 9px 13px;
+  background: var(--navy);
+  color: #fff;
+  white-space: pre-wrap;
+}
+.ia-dela { color: var(--ink); }
+.ia-dela .ia-prosa p { margin: 0 0 10px; }
+.ia-dela .ia-prosa p:last-child { margin-bottom: 0; }
+.ia-pensando { color: var(--ink-3); display: flex; align-items: center; gap: 7px; }
+
+/* O bloco colável. Ele é visualmente diferente da conversa porque é a única
+   coisa ali dentro que vira conteúdo do CIP — e só pelas mãos de alguém. */
+.ia-colar {
+  margin: 10px 0;
+  border: 1px solid var(--navy-2);
+  border-radius: var(--radius);
+  background: var(--navy-bg);
+  padding: 11px 13px;
+}
+.ia-colar pre {
+  margin: 0 0 9px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  color: var(--ink);
+}
+
+.ia-sugestoes {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  max-height: 132px;
+  overflow-y: auto;
+}
+.ia-chip {
+  border: 1px solid var(--line-2);
+  background: var(--soft);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.ia-chip:hover { border-color: var(--navy-2); color: var(--navy); }
+
+.ia-escrever {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--line);
+}
+.ia-escrever textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper);
+}
+.ia-escrever textarea:focus { outline: none; border-color: var(--navy-2); }
+
+/* No celular não há espaço para dividir: o painel cobre a tela. */
+@media (max-width: 900px) {
+  .consultora { width: 100%; border-left: 0; }
+  body.com-consultora { padding-right: 0; }
+}
+
+@media print {
+  .consultora { display: none !important; }
+  body.com-consultora { padding-right: 0; }
+}

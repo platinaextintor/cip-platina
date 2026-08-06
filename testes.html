@@ -92,7 +92,7 @@
         return {
           id: "p1", nome: "Processo", setorId: "s-comercial",
           porque: "existe por isso", entrada: "algo chega", saida: "algo sai",
-          donoCargoId: "c-supervisor", cargosIds: ["c-vendedor"], status: "rascunho", revisado: true,
+          donoCargoId: "c-supervisor", cargosIds: ["c-vendedor"], status: "rascunho",
           videoUrl: "", seErrar: "", anexos: [], passos: [], perguntas: [],
           proximos: [], ...extra,
         };
@@ -253,8 +253,6 @@
         return mapeado(p) === true;
       });
 
-      teste("rascunho de IA não conta como pronto até ser revisado", () =>
-        mapeado(proc({ porque: "x", revisado: false, passos: [passo(), passo({ id: "b" }), passo({ id: "c" })] })) === false);
 
       teste("faltando aponta o que impede, com o vocabulário curto", () => {
         state = semente();
@@ -1064,6 +1062,35 @@
         if (alcas.includes("f1")) throw new Error("o fim ganhou alça de saída");
       });
 
+      grupo("Domínio · o que a consultora enxerga");
+
+      /* A IA deixou de preencher campo e passou a opinar. Para opinar sobre um
+         processo ela precisa ver o processo — o contexto antigo mandava só
+         setores e cargos, que bastava para não inventar id. */
+      teste("o contexto leva os processos, com passos e situação", () => {
+        state = normalizar({ ...semente(), processos: [
+          proc({ id: "P", nome: "Orçamento", setorId: "s-comercial", donoCargoId: "c-supervisor",
+                 cargosIds: ["c-vendedor"], passos: [passo({ id: "1", oQue: "Pedir a foto" })] }),
+        ] });
+        const c = contextoParaIA();
+        igual(c.processos.length, 1, "processos:");
+        igual(c.processos[0].passos[0].o_que, "Pedir a foto", "o passo:");
+        igual(c.processos[0].dono, "Supervisor Operacional", "o dono vem por nome:");
+      });
+
+      /* Id não serve para conversar. Se vazasse para o contexto, a consultora
+         acabaria citando "p-3f9a" numa resposta para uma pessoa. */
+      teste("o contexto não leva id nenhum", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "P", nome: "Orçamento" })] });
+        const texto = JSON.stringify(contextoParaIA());
+        if (/"(id|setorId|cargoId|donoCargoId|cargosIds)"/.test(texto)) throw new Error("vazou id para a IA");
+      });
+
+      teste("o contexto inclui o que falta — é o que ela critica primeiro", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "P", nome: "Sem dono", donoCargoId: "", cargosIds: [] })] });
+        if (!contextoParaIA().o_que_falta.length) throw new Error("a lista do que falta não chegou");
+      });
+
       // ============================================================ TELA
 
       grupo("Domínio · a regra saiu e não deixa vestígio");
@@ -1210,29 +1237,14 @@
         igual(processosQuePedemAtencao().map((p) => p.nome), ["Mexido"]);
       });
 
-      teste("rascunho de IA não pode ser aprovado sem alguém revisar", () => {
-        /* O risco que a auditoria externa apontou depois que a IA escreveu 51
-           passos: aprovar rápido demais o que é plausível mas não confirmado. */
+      /* `revisado` existia porque a IA escrevia nos campos: era a trava que
+         dizia "ninguém conferiu este texto ainda". A IA virou consultora e não
+         escreve em lugar nenhum, então a trava perdeu o objeto — e o vestígio
+         dela não pode voltar de uma base antiga travando aprovação. */
+      teste("base antiga com rascunho de IA aprova normalmente", () => {
         const p = procVivo({ revisado: false, cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] });
-        const r = aprovarProcesso(p, "Eric");
-        igual([r.ok, situacaoDoProcesso(p)], [false, "rascunho"]);
-        if (!/revisou/i.test(r.motivo)) throw new Error("o motivo não explica: " + r.motivo);
-      });
-
-      teste("depois de revisado, aprova — e o histórico guarda os dois atos", () => {
-        const p = procVivo({ revisado: false, cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] });
-        marcarRevisado(p, "Vinicius");
-        const r = aprovarProcesso(p, "Eric");
-        igual([r.ok, situacaoDoProcesso(p)], [true, "vigente"]);
-        igual(p.historico.map((h) => [h.quem, h.acao]),
-              [["Vinicius", "revisou o rascunho da IA"], ["Eric", "aprovou"]]);
-      });
-
-      teste("revisar duas vezes não duplica o registro", () => {
-        const p = procVivo({ revisado: false, cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] });
-        marcarRevisado(p, "Vinicius");
-        marcarRevisado(p, "Eric");
-        igual(p.historico.length, 1);
+        if ("revisado" in p) throw new Error("o campo sobreviveu ao carregamento");
+        igual(aprovarProcesso(p, "Eric").ok, true);
       });
 
       teste("processo sem dono ou sem executor também não aprova", () => {
@@ -1240,13 +1252,6 @@
         const semQuemFaz = procVivo({ cargosIds: [], passos: [passo({ id: "1" })] });
         if (aprovarProcesso(semDono, "Eric").ok) throw new Error("aprovou sem dono");
         if (aprovarProcesso(semQuemFaz, "Eric").ok) throw new Error("aprovou sem executor");
-      });
-
-      teste("rascunho não revisado aparece na lista do que falta", () => {
-        state = normalizar({ ...semente(), processos: [
-          proc({ id: "a", nome: "Rascunho da IA", revisado: false, cargosIds: ["c-vendedor"], passos: [passo({ id: "1" })] }),
-        ] });
-        if (!pendencias().some((x) => x.tipo === "revisao")) throw new Error("passou calado");
       });
 
       teste("sem dono, o RACI reclama", () => {
@@ -1454,8 +1459,7 @@
         p.cargosIds = ["c-vendedor"];
         p.consultadosIds = ["c-admin"];
         p.informadosIds = ["c-diretor"];
-        p.revisado = false;
-        state.indicadores = [{ id: "i1", nome: "Prazo", pergunta: "?", unidade: "dias", direcao: "menor", meta: 2, frequencia: "mensal", processoIds: ["P"] }];
+        state.indicadores =[{ id: "i1", nome: "Prazo", pergunta: "?", unidade: "dias", direcao: "menor", meta: 2, frequencia: "mensal", processoIds: ["P"] }];
         state = normalizar(state);
 
         const vivo = () => state.processos[0];
@@ -1467,13 +1471,8 @@
         igual(quemAvisar(vivo()).length, 4, "RACI completo:");
         igual(processosDoCargo("c-vendedor").map((x) => x.id), ["P"], "trilha do cargo:");
 
-        // 2 · rascunho de IA não aprova
-        if (aprovarProcesso(vivo(), "Eric").ok) throw new Error("aprovou sem revisão");
-        if (!pendencias().some((x) => x.tipo === "revisao")) throw new Error("não apontou o rascunho");
-
-        // 3 · revisar e aprovar
-        marcarRevisado(vivo(), "Vinicius");
-        if (!aprovarProcesso(vivo(), "Eric").ok) throw new Error("não aprovou depois de revisar");
+        // 2 · aprovar
+        if (!aprovarProcesso(vivo(), "Eric").ok) throw new Error("não aprovou um processo completo");
         igual(situacaoDoProcesso(vivo()), "vigente", "depois de aprovar:");
         if (!mapeado(vivo())) throw new Error("aprovado e completo não conta como pronto");
 
@@ -1490,7 +1489,7 @@
         aprovarProcesso(vivo(), "Eric");
         igual([situacaoDoProcesso(vivo()), vivo().aprovacao.nome], ["vigente", "Eric"]);
         igual(vivo().historico.map((h) => h.acao),
-              ["revisou o rascunho da IA", "aprovou", "aprovou"], "histórico do ciclo:");
+              ["aprovou", "aprovou"], "histórico do ciclo:");
 
         // 7 · o desenho do subprocesso sai inteiro
         const html = bpmnDesenhar(bpmnDoProcesso(vivo()));

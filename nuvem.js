@@ -270,3 +270,36 @@ function anunciarPresenca(onde, aoMudarPresenca) {
   }
   canalPresenca.track({ sessao: SESSAO, nome: nomeDoUsuario(), onde });
 }
+
+/* ---------------------------------------------------------------- conversa */
+
+/* A conversa com a consultora mora em `conversas`, não em `pecas`. Peça é
+   conteúdo da empresa e vai ao vivo para todo mundo; conversa é de quem
+   conversou. Juntar as duas faria a pergunta de um piscar na tela do outro.
+
+   O `dono` nunca é escolhido aqui: quem decide é a política do banco, que lê o
+   id do token. Mandar o id na mão seria confiar no navegador para dizer quem
+   ele é. */
+async function lerConversa(limite = 60) {
+  const cliente = nuvemPronta();
+  if (!cliente || !usuarioAtual) return [];
+  const { data, error } = await cliente
+    .from("conversas")
+    .select("papel, texto, onde, criado_em")
+    .order("criado_em", { ascending: false })
+    .limit(limite);
+  if (error) return [];
+  return (data || []).reverse().map((l) => ({ papel: l.papel, texto: l.texto, onde: l.onde || "" }));
+}
+
+async function gravarFala(papel, texto, onde = "") {
+  const cliente = nuvemPronta();
+  if (!cliente || !usuarioAtual) return;
+  await cliente.from("conversas").insert({ dono: usuarioAtual.id, papel, texto, onde });
+}
+
+async function limparConversa() {
+  const cliente = nuvemPronta();
+  if (!cliente || !usuarioAtual) return;
+  await cliente.from("conversas").delete().eq("dono", usuarioAtual.id);
+}

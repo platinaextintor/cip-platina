@@ -103,9 +103,16 @@ const IA = {
   chave: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4YmpsdXp4bXVjcHp2Z3d0a25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTU2MjgsImV4cCI6MjEwMDgzMTYyOH0.2R4zTbSupwt7n3i5PMciG_paRmJNuV9L4QW3qVVlcHk",
 };
 
-async function chamarIA(acao, entrada, contexto) {
+/* A consultora pergunta e responde. Repare no que ela devolve: uma string.
+
+   Antes daqui existia `chamarIA(acao, ...)`, que voltava um objeto no formato
+   exato de um passo ou de um cargo, e o app despejava aquilo dentro do modelo.
+   Agora não há formato — há texto. Não existe caminho entre o que ela diz e os
+   campos, e é isso que impede a IA de escrever no CIP: não é uma instrução que
+   ela possa desobedecer, é um cano que não foi construído. */
+async function perguntarAConsultora(mensagens, onde) {
   const token = await tokenDoUsuario();
-  if (!token) throw new Error("Entre na sua conta para usar a IA.");
+  if (!token) throw new Error("Entre na sua conta para conversar com a IA.");
 
   const resposta = await fetch(IA.url, {
     method: "POST",
@@ -114,35 +121,242 @@ async function chamarIA(acao, entrada, contexto) {
       authorization: `Bearer ${token}`,
       apikey: IA.chave,
     },
-    body: JSON.stringify({ acao, entrada, contexto }),
+    body: JSON.stringify({ mensagens, contexto: contextoParaIA(), onde }),
   });
   const corpo = await resposta.json().catch(() => ({}));
   if (!resposta.ok || corpo.erro) throw new Error(corpo.erro || `Falha ${resposta.status}`);
-  return corpo.dados;
+  return String(corpo.texto || "");
 }
 
-/* Os ids que a IA pode usar. Sem isso ela inventa setor e cargo. */
+/* ---------------------------------------------------------- a consultora */
 
+const consultora = { aberta: false, falas: [], pensando: false, carregada: false };
 
-/* Opus 5 pensa antes de responder — a espera é de dezenas de segundos. */
-async function comEspera(botao, tarefa) {
-  const antes = botao.innerHTML;
-  botao.disabled = true;
-  botao.classList.add("pensando");
-  botao.innerHTML = `${icon("ia", 15)} pensando…`;
-  try {
-    return await tarefa();
-  } catch (erro) {
-    alert(`A IA não conseguiu: ${erro.message}`);
-    return null;
-  } finally {
-    botao.disabled = false;
-    botao.classList.remove("pensando");
-    botao.innerHTML = antes;
+/* As perguntas fixadas existem por um motivo prático: caixa de texto vazia com
+   cursor piscando não convida ninguém. Quem nunca usou não sabe o que pode
+   pedir, e uma pergunta pronta ensina o tipo de conversa que vale a pena.
+
+   Mudam conforme a tela — perguntar "quem não tem dono?" no meio do
+   organograma é menos útil do que perguntar sobre cargo. */
+const PERGUNTAS_FIXAS = {
+  organograma: [
+    "Algum cargo está sobrecarregado de processos?",
+    "Tem cargo que não aparece em processo nenhum? O que isso quer dizer?",
+    "Como eu escrevo uma boa missão para um cargo?",
+  ],
+  fluxo: [
+    "Olhando o macro, o que está faltando para o fluxo fechar ponta a ponta?",
+    "Tem processo sem dono ou sem quem execute?",
+    "Qual processo eu deveria detalhar primeiro?",
+  ],
+  editor: [
+    "Leia este processo e me diga o que está ambíguo.",
+    "Esses passos servem para alguém que entrou ontem?",
+    "Que armadilha costuma aparecer num processo desse tipo?",
+  ],
+  desenho: [
+    "Esse passo está claro para quem nunca fez?",
+    "Falta alguma decisão nesse fluxo?",
+    "Como eu escrevo o 'onde todo mundo erra' desse passo?",
+  ],
+  biblioteca: [
+    "Que documentos costumam faltar numa empresa de extintores?",
+    "Esse documento deveria estar ligado a qual processo?",
+    "Qual a diferença entre política, norma e manual?",
+  ],
+  pendencias: [
+    "Por onde eu começo a resolver essa lista?",
+    "O que dessa lista é urgente e o que pode esperar?",
+  ],
+  padrao: [
+    "O que é macro, processo, subprocesso e passo?",
+    "Por onde eu começo a mapear a empresa?",
+    "O que falta para o CIP ficar útil de verdade?",
+  ],
+};
+
+function perguntasFixas() {
+  return PERGUNTAS_FIXAS[ui.view] || PERGUNTAS_FIXAS.padrao;
+}
+
+/* Onde a pessoa está, em uma frase. Sem isso, "isso está claro?" não tem
+   sujeito e a consultora responde no vácuo. */
+function ondeEstou() {
+  const p = ui.processoId ? processo(ui.processoId) : null;
+  switch (ui.view) {
+    case "editor": return p ? `editando o processo "${p.nome}"` : "editando um processo";
+    case "aula": return p ? `lendo o processo "${p.nome}" como aula` : "lendo um processo";
+    case "desenho": {
+      const s = p?.passos?.[ui.passoIdx];
+      return p ? `desenhando o subprocesso de "${p.nome}"${s?.oQue ? `, no passo "${s.oQue}"` : ""}` : "desenhando um subprocesso";
+    }
+    case "macro": return "desenhando o mapa macro da empresa";
+    case "fluxo": return "olhando o mapa macro";
+    case "trilha": case "cargoEditor": {
+      const c = ui.cargoSel ? cargo(ui.cargoSel) : null;
+      return c ? `no cargo "${c.nome}"` : "no organograma";
+    }
+    case "organograma": return "no organograma";
+    case "biblioteca": return "na biblioteca de documentos e sistemas";
+    case "docEditor": return `editando o documento "${state.documentos.find((d) => d.id === ui.docId)?.titulo || ""}"`;
+    case "pendencias": return "na lista do que falta";
+    default: return "";
   }
 }
 
-/* Só preenche o que está vazio — o que você escreveu é seu. */
+/* A resposta vem em texto. Bloco de três crases vira caixa com botão de copiar
+   — é o único jeito de aproveitar uma frase dela, e de propósito: para colar,
+   a pessoa precisa ter lido. O resto é conversa. */
+function falaEmHtml(texto) {
+  const partes = String(texto).split(/```[a-zA-Z]*\n?/);
+  return partes.map((parte, i) => {
+    if (i % 2 === 1) {
+      const limpo = parte.replace(/\n+$/, "");
+      return `<div class="ia-colar">
+        <pre>${esc(limpo)}</pre>
+        <button class="btn btn-sm" data-copiar type="button">${icon("documento", 14)} Copiar</button>
+      </div>`;
+    }
+    return parte.trim()
+      ? `<div class="ia-prosa">${esc(parte.trim()).replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>").replace(/^/, "<p>").concat("</p>")}</div>`
+      : "";
+  }).join("");
+}
+
+function viewConsultora() {
+  const caixa = $("#consultora");
+  if (!caixa) return;
+  caixa.hidden = !consultora.aberta;
+  if (!consultora.aberta) return;
+
+  const vazia = !consultora.falas.length;
+
+  caixa.innerHTML = `
+    <div class="ia-topo">
+      <span class="ia-marca">${icon("ia", 16)} <strong>Consultora</strong></span>
+      <span class="spacer"></span>
+      ${consultora.falas.length ? `<button class="btn btn-sm btn-ghost" data-ia-limpar type="button" title="Apagar esta conversa">${icon("trash", 14)}</button>` : ""}
+      <button class="icon-btn" data-ia-fechar type="button" aria-label="Fechar">${icon("close")}</button>
+    </div>
+
+    <div class="ia-corpo" id="iaCorpo">
+      ${vazia ? `<div class="ia-boas-vindas">
+        <p><strong>Pergunte o que quiser sobre os processos da Platina ou sobre o próprio CIP.</strong></p>
+        <p class="hint">Ela lê tudo que está mapeado, mas não escreve nada nos campos. Gostou de uma frase? Copie e cole.</p>
+      </div>` : ""}
+
+      ${consultora.falas.map((f) => f.papel === "pessoa"
+        ? `<div class="ia-fala ia-pessoa">${esc(f.texto)}</div>`
+        : `<div class="ia-fala ia-dela">${falaEmHtml(f.texto)}</div>`).join("")}
+
+      ${consultora.pensando ? `<div class="ia-fala ia-dela ia-pensando">${icon("ia", 14)} pensando…</div>` : ""}
+    </div>
+
+    <div class="ia-sugestoes">
+      ${perguntasFixas().map((q) => `<button class="ia-chip" data-ia-sugestao="${esc(q)}" type="button">${esc(q)}</button>`).join("")}
+    </div>
+
+    <form class="ia-escrever" id="iaForm">
+      <textarea id="iaPergunta" rows="2" placeholder="Pergunte alguma coisa…" ${consultora.pensando ? "disabled" : ""}></textarea>
+      <button class="btn btn-primary btn-sm" type="submit" ${consultora.pensando ? "disabled" : ""}>Perguntar</button>
+    </form>
+  `;
+
+  ligarConsultora(caixa);
+  const corpo = $("#iaCorpo", caixa);
+  if (corpo) corpo.scrollTop = corpo.scrollHeight;
+}
+
+function ligarConsultora(caixa) {
+  $("[data-ia-fechar]", caixa)?.addEventListener("click", fecharConsultora);
+
+  $("[data-ia-limpar]", caixa)?.addEventListener("click", async () => {
+    if (!confirm("Apagar esta conversa? Ela é só sua, e não dá para desfazer.")) return;
+    consultora.falas = [];
+    viewConsultora();
+    await limparConversa();
+  });
+
+  $$("[data-ia-sugestao]", caixa).forEach((b) => b.addEventListener("click", () => {
+    enviarParaConsultora(b.dataset.iaSugestao);
+  }));
+
+  $$("[data-copiar]", caixa).forEach((b) => b.addEventListener("click", async () => {
+    const texto = b.parentElement.querySelector("pre")?.textContent || "";
+    try {
+      await navigator.clipboard.writeText(texto);
+      const antes = b.innerHTML;
+      b.innerHTML = `${icon("ok", 14)} Copiado`;
+      setTimeout(() => { b.innerHTML = antes; }, 1600);
+    } catch {
+      alert("O navegador não deixou copiar. Selecione o texto e use Ctrl+C.");
+    }
+  }));
+
+  const form = $("#iaForm", caixa);
+  form?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    enviarParaConsultora($("#iaPergunta", caixa).value);
+  });
+
+  /* Enter manda, Shift+Enter quebra linha. É o que a mão já espera de chat. */
+  $("#iaPergunta", caixa)?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      form?.requestSubmit();
+    }
+  });
+}
+
+async function enviarParaConsultora(texto) {
+  const pergunta = String(texto || "").trim();
+  if (!pergunta || consultora.pensando) return;
+
+  const onde = ondeEstou();
+  consultora.falas.push({ papel: "pessoa", texto: pergunta });
+  consultora.pensando = true;
+  viewConsultora();
+  gravarFala("pessoa", pergunta, onde);
+
+  try {
+    const resposta = await perguntarAConsultora(
+      consultora.falas.map((f) => ({ papel: f.papel === "pessoa" ? "pessoa" : "assistente", texto: f.texto })),
+      onde,
+    );
+    consultora.falas.push({ papel: "ia", texto: resposta });
+    gravarFala("ia", resposta, onde);
+  } catch (erro) {
+    consultora.falas.push({ papel: "ia", texto: `Não consegui responder: ${erro.message}` });
+  } finally {
+    consultora.pensando = false;
+    viewConsultora();
+    $("#iaPergunta")?.focus();
+  }
+}
+
+async function abrirConsultora() {
+  consultora.aberta = true;
+  document.body.classList.add("com-consultora");
+  viewConsultora();
+
+  /* A conversa antiga só é buscada uma vez por sessão — abrir e fechar o painel
+     não deve render viagem ao banco. */
+  if (!consultora.carregada) {
+    consultora.carregada = true;
+    const antigas = await lerConversa();
+    if (antigas.length && !consultora.falas.length) {
+      consultora.falas = antigas.map((f) => ({ papel: f.papel === "pessoa" ? "pessoa" : "ia", texto: f.texto }));
+      viewConsultora();
+    }
+  }
+  $("#iaPergunta")?.focus();
+}
+
+function fecharConsultora() {
+  consultora.aberta = false;
+  document.body.classList.remove("com-consultora");
+  viewConsultora();
+}
 
 
 /* Só http/https saem daqui — o link é digitado pelo usuário. */
@@ -291,9 +505,6 @@ const $$ = (sel, raiz = document) => Array.from(raiz.querySelectorAll(sel));
 
 
 
-/* Um processo conta como mapeado quando tem o porquê, pelo menos 3 passos com
-   "o que fazer" preenchido, e passou por revisão humana. Rascunho de IA entra
-   com revisado = false: a régua não aceita texto que ninguém conferiu. */
 
 
 
@@ -350,6 +561,9 @@ function render() {
   if (ui.view === "pendencias") ligarPendencias(main);
   if (ui.view === "fluxo") ligarFluxo(main);
   atualizarProgresso();
+  /* A conversa não é redesenhada aqui — só as perguntas sugeridas, que mudam
+     com a tela. O painel vive fora do #main justamente para não piscar. */
+  if (consultora.aberta) viewConsultora();
 }
 
 function atualizarProgresso() {
@@ -772,7 +986,6 @@ function viewFluxo() {
 
         <div class="btn-row">
           <button class="btn btn-sm btn-primary" data-macro type="button">${icon("edit", 15)} Desenhar o macro</button>
-          <button class="btn btn-sm" data-contar type="button">${icon("ia", 15)} Contar um processo</button>
           ${botaoImprimir("Imprimir o mapa")}
         </div>
 
@@ -1294,7 +1507,7 @@ function ligarMacro(raiz) {
       novo = {
         id: uid("p"), nome: apoio ? "Novo processo de apoio" : "Novo processo", setorId,
         donoCargoId: state.cargos[0]?.id || "", cargosIds: [], status: "rascunho",
-        revisado: true, videoUrl: "", porque: "", seErrar: "",
+        videoUrl: "", porque: "", seErrar: "",
         documentoIds: [], passos: [], perguntas: [], proximos: [],
       };
       state.processos.push(novo);
@@ -1691,11 +1904,6 @@ function inspetorDesenho(p, s, indice) {
 
     ${saidasDoPasso(p, s)}
 
-    <div class="btn-row" style="margin-top:16px">
-      <button class="btn btn-sm" data-ia-desenho type="button">${icon("ia", 15)} IA completar este passo</button>
-    </div>
-    <p class="hint" style="margin-top:6px">Preenche o que estiver vazio — inclusive o porquê e a armadilha, que ficam no editor.</p>
-
     <div class="btn-row" style="margin-top:18px">
       ${indice > 0 ? '<button class="btn btn-sm" data-mover-desenho="-1" type="button">← Antes</button>' : ""}
       ${indice < total - 1 ? '<button class="btn btn-sm" data-mover-desenho="1" type="button">Depois →</button>' : ""}
@@ -1704,25 +1912,6 @@ function inspetorDesenho(p, s, indice) {
 
     <p class="hint" style="margin-top:18px">Por quê, armadilha, foto e vídeo continuam no editor do processo — aqui fica o esqueleto do fluxo.</p>
   `;
-}
-
-/* Um passo só, completado pela IA. Usado no editor e na tela de desenho. */
-async function completarPassoComIA(botao, p, s) {
-  if (!s.oQue?.trim() && !s.comoFazer?.trim()) {
-    alert('Escreva ao menos "o que fazer" antes — a IA precisa de um ponto de partida.');
-    return false;
-  }
-  const entrada = `${textoDoProcesso(p)}\n\n---\n\nO passo a completar:\n${JSON.stringify(
-    { tipo: s.tipo, oQue: s.oQue, comoFazer: s.comoFazer, porque: s.porque, armadilha: s.armadilha, seSim: s.seSim, seNao: s.seNao },
-    null, 2,
-  )}`;
-  const sugestao = await comEspera(botao, () => chamarIA("passo", entrada, contextoBase()));
-  if (!sugestao) return false;
-  if (sugestao.cargoId && !s.cargoId && cargo(sugestao.cargoId)) s.cargoId = sugestao.cargoId;
-  preencherVazios(s, sugestao, ["comoFazer", "porque", "armadilha", "seSim", "seNao"]);
-  p.revisado = false;
-  salvar(true);
-  return true;
 }
 
 function saidasDoPasso(p, s) {
@@ -1969,10 +2158,6 @@ function ligarDesenho(raiz) {
       salvar(true);
       render();
     });
-  });
-
-  $("[data-ia-desenho]", raiz)?.addEventListener("click", async (evento) => {
-    if (await completarPassoComIA(evento.currentTarget, p, sel)) render();
   });
 
   $$("[data-mover-desenho]", raiz).forEach((b) => b.addEventListener("click", () => {
@@ -2235,14 +2420,6 @@ function viewEditor() {
         ],
       })}
 
-      ${p.revisado === false ? `<div class="note note-trap" style="margin-bottom:18px">
-        <div class="block-label">Rascunho da IA — ainda não revisado</div>
-        <p>Confira cada passo, principalmente prazo, valor e qualquer coisa que dependa de norma técnica. Enquanto não for revisado, este processo não conta como pronto.</p>
-        <div class="btn-row" style="margin-top:12px">
-          <button class="btn btn-sm" data-revisar="${p.id}" type="button">${icon("ok", 15)} Revisei — pode contar como pronto</button>
-        </div>
-      </div>` : ""}
-
       ${blocoDeAprovacao(p)}
 
       <div class="stack">
@@ -2459,7 +2636,6 @@ function viewEditor() {
       </div>
       <div class="btn-row" style="margin-top:12px">
         <button class="btn" data-nova-pergunta type="button">${icon("plus")} Nova pergunta</button>
-        <button class="btn" data-ia-perguntas type="button">${icon("ia", 15)} IA escrever 3 perguntas</button>
       </div>
     </div>
   `;
@@ -2478,7 +2654,6 @@ function editorPasso(s, i, total) {
           ${Object.entries(TIPOS).map(([chave, t]) => `<button class="chip${s.tipo === chave ? " on" : ""}" data-tipo="${chave}" type="button">${t.rotulo}</button>`).join("")}
         </div>
         <span class="spacer"></span>
-        <button class="btn btn-sm btn-ghost" data-ia-passo type="button" title="IA preenche só os campos vazios deste passo">${icon("ia", 15)}</button>
         ${i > 0 ? `<button class="btn btn-sm btn-ghost" data-mover="-1" type="button" aria-label="Subir">${icon("up", 15)}</button>` : ""}
         ${i < total - 1 ? `<button class="btn btn-sm btn-ghost" data-mover="1" type="button" aria-label="Descer">${icon("down", 15)}</button>` : ""}
         <button class="btn btn-sm btn-ghost" data-remover-passo type="button" aria-label="Remover">${icon("trash", 15)}</button>
@@ -2733,10 +2908,6 @@ function viewCargoEditor() {
           <textarea id="c-conh" data-c="conhecimentos" placeholder="Tipos de extintor e classe de fogo&#10;Regras comerciais&#10;Atendimento no WhatsApp">${esc(c.conhecimentos)}</textarea>
         </div>
 
-        <div class="btn-row">
-          <button class="btn" data-ia-cargo type="button">${icon("ia", 15)} IA descrever este cargo</button>
-          <span class="hint" style="align-self:center">preenche só o que está vazio, a partir dos processos que ele executa</span>
-        </div>
       </div>
 
       <div class="section-title"><h3>Treinamentos</h3><span class="line"></span><span class="muted">${(c.trilha || []).length}</span></div>
@@ -2747,7 +2918,6 @@ function viewCargoEditor() {
       </div>
       <div class="btn-row" style="margin-top:12px">
         <button class="btn" data-novo-treino type="button">${icon("plus")} Novo treinamento</button>
-        <button class="btn" data-ia-trilha type="button">${icon("ia", 15)} IA sugerir treinamentos</button>
       </div>
     </div>
   `;
@@ -2861,48 +3031,6 @@ function ligarCargoEditor(raiz) {
       salvar(true);
       render();
     });
-  });
-
-  const textoDoCargo = () => {
-    const procs = processosDoCargo(c.id).map((p) => `- ${p.nome} (${setor(p.setorId)?.nome || "sem setor"})`).join("\n");
-    return [
-      `Cargo: ${c.nome}`,
-      `Setor: ${setor(c.setorId)?.nome || "—"}`,
-      cargo(c.reportaA) ? `Responde a: ${cargo(c.reportaA).nome}` : "Topo da hierarquia",
-      c.missao ? `Missão já escrita: ${c.missao}` : "",
-      c.conhecimentos ? `Conhecimentos já escritos:\n${c.conhecimentos}` : "",
-      procs ? `\nProcessos que ele executa:\n${procs}` : "\nAinda não tem processo vinculado.",
-    ].filter(Boolean).join("\n");
-  };
-
-  $("[data-ia-cargo]", raiz)?.addEventListener("click", async (evento) => {
-    const sugestao = await comEspera(evento.currentTarget, () => chamarIA("cargo", textoDoCargo(), contextoBase()));
-    if (!sugestao) return;
-    if (sugestao.missao && !c.missao?.trim()) c.missao = sugestao.missao;
-    if (!c.expectativas?.trim()) c.expectativas = (sugestao.expectativas || []).join("\n");
-    if (!c.conhecimentos?.trim()) c.conhecimentos = (sugestao.conhecimentos || []).join("\n");
-    salvar(true);
-    render();
-  });
-
-  $("[data-ia-trilha]", raiz)?.addEventListener("click", async (evento) => {
-    const resultado = await comEspera(evento.currentTarget, () => chamarIA("trilha", textoDoCargo(), contextoBase()));
-    if (!resultado) return;
-    c.trilha = [
-      ...(c.trilha || []),
-      ...(resultado.trilha || []).map((t) => ({
-        id: uid("t"),
-        tipo: TIPOS_TRILHA[t.tipo] ? t.tipo : "leitura",
-        titulo: t.titulo || "",
-        url: "",
-        duracao: t.duracao || "",
-        obrigatorio: !!t.obrigatorio,
-        nota: t.nota || "",
-        documentoId: "",
-      })),
-    ];
-    salvar(true);
-    render();
   });
 
   $("[data-novo-treino]", raiz)?.addEventListener("click", () => {
@@ -3028,9 +3156,6 @@ function viewDocEditor() {
           <label for="d-res">Do que trata</label>
           <textarea id="d-res" data-d="resumo" placeholder="Em duas linhas: o que esse documento resolve.">${esc(d.resumo)}</textarea>
         </div>
-        <div class="btn-row">
-          <button class="btn" data-ia-doc type="button">${icon("ia", 15)} IA descrever pelo título</button>
-        </div>
         <div class="field">
           <label for="d-url">Link do arquivo <span class="hint">— Google Drive, OneDrive, Dropbox</span></label>
           <input id="d-url" data-d="url" value="${esc(d.url || "")}" placeholder="https://..." />
@@ -3143,8 +3268,7 @@ function ligarSistemaEditor(raiz) {
 /* Data em pt-BR sem depender de fuso: "2026-08-03" vira "03/08/2026" e ponto.
    Passar por new Date() aqui já me devolveu o dia anterior. */
 /* O cabeçalho que só existe no papel. O carimbo de situação é obrigatório:
-   folha sem estado vira verdade oficial na mão de quem recebe — e boa parte do
-   que está no CIP hoje é rascunho não revisado. */
+   folha sem estado vira verdade oficial na mão de quem recebe. */
 function cabecalhoDeImpressao({ titulo, tipo, situacao, linhas = [] }) {
   const selo = situacao || { classe: "rascunho", rotulo: "rascunho", aviso: "" };
   const agora = new Date();
@@ -3168,10 +3292,6 @@ function cabecalhoDeImpressao({ titulo, tipo, situacao, linhas = [] }) {
    programa. "Vigente" e "rascunho" já existem no domínio; aqui eles ganham a
    frase que impede o papel de mentir. */
 function seloDeImpressao(p) {
-  if (p.revisado === false) {
-    return { classe: "rascunho", rotulo: "rascunho não revisado",
-             aviso: "Este texto foi escrito pela IA e ainda não foi revisado por ninguém. Não use como procedimento oficial." };
-  }
   const sit = situacaoDoProcesso(p);
   if (sit === "vigente") {
     return { classe: "vigente", rotulo: "vigente",
@@ -3238,17 +3358,6 @@ function ligarDocEditor(raiz) {
     salvar();
   }));
 
-  $("[data-ia-doc]", raiz)?.addEventListener("click", async (evento) => {
-    if (!d.titulo?.trim()) return alert("Escreva o título antes.");
-    const entrada = `Documento: ${d.titulo}\nTipo (escolha um de: ${Object.keys(TIPOS_DOCUMENTO).join(", ")}): ${d.categoria}\nVale para: ${d.escopo || "—"}`;
-    const sugestao = await comEspera(evento.currentTarget, () => chamarIA("documento", entrada, contextoBase()));
-    if (!sugestao) return;
-    preencherVazios(d, sugestao, ["resumo"]);
-    if (TIPOS_DOCUMENTO[sugestao.categoria] && d.categoria === "outro") d.categoria = sugestao.categoria;
-    if (sugestao.escopo && !d.escopo?.trim()) d.escopo = sugestao.escopo;
-    salvar(true);
-    render();
-  });
 
   $("[data-apagar-doc]", raiz)?.addEventListener("click", () => {
     if (!confirm(`Apagar "${d.titulo}"?`)) return;
@@ -3266,79 +3375,6 @@ function novoDocumento() {
   salvar(true);
   ir("docEditor", { docId: d.id });
 }
-
-/* ---------------------------------------------------------------- IA: telas */
-
-function abrirContarProcesso() {
-  abrirDrawer(`
-    <div class="drawer-head">
-      <h2>Conte o processo</h2>
-      <button class="icon-btn" data-fechar type="button" aria-label="Fechar">${icon("close")}</button>
-    </div>
-    <p class="sub">Escreva como você explicaria para alguém que entrou ontem. Pode sair desorganizado — a IA organiza em passos.</p>
-
-    <div class="field" style="margin-top:16px">
-      <label for="iaTexto">O que acontece</label>
-      <textarea id="iaTexto" style="min-height:190px" placeholder="Quando chega pedido de recarga no zap, o vendedor tem que pedir foto da etiqueta antes de falar preço, senão a gente orça errado e come a margem. Se pedir desconto acima de 10%, passa pro supervisor..."></textarea>
-    </div>
-
-    <div class="btn-row" style="margin-top:14px">
-      <button class="btn btn-primary" id="iaGerar" type="button">${icon("ia", 15)} Gerar rascunho</button>
-    </div>
-
-    <div class="note note-rule" style="margin-top:20px">
-      <div class="block-label">O que a IA não faz</div>
-      <p>Ela não inventa prazo, valor, percentual nem norma técnica. O que você não disser fica em branco esperando você. O rascunho entra como <strong>não revisado</strong> e não conta como pronto até você conferir.</p>
-    </div>
-  `);
-
-  $("#iaGerar", drawer).addEventListener("click", async (evento) => {
-    const texto = $("#iaTexto", drawer).value.trim();
-    if (!texto) return $("#iaTexto", drawer).focus();
-
-    const rascunho = await comEspera(evento.currentTarget, () => chamarIA("processo", texto, contextoBase()));
-    if (!rascunho) return;
-
-    const existe = (lista, id) => lista.some((x) => x.id === id);
-    const p = {
-      id: uid("p"),
-      nome: rascunho.nome || "Processo sem nome",
-      setorId: existe(state.setores, rascunho.setorId) ? rascunho.setorId : state.setores[0]?.id || "",
-      donoCargoId: existe(state.cargos, rascunho.donoCargoId) ? rascunho.donoCargoId : state.cargos[0]?.id || "",
-      cargosIds: (rascunho.cargosIds || []).filter((id) => existe(state.cargos, id)),
-      status: "rascunho",
-      revisado: false,
-      videoUrl: "",
-      porque: rascunho.porque || "",
-      seErrar: rascunho.seErrar || "",
-      documentoIds: [],
-      proximos: [],
-      passos: (rascunho.passos || []).map((s) => ({
-        id: uid("ps"),
-        tipo: TIPOS[s.tipo] ? s.tipo : "etapa",
-        cargoId: existe(state.cargos, s.cargoId) ? s.cargoId : "",
-        sistemaIds: [],
-        setorId: "",
-        oQue: s.oQue || "",
-        comoFazer: s.comoFazer || "",
-        porque: s.porque || "",
-        armadilha: s.armadilha || "",
-        imagem: "",
-        videoUrl: "",
-        seSim: s.seSim || "",
-        seNao: s.seNao || "",
-      })),
-      perguntas: (rascunho.perguntas || []).map((q) => ({ id: uid("q"), pergunta: q.pergunta || "", resposta: q.resposta || "" })),
-    };
-
-    state.processos.push(p);
-    salvar(true);
-    fecharDrawer();
-    ir("editor", { processoId: p.id });
-  });
-}
-
-
 
 /* ---------------------------------------------------------------- eventos */
 
@@ -3472,8 +3508,6 @@ function ligarEventos(raiz) {
   if (nd) nd.addEventListener("click", novoDocumento);
   $("[data-novo-sistema]", raiz)?.addEventListener("click", novoSistema);
   $("[data-macro]", raiz)?.addEventListener("click", () => ir("macro"));
-  const contar = $("[data-contar]", raiz);
-  if (contar) contar.addEventListener("click", abrirContarProcesso);
 }
 
 /* ---------------------------------------------------------------- editor: ligação sem re-render */
@@ -3512,10 +3546,6 @@ function blocoDeAprovacao(p) {
       ${faltas.length ? `<div class="note note-trap" style="margin-top:12px">
         <div class="block-label">Ainda não dá para aprovar</div>
         <ul class="lista">${faltas.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-        ${p.revisado === false ? `<div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-sm" data-revisei type="button">${icon("ok", 15)} Li tudo e está certo</button>
-          <span class="hint">Isso registra o seu nome como quem revisou. Aprovar vem depois.</span>
-        </div>` : ""}
       </div>` : ""}
 
       <div class="btn-row" style="margin-top:12px">
@@ -3603,14 +3633,6 @@ function ligarEditor(raiz) {
       salvar(true);
       render();
     });
-  });
-
-  $("[data-revisei]", raiz)?.addEventListener("click", () => {
-    const nome = typeof nomeDoUsuario === "function" ? nomeDoUsuario() : "";
-    if (!confirm(`Confirmar que você leu os ${(p.passos || []).length} passos de "${p.nome}" e estão certos?\n\nSeu nome fica no histórico como quem revisou.`)) return;
-    marcarRevisado(p, nome);
-    salvar(true);
-    render();
   });
 
   $("[data-aprovar]", raiz)?.addEventListener("click", () => {
@@ -3712,10 +3734,6 @@ function ligarEditor(raiz) {
       chip.classList.toggle("on");
       salvar(true);
     }));
-
-    $("[data-ia-passo]", bloco)?.addEventListener("click", async (evento) => {
-      if (await completarPassoComIA(evento.currentTarget, p, s)) render();
-    });
   });
 
   $$(".step-editor[data-pergunta-id]", raiz).forEach((bloco) => {
@@ -3773,25 +3791,6 @@ function ligarEditor(raiz) {
   if (novaPergunta) novaPergunta.addEventListener("click", () => {
     p.perguntas = p.perguntas || [];
     p.perguntas.push({ id: uid("q"), pergunta: "", resposta: "" });
-    salvar(true);
-    render();
-  });
-
-  $("[data-ia-perguntas]", raiz)?.addEventListener("click", async (evento) => {
-    if (!(p.passos || []).length) return alert("Escreva os passos antes — as perguntas saem deles.");
-    const resultado = await comEspera(evento.currentTarget, () => chamarIA("perguntas", textoDoProcesso(p), contextoBase()));
-    if (!resultado) return;
-    p.perguntas = [
-      ...(p.perguntas || []),
-      ...(resultado.perguntas || []).map((q) => ({ id: uid("q"), pergunta: q.pergunta || "", resposta: q.resposta || "" })),
-    ];
-    p.revisado = false;
-    salvar(true);
-    render();
-  });
-
-  $("[data-revisar]", raiz)?.addEventListener("click", () => {
-    p.revisado = true;
     salvar(true);
     render();
   });
@@ -3998,6 +3997,20 @@ function blocoOndeMoraOsDados(kb) {
     </div>
   `;
 }
+
+$("#abrirConsultora").innerHTML = icon("ia");
+$("#abrirConsultora").addEventListener("click", () => {
+  if (consultora.aberta) fecharConsultora();
+  else abrirConsultora();
+});
+
+/* Esc fecha, como todo painel que se sobrepõe — mas o drawer tem a vez quando
+   os dois estão abertos, porque foi o último a abrir. */
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !consultora.aberta) return;
+  if ($("#drawer") && !$("#drawer").hidden) return;
+  fecharConsultora();
+});
 
 $("#openData").innerHTML = icon("data");
 $("#openData").addEventListener("click", () => {

@@ -28,12 +28,17 @@
         <span class="presenca" id="presenca" hidden></span>
         <span class="estado-nuvem" id="estadoNuvem"></span>
         <div class="progress-chip" id="progressChip"></div>
+        <button class="icon-btn" id="abrirConsultora" type="button" aria-label="Consultora de IA" title="Perguntar à consultora"></button>
         <button class="icon-btn" id="openData" type="button" aria-label="Dados do projeto" title="Dados do projeto"></button>
         <button class="icon-btn" id="sairBotao" type="button" aria-label="Sair" title="Sair">↪</button>
       </div>
     </header>
 
     <main id="main"></main>
+
+    <!-- A consultora fica fora do #main de propósito: `render()` troca o miolo
+         inteiro a cada clique, e a conversa não pode piscar junto. -->
+    <aside class="consultora" id="consultora" hidden aria-label="Consultora de IA"></aside>
 
     <div class="drawer-scrim" id="scrim" hidden></div>
     <aside class="drawer" id="drawer" hidden aria-label="Detalhes"></aside>
