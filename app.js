@@ -2806,9 +2806,30 @@ function viewTrilha() {
           <p>${esc(c.missao)}</p>
         </div>` : ""}
 
+        ${linhas(c.atividades).length ? `<div class="block">
+          <div class="block-label">O que você faz no dia a dia</div>
+          <ul class="lista">${linhas(c.atividades).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
+        </div>` : ""}
+
         ${linhas(c.expectativas).length ? `<div class="block">
           <div class="block-label">O que se espera de quem ocupa</div>
           <ul class="lista">${linhas(c.expectativas).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
+        </div>` : ""}
+
+        ${(() => {
+          const cobrancas = cobrancasDoCargo(c.id);
+          if (!cobrancas.length) return "";
+          return `<div class="note note-why">
+            <div class="block-label">Pelo que você é cobrado</div>
+            <ul class="lista">${cobrancas.map(({ indicador: i, processos }) => `
+              <li><strong>${esc(i.nome || "sem nome")}</strong>${i.meta != null ? ` — ${esc(metaEscrita(i))}` : ""}
+              <span class="muted">${esc(FREQUENCIAS[i.frequencia]?.rotulo || "")}${processos.length ? ` · vem de ${processos.map(esc).join(", ")}` : ""}</span></li>`).join("")}</ul>
+          </div>` ;
+        })()}
+
+        ${linhas(c.planoDeCarreira).length ? `<div class="block">
+          <div class="block-label">Para onde esse cargo leva</div>
+          <ul class="lista">${linhas(c.planoDeCarreira).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
         </div>` : ""}
 
         ${linhas(c.conhecimentos).length ? `<div class="block">
@@ -2904,11 +2925,28 @@ function viewCargoEditor() {
         </div>
 
         <div class="field">
+          <label for="c-ativ">O que essa pessoa faz no dia a dia <span class="hint">— uma atividade por linha</span></label>
+          <textarea id="c-ativ" data-c="atividades" placeholder="Atender o WhatsApp comercial&#10;Montar orçamento e enviar&#10;Conferir a agenda de visitas da semana">${esc(c.atividades)}</textarea>
+          ${processosDoCargo(c.id).length ? `<p class="hint" style="margin-top:6px">
+            Os processos mapeados já aparecem sozinhos e não precisam ser repetidos aqui:
+            <strong>${processosDoCargo(c.id).map((p) => esc(p.nome)).join(" · ")}</strong>.
+            Escreva aqui o que ainda não virou processo.
+          </p>` : '<p class="hint" style="margin-top:6px">Quando essas atividades virarem processos mapeados, elas aparecem sozinhas na trilha deste cargo.</p>'}
+        </div>
+
+        <div class="field">
           <label for="c-conh">O que precisa dominar <span class="hint">— um tema por linha</span></label>
           <textarea id="c-conh" data-c="conhecimentos" placeholder="Tipos de extintor e classe de fogo&#10;Regras comerciais&#10;Atendimento no WhatsApp">${esc(c.conhecimentos)}</textarea>
         </div>
 
+        <div class="field">
+          <label for="c-carreira">Plano de carreira <span class="hint">— para onde esse cargo leva</span></label>
+          <textarea id="c-carreira" data-c="planoDeCarreira" placeholder="De onde se entra: sem experiência, com treinamento interno.&#10;Para onde se vai: Vendedor Sênior depois de 12 meses batendo a meta.&#10;O que precisa acontecer antes: dominar orçamento sem revisão e formar um substituto.">${esc(c.planoDeCarreira)}</textarea>
+        </div>
+
       </div>
+
+      ${blocoDeCobranca(c)}
 
       <div class="section-title"><h3>Treinamentos</h3><span class="line"></span><span class="muted">${(c.trilha || []).length}</span></div>
       <p class="hint">Os processos obrigatórios não entram aqui — eles vêm sozinhos do vínculo com o processo.</p>
@@ -2920,6 +2958,46 @@ function viewCargoEditor() {
         <button class="btn" data-novo-treino type="button">${icon("plus")} Novo treinamento</button>
       </div>
     </div>
+  `;
+}
+
+/* "Pelo que serei cobrado" — a pergunta que toda descrição de cargo deveria
+   responder e quase nenhuma responde.
+
+   A lista é quase toda deduzida: os números dos processos que este cargo
+   executa ou dos quais ele é dono. Não há campo para redigitar, de propósito —
+   a cópia digitada é a que fica desatualizada no dia em que a meta muda. Só se
+   liga à mão o indicador que não passa por processo nenhum. */
+function blocoDeCobranca(c) {
+  const cobrancas = cobrancasDoCargo(c.id);
+  const soltos = state.indicadores.filter((i) => !cobrancas.some((x) => x.indicador.id === i.id));
+
+  return `
+    <div class="section-title"><h3>Pelo que é cobrado</h3><span class="line"></span><span class="muted">${cobrancas.length}</span></div>
+    <p class="hint">Vem sozinho dos processos que este cargo executa ou dos quais é dono. Se a meta mudar no processo, muda aqui — não existe segunda cópia para esquecer de atualizar.</p>
+
+    ${cobrancas.length ? `<div class="stack" style="margin-top:12px">
+      ${cobrancas.map(({ indicador: i, direto, processos }) => `
+        <div class="saida-row">
+          <span class="saida-alvo">
+            <strong>${esc(i.nome || "sem nome")}</strong>
+            ${i.meta != null ? `<span class="tag navy">${esc(metaEscrita(i))}</span>` : '<span class="tag amber">sem meta definida</span>'}
+            <span class="muted">${esc(FREQUENCIAS[i.frequencia]?.rotulo || "")}</span>
+            <br>
+            <span class="muted">${direto && !processos.length
+              ? "ligado direto a este cargo"
+              : `pelos processos: ${processos.map(esc).join(", ")}${direto ? " · e ligado direto" : ""}`}</span>
+          </span>
+          ${direto ? `<button class="btn btn-sm btn-ghost" data-tirar-cobranca="${esc(i.id)}" type="button" title="Desligar deste cargo">${icon("trash", 15)}</button>` : ""}
+        </div>`).join("")}
+    </div>` : `<div class="empty" style="margin-top:12px">Ninguém sabe ainda como esse cargo é medido. Isso costuma aparecer sozinho quando os processos dele ganham indicador.</div>`}
+
+    ${soltos.length ? `<div class="field" style="margin-top:12px">
+      <label>Ligar um indicador direto a este cargo <span class="hint">— só o que não chega por processo</span></label>
+      <div class="chips">
+        ${soltos.map((i) => `<button class="chip" data-ligar-cobranca="${esc(i.id)}" type="button" title="${esc(i.pergunta || "")}">${esc(i.nome || "sem nome")}</button>`).join("")}
+      </div>
+    </div>` : ""}
   `;
 }
 
@@ -3003,6 +3081,24 @@ function ligarCargoEditor(raiz) {
       salvar(chave === "setorId");
     });
   });
+
+  /* Ligar e desligar mexem no indicador, não no cargo: o vínculo mora do lado
+     do indicador, como já acontece com o processo. */
+  $$("[data-ligar-cobranca]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const i = indicador(b.dataset.ligarCobranca);
+    if (!i) return;
+    i.cargoIds = [...new Set([...(i.cargoIds || []), c.id])];
+    salvar(true);
+    render();
+  }));
+
+  $$("[data-tirar-cobranca]", raiz).forEach((b) => b.addEventListener("click", () => {
+    const i = indicador(b.dataset.tirarCobranca);
+    if (!i) return;
+    i.cargoIds = (i.cargoIds || []).filter((x) => x !== c.id);
+    salvar(true);
+    render();
+  }));
 
   $$(".step-editor[data-trilha-id]", raiz).forEach((bloco) => {
     const t = c.trilha.find((x) => x.id === bloco.dataset.trilhaId);

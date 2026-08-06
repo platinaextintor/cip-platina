@@ -249,6 +249,11 @@ function normalizar(dados) {
     i.frequencia = FREQUENCIAS[i.frequencia] ? i.frequencia : "mensal";
     i.processoIds = (Array.isArray(i.processoIds) ? i.processoIds : [])
       .filter((id) => (dados.processos || []).some((p) => p.id === id));
+    /* O indicador também pode pendurar direto num cargo. A maioria chega ao
+       cargo pelos processos que ele executa — mas alguns não passam por
+       processo nenhum ("horas de treinamento concluídas") e ficariam de fora. */
+    i.cargoIds = (Array.isArray(i.cargoIds) ? i.cargoIds : [])
+      .filter((id) => (dados.cargos || []).some((c) => c.id === id));
   });
 
   /* A fase saiu do projeto em 03/08/2026. Era uma segunda maneira de agrupar o
@@ -290,6 +295,13 @@ function normalizar(dados) {
     c.missao = c.missao || "";
     c.expectativas = c.expectativas || "";
     c.conhecimentos = c.conhecimentos || "";
+    /* Atividade não é o mesmo que processo. O processo é o trabalho mapeado,
+       com passos e dono; a atividade é a rotina que a pessoa toca e que muitas
+       vezes nunca vai virar processo — "atender o telefone da tarde". A tela
+       mostra os processos derivados ao lado, para ninguém redigitar o que o
+       sistema já sabe. */
+    c.atividades = c.atividades || "";
+    c.planoDeCarreira = c.planoDeCarreira || "";
     c.trilha = Array.isArray(c.trilha) ? c.trilha : [];
   });
 
@@ -891,7 +903,10 @@ function contextoParaIA(st = state) {
     setores: st.setores.map((s) => ({ nome: s.nome, camada: s.camada })),
     cargos: st.cargos.map((c) => ({
       nome: c.nome, setor: nomeSetor(c.setorId), responde_a: nomeCargo(c.reportaA),
-      missao: c.missao || "", treinamentos: (c.trilha || []).length,
+      missao: c.missao || "", atividades: c.atividades || "",
+      plano_de_carreira: c.planoDeCarreira || "",
+      cobrado_por: cobrancasDoCargo(c.id, st).map((x) => x.indicador.nome),
+      treinamentos: (c.trilha || []).length,
     })),
     processos: st.processos.map((p) => ({
       nome: p.nome, setor: nomeSetor(p.setorId), dono: nomeCargo(p.donoCargoId),
@@ -1085,6 +1100,33 @@ const FREQUENCIAS = {
    número costuma medir mais de um processo, e o contrário é raro. */
 function indicadoresDoProcesso(processoId, st = state) {
   return st.indicadores.filter((i) => (i.processoIds || []).includes(processoId));
+}
+
+/* "Pelo que eu vou ser cobrado?" — a pergunta que todo mundo faz ao ler a
+   própria descrição de cargo, e que quase nenhuma descrição responde.
+
+   Quase tudo aqui é deduzido, não digitado: se o cargo executa ou responde por
+   um processo, os números daquele processo já o alcançam. Redigitar essa lista
+   no cadastro do cargo criaria a segunda cópia que fica desatualizada — o dia
+   em que a meta muda no processo, a do cargo continua dizendo o valor velho.
+
+   O que não dá para deduzir é o indicador que não passa por processo nenhum.
+   Esse é pendurado direto no cargo, e vem marcado como tal. */
+function cobrancasDoCargo(cargoId, st = state) {
+  const meus = st.processos.filter((p) => (p.cargosIds || []).includes(cargoId) || p.donoCargoId === cargoId);
+  const porId = new Map();
+
+  meus.forEach((p) => indicadoresDoProcesso(p.id, st).forEach((i) => {
+    if (!porId.has(i.id)) porId.set(i.id, { indicador: i, direto: false, processos: [] });
+    porId.get(i.id).processos.push(p.nome);
+  }));
+
+  st.indicadores.filter((i) => (i.cargoIds || []).includes(cargoId)).forEach((i) => {
+    if (!porId.has(i.id)) porId.set(i.id, { indicador: i, direto: true, processos: [] });
+    else porId.get(i.id).direto = true;
+  });
+
+  return [...porId.values()];
 }
 
 /* Processo vigente sem nenhum número é processo que ninguém sabe se vai bem.

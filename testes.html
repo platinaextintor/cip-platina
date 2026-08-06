@@ -1062,6 +1062,65 @@
         if (alcas.includes("f1")) throw new Error("o fim ganhou alça de saída");
       });
 
+      grupo("Domínio · pelo que o cargo é cobrado");
+
+      const indicadorDeTeste = (extra = {}) => ({
+        id: "i1", nome: "Prazo de resposta", pergunta: "?", unidade: "dias",
+        direcao: "menor", meta: 2, frequencia: "mensal", processoIds: [], cargoIds: [], ...extra,
+      });
+
+      /* O ganho todo: a cobrança do cargo é deduzida dos processos, nunca
+         redigitada. Cópia digitada é a que fica velha no dia em que a meta muda. */
+      teste("o indicador do processo alcança quem executa o processo", () => {
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "P", nome: "Orçamento", cargosIds: ["c-vendedor"] })],
+          indicadores: [indicadorDeTeste({ processoIds: ["P"] })] });
+        const cob = cobrancasDoCargo("c-vendedor");
+        igual(cob.map((x) => x.indicador.nome), ["Prazo de resposta"], "chegou:");
+        igual(cob[0].processos, ["Orçamento"], "e diz de onde vem:");
+      });
+
+      teste("alcança também o dono do processo, não só quem executa", () => {
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "P", nome: "Orçamento", donoCargoId: "c-supervisor", cargosIds: [] })],
+          indicadores: [indicadorDeTeste({ processoIds: ["P"] })] });
+        igual(cobrancasDoCargo("c-supervisor").length, 1);
+      });
+
+      teste("quem não encosta no processo não é cobrado por ele", () => {
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "P", cargosIds: ["c-vendedor"] })],
+          indicadores: [indicadorDeTeste({ processoIds: ["P"] })] });
+        igual(cobrancasDoCargo("c-tecnico"), []);
+      });
+
+      /* "Horas de treinamento" não passa por processo nenhum e ficaria de fora
+         se a dedução fosse o único caminho. */
+      teste("indicador sem processo pode ser pendurado direto no cargo", () => {
+        state = normalizar({ ...semente(), indicadores: [indicadorDeTeste({ cargoIds: ["c-vendedor"] })] });
+        const cob = cobrancasDoCargo("c-vendedor");
+        igual([cob.length, cob[0].direto, cob[0].processos], [1, true, []]);
+      });
+
+      teste("o mesmo indicador por dois caminhos aparece uma vez só", () => {
+        state = normalizar({ ...semente(),
+          processos: [proc({ id: "P", nome: "Orçamento", cargosIds: ["c-vendedor"] })],
+          indicadores: [indicadorDeTeste({ processoIds: ["P"], cargoIds: ["c-vendedor"] })] });
+        const cob = cobrancasDoCargo("c-vendedor");
+        igual([cob.length, cob[0].direto, cob[0].processos], [1, true, ["Orçamento"]]);
+      });
+
+      teste("cargo apagado não deixa vínculo fantasma no indicador", () => {
+        state = normalizar({ ...semente(), indicadores: [indicadorDeTeste({ cargoIds: ["c-vendedor", "fantasma"] })] });
+        igual(state.indicadores[0].cargoIds, ["c-vendedor"]);
+      });
+
+      teste("atividades e plano de carreira nascem vazios, não indefinidos", () => {
+        state = normalizar({ ...semente() });
+        const c = state.cargos[0];
+        igual([c.atividades, c.planoDeCarreira], ["", ""]);
+      });
+
       grupo("Domínio · o que a consultora enxerga");
 
       /* A IA deixou de preencher campo e passou a opinar. Para opinar sobre um
