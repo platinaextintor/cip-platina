@@ -191,6 +191,20 @@ Arrastar só pega o **fundo**. Em cima de uma peça ou da alça, quem manda são
 
 **A casca tem altura definida e um lugar só rola por vez.** `.desenho` tinha `height: calc(100vh - 61px)` — um palpite sobre a altura da topbar. Qualquer faixa de aviso empurrava o desenho para fora da janela e quem passava a rolar era a PÁGINA, não a tela. Com a página rolando, o zoom no cursor não tinha como corrigir a vertical: a compensação simplesmente não era aplicada, e o desvio media exatamente o tamanho dela.
 
+## O menu colado na peça
+
+Pedido do Eric: mais agilidade e liberdade no desenho, com o bpmn.io de referência. O que faz aquela ferramenta parecer fácil **não são os símbolos** — é o menu que aparece ao lado do que você acabou de selecionar. Você encadeia sem ir e voltar à paleta.
+
+Aqui é ainda mais curto que lá, porque a **posição é deduzida**: clicou em "decisão depois", a decisão nasce ligada e o desenho se reorganiza sozinho. No bpmn.io você ainda escolhe onde soltar.
+
+Montar `processo → decisão → fim` custa **três cliques**.
+
+O menu é HTML por cima do SVG, posicionado pela caixa da forma. Do **fim** só sai apagar, porque dele não parte nada. Apagar **reusa o botão do inspetor** em vez de repetir a regra — a limpeza das ligações que chegam na peça já mora lá, e duplicar é onde as duas versões começam a divergir.
+
+**A paleta passou a desenhar os símbolos.** "Decisão" escrito não ensina o que é um losango; o losango ensina. As formas viraram fonte única (`FORMAS`), usada pela legenda, pela paleta e pelo menu — o botão de criar mostra exatamente o que vai aparecer na tela.
+
+**Sem `requestAnimationFrame`.** A primeira versão adiava o posicionamento para o frame seguinte, e o menu não aparecia com a aba em segundo plano — rAF não dispara em página oculta. `getBoundingClientRect` já força o layout na hora; o frame não servia para nada.
+
 ## Setor: um cadastro, duas portas
 
 O setor se cria e se edita de **duas telas**, e não há dois cadastros — há um só:

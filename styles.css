@@ -1229,3 +1229,58 @@ a.btn, .link-btn {
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8.5pt; }
   .tag, .tag-dot { border: .5pt solid #000; background: transparent !important; color: #000 !important; }
 }
+
+/* ---------- paleta de desenho ----------
+
+   O botão mostra a forma que vai aparecer na tela. "Decisão" escrito não ensina
+   o que é um losango; o losango ensina. */
+.desenho-paleta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.paleta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 6px 11px 6px 8px;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.paleta-btn:hover { border-color: var(--navy-2); background: var(--bg); color: var(--ink); }
+.paleta-btn .simbolo { flex: none; color: var(--ink-3); }
+.paleta-btn:hover .simbolo { color: var(--navy-2); }
+.paleta-sep { width: 1px; height: 22px; background: var(--line-2); margin: 0 4px; }
+
+/* ---------- menu colado na peça ----------
+
+   O que faz o bpmn.io parecer fácil: as ações mais prováveis aparecem ao lado
+   do que você acabou de selecionar, em vez de esperarem na paleta. */
+.atalhos {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: 0 4px 14px rgb(15 30 60 / 14%);
+  padding: 3px;
+}
+.atalhos button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.atalhos button:hover { background: var(--bg); color: var(--navy-2); }
+.atalhos button:last-child:hover { color: var(--red); }
+.atalhos .simbolo { display: block; }

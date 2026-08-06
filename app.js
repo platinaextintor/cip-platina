@@ -584,6 +584,46 @@ function navegarComMouse(tela, lerZoom, gravarZoom) {
    sticky, então quem move é o transform: a cada rolagem, a camada dos nomes é
    empurrada para onde a borda esquerda da janela está, em coordenadas do próprio
    desenho. No começo do desenho o deslocamento é zero e elas ficam no lugar. */
+/* O menu que aparece colado na peça selecionada.
+
+   É o que faz uma ferramenta de diagrama parecer fácil: você encadeia sem ir e
+   voltar à paleta, e sem pensar em posição — clicou em "decisão depois", a
+   decisão nasce ligada e o desenho se reorganiza sozinho.
+
+   Fica no HTML por cima do SVG, posicionado pela caixa da forma. Some ao rolar
+   junto porque ele é reposicionado, não redesenhado. */
+function atalhosDaPeca(tela, id, acoes) {
+  $(".atalhos", tela)?.remove();
+  if (!id || !acoes.length) return;
+
+  const forma = $(`[data-bpmn-el="${CSS.escape(id)}"] .bpmn-forma`, tela);
+  if (!forma) return;
+
+  const pad = document.createElement("div");
+  pad.className = "atalhos";
+  pad.innerHTML = acoes.map((a) => `
+    <button type="button" data-atalho="${esc(a.chave)}" title="${esc(a.titulo)}" aria-label="${esc(a.titulo)}">
+      ${a.simbolo}
+    </button>`).join("");
+  tela.appendChild(pad);
+
+  const posicionar = () => {
+    const r = forma.getBoundingClientRect();
+    const base = tela.getBoundingClientRect();
+    pad.style.left = `${r.right - base.left + tela.scrollLeft + 8}px`;
+    pad.style.top = `${r.top - base.top + tela.scrollTop + r.height / 2 - pad.offsetHeight / 2}px`;
+  };
+  posicionar();
+  tela.addEventListener("scroll", posicionar, { passive: true });
+
+  pad.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-atalho]");
+    if (!b) return;
+    e.stopPropagation();
+    acoes.find((x) => x.chave === b.dataset.atalho)?.fazer();
+  });
+}
+
 /* Clicar no nome da raia abre o painel do setor — o MESMO do organograma. É o
    que faz as duas telas conversarem de verdade: não há dois cadastros de setor,
    há um só, alcançável de onde a pessoa estiver olhando.
@@ -897,19 +937,31 @@ function blocoBpmn(modelo, vazio) {
 
 /* A legenda. O usuário não é obrigado a saber BPMN de cor: o desenho precisa
    se explicar sozinho, senão vira um monte de forma sem sentido. */
+/* As formas do BPMN, desenhadas uma vez. Servem a legenda E a paleta — antes a
+   paleta tinha só texto, e "Decisão" escrito não ensina o que é um losango.
+   Fonte única: o botão de criar mostra exatamente o que vai aparecer na tela. */
+const FORMAS = {
+  inicio: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Início", ajuda: "Onde o processo começa" },
+  fim: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="3.4"/>', nome: "Fim", ajuda: "Um desfecho. Vale nomear: nem todo fim é sucesso" },
+  tarefa: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Etapa", ajuda: "Alguém faz alguma coisa" },
+  subprocesso: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13 14v5M10.5 16.5h5" stroke="currentColor" stroke-width="1.3"/>', nome: "Processo", ajuda: "O + do canto abre o subprocesso dele" },
+  evidencia: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M17 3h6l2 5h-8z" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Evidência", ajuda: "Produz prova: foto, assinatura, comprovante" },
+  aprovacao: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 13l3 3 6-6" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Aprovação", ajuda: "Alguém precisa autorizar para seguir" },
+  exclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 9.5l7 7M16.5 9.5l-7 7" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — ou um, ou outro", ajuda: "Só um caminho segue" },
+  inclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — pode ser os dois", ajuda: "Mais de um caminho segue junto" },
+  dado: { forma: '<path d="M6 3h9l4 4v16H6z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Objeto de dados", ajuda: "O que a etapa produz e fica guardado" },
+  fluxo: { forma: '<path d="M2 13h18" stroke="currentColor" stroke-width="1.6"/><path d="M18 9l5 4-5 4z" fill="currentColor"/>', nome: "Sequência", ajuda: "O que vem depois. Clique na seta para desfazer" },
+};
+
+/* O símbolo em tamanho de botão. */
+function simbolo(chave, tamanho = 22) {
+  const f = FORMAS[chave];
+  if (!f) return "";
+  return `<svg viewBox="0 0 26 26" width="${tamanho}" height="${tamanho}" aria-hidden="true" class="simbolo">${f.forma}</svg>`;
+}
+
 function legenda(quais) {
-  const catalogo = {
-    inicio: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Início", ajuda: "Onde o processo começa" },
-    fim: { forma: '<circle cx="13" cy="13" r="9" fill="none" stroke="currentColor" stroke-width="3.4"/>', nome: "Fim", ajuda: "Um desfecho. Vale nomear: nem todo fim é sucesso" },
-    tarefa: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Etapa", ajuda: "Alguém faz alguma coisa" },
-    subprocesso: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13 14v5M10.5 16.5h5" stroke="currentColor" stroke-width="1.3"/>', nome: "Processo", ajuda: "O + do canto abre o subprocesso dele" },
-    evidencia: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M17 3h6l2 5h-8z" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Evidência", ajuda: "Produz prova: foto, assinatura, comprovante" },
-    aprovacao: { forma: '<rect x="2" y="5" width="22" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 13l3 3 6-6" fill="none" stroke="currentColor" stroke-width="1.6"/>', nome: "Aprovação", ajuda: "Alguém precisa autorizar para seguir" },
-    exclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 9.5l7 7M16.5 9.5l-7 7" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — ou um, ou outro", ajuda: "Só um caminho segue" },
-    inclusivo: { forma: '<path d="M13 3l10 10-10 10L3 13z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.4"/>', nome: "Decisão — pode ser os dois", ajuda: "Mais de um caminho segue junto" },
-    dado: { forma: '<path d="M6 3h9l4 4v16H6z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.2"/>', nome: "Objeto de dados", ajuda: "O que a etapa produz e fica guardado" },
-    fluxo: { forma: '<path d="M2 13h18" stroke="currentColor" stroke-width="1.6"/><path d="M18 9l5 4-5 4z" fill="currentColor"/>', nome: "Sequência", ajuda: "O que vem depois. Clique na seta para desfazer" },
-  };
+  const catalogo = FORMAS;
 
   return `
     <details class="legenda"${ui.legendaAberta ? " open" : ""}>
@@ -942,11 +994,12 @@ function viewMacro() {
         <button class="btn btn-sm btn-ghost" data-go="fluxo" type="button">${icon("back", 15)} Voltar</button>
         <strong class="desenho-nome">Macro · ${esc(state.empresa?.nome || "Empresa")}</strong>
 
-        <div class="chips desenho-paleta">
-          <button class="chip" data-add-macro="processo" type="button" title="Novo processo${sel ? " ligado ao selecionado" : ""}">${icon("plus", 13)} Processo</button>
-          <button class="chip" data-add-macro="decisao" type="button" title="Nova decisão${sel ? " ligada ao selecionado" : ""}">${icon("plus", 13)} Decisão</button>
-          <button class="chip" data-add-macro="fim" type="button" title="Um desfecho nomeado">${icon("plus", 13)} Fim</button>
-          <button class="chip" data-nova-raia type="button" title="O mesmo setor do organograma — aqui ele vira uma raia">${icon("plus", 13)} Setor</button>
+        <div class="desenho-paleta">
+          <button class="paleta-btn" data-add-macro="processo" type="button" title="Processo${sel ? " — nasce ligado ao selecionado" : ""}">${simbolo("subprocesso")}<span>Processo</span></button>
+          <button class="paleta-btn" data-add-macro="decisao" type="button" title="Decisão${sel ? " — nasce ligada ao selecionado" : ""}">${simbolo("exclusivo")}<span>Decisão</span></button>
+          <button class="paleta-btn" data-add-macro="fim" type="button" title="Um desfecho nomeado">${simbolo("fim")}<span>Fim</span></button>
+          <span class="paleta-sep"></span>
+          <button class="paleta-btn" data-nova-raia type="button" title="O mesmo setor do organograma — aqui ele vira uma raia">${icon("plus", 16)}<span>Setor</span></button>
         </div>
 
 
@@ -982,7 +1035,8 @@ function viewMacro() {
             </div>
             <div class="note note-why" style="margin-top:12px">
               <div class="block-label">Como se desenha aqui</div>
-              <p><strong>Ligar:</strong> passe o mouse numa peça e arraste a bolinha da borda até outra.<br>
+              <p><strong>Encadear:</strong> selecione uma peça e use o menu que aparece ao lado dela — a próxima nasce ligada.<br>
+                 <strong>Ligar duas que já existem:</strong> passe o mouse numa peça e arraste a bolinha da borda até outra.<br>
                  <strong>Renomear:</strong> duplo clique na peça, escreva, Enter.<br>
                  <strong>Mover de raia:</strong> arraste a peça pelo corpo.<br>
                  <strong>Entrar no processo:</strong> clique no <strong>+</strong> do canto de baixo.<br>
@@ -1206,7 +1260,25 @@ function saidasDoNo(n) {
 function ligarMacro(raiz) {
   const sel = ui.macroSel ? noMacro(ui.macroSel) : null;
 
-  $$("[data-add-macro]", raiz).forEach((b) => b.addEventListener("click", () => {
+  $$("[data-add-macro]", raiz).forEach((b) => b.addEventListener("click", () => criarNoMacro(b.dataset.addMacro)));
+
+  const atalhosDoMacro = (tela, id) => {
+    /* Do fim não sai nada, então ele só ganha o apagar. */
+    const acoes = ehFim(id) ? [] : [
+      { chave: "processo", titulo: "Processo depois", simbolo: simbolo("subprocesso", 17), fazer: () => criarNoMacro("processo") },
+      { chave: "decisao", titulo: "Decisão depois", simbolo: simbolo("exclusivo", 17), fazer: () => criarNoMacro("decisao") },
+      { chave: "fim", titulo: "Fim depois", simbolo: simbolo("fim", 17), fazer: () => criarNoMacro("fim") },
+    ];
+    /* Apagar reusa o botão do inspetor em vez de repetir a regra: a limpeza das
+       ligações que chegam na peça já mora lá, e duplicar é onde as duas versões
+       começam a divergir. */
+    acoes.push({ chave: "apagar", titulo: "Apagar", simbolo: icon("trash", 15),
+                 fazer: () => $("[data-remover-macro]")?.click() });
+    atalhosDaPeca(tela, id, acoes);
+  };
+
+  const criarNoMacro = (tipo) => {
+    const b = { dataset: { addMacro: tipo } };
     /* O de apoio nasce solto de propósito: nem herda o contexto do selecionado,
        nem ganha ligação. É o que o mantém na faixa de baixo. */
     const apoio = b.dataset.addMacro === "apoio";
@@ -1238,7 +1310,7 @@ function ligarMacro(raiz) {
     salvar(true);
     render();
     $("[data-m]")?.focus();
-  }));
+  };
 
   $$("[data-sustenta]", raiz).forEach((b) => b.addEventListener("click", () => {
     ui.macroSel = b.dataset.sustenta;
@@ -1269,6 +1341,16 @@ function ligarMacro(raiz) {
   if (tela) {
     prenderNomesDeRaia(tela);
     ligarNomesDeRaia(tela);
+    /* Sem requestAnimationFrame: ele não dispara com a aba em segundo plano, e
+       o menu ficava sem aparecer até a pessoa voltar. Posicionar já lê
+       getBoundingClientRect, que força o layout na hora — o frame não era
+       necessário para nada.
+
+       A chamada mora DENTRO do bloco onde `tela` existe. Foi a terceira vez
+       neste projeto que um `const` usado antes da declaração derrubou um
+       arquivo inteiro, e o erro é silencioso: tudo que vem depois da linha
+       simplesmente não é ligado. */
+    if (ui.macroSel) atalhosDoMacro(tela, ui.macroSel);
     navegarComMouse(tela, () => ui.zoomMacro || 1, (z) => { ui.zoomMacro = z; });
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl || null;
     let origem = null;
@@ -1397,6 +1479,7 @@ function ligarMacro(raiz) {
         return render();
       }
       ui.macroSel = id;
+      atalhosDoMacro(tela, id);
       trocarSelecao(tela, id, () => {
         const no = noMacro(id);
         if (!no) return "";
@@ -1502,11 +1585,14 @@ function viewDesenho() {
         <button class="btn btn-sm btn-ghost" data-editar="${p.id}" type="button">${icon("back", 15)} Voltar ao processo</button>
         <strong class="desenho-nome">Subprocesso · ${esc(p.nome)}</strong>
 
-        <div class="chips desenho-paleta">
-          ${Object.entries(TIPOS).map(([chave, t]) => `
-            <button class="chip" data-add-passo="${chave}" type="button" title="Adicionar ${t.rotulo.toLowerCase()}${sel ? " depois do selecionado" : " no fim"}">
-              ${icon(chave === "decisao" ? "decisao" : chave === "evidencia" ? "evidencia" : chave === "aprovacao" ? "aprovacao" : "etapa", 14)} ${t.rotulo}
-            </button>`).join("")}
+        <div class="desenho-paleta">
+          ${Object.entries(TIPOS).map(([chave, t]) => {
+            const forma = chave === "decisao" ? "exclusivo" : chave === "evidencia" ? "evidencia" : chave === "aprovacao" ? "aprovacao" : "tarefa";
+            return `
+            <button class="paleta-btn" data-add-passo="${chave}" type="button" title="${esc(t.rotulo)}${sel ? " — depois do selecionado" : " — no fim"}">
+              ${simbolo(forma)}<span>${esc(t.rotulo)}</span>
+            </button>`;
+          }).join("")}
         </div>
 
         <div class="desenho-zoom">
@@ -1538,7 +1624,8 @@ function viewDesenho() {
             </div>
             <div class="note note-why" style="margin-top:12px">
               <div class="block-label">Os gestos</div>
-              <p><strong>Ligar:</strong> arraste a bolinha da borda de uma forma até outra.<br>
+              <p><strong>Encadear:</strong> selecione um passo e use o menu ao lado dele.<br>
+                 <strong>Ligar duas que já existem:</strong> arraste a bolinha da borda de uma forma até outra.<br>
                  <strong>Renomear:</strong> duplo clique na forma, escreva, Enter.<br>
                  <strong>Reordenar:</strong> arraste a forma sobre outra.<br>
                  <strong>Apagar:</strong> selecione e tecle Delete.<br>
@@ -1665,8 +1752,22 @@ function ligarDesenho(raiz) {
   if (!p) return;
 
   /* --- paleta: cada forma adicionada é um passo novo --- */
-  $$("[data-add-passo]", raiz).forEach((b) => b.addEventListener("click", () => {
-    const passo = novoPasso(b.dataset.addPasso);
+  $$("[data-add-passo]", raiz).forEach((b) => b.addEventListener("click", () => criarPasso(b.dataset.addPasso)));
+
+  const atalhosDoPasso = (tela, id) => {
+    const acoes = Object.entries(TIPOS).map(([chave, t]) => ({
+      chave,
+      titulo: `${t.rotulo} depois`,
+      simbolo: simbolo(chave === "decisao" ? "exclusivo" : chave === "evidencia" ? "evidencia" : chave === "aprovacao" ? "aprovacao" : "tarefa", 17),
+      fazer: () => criarPasso(chave),
+    }));
+    acoes.push({ chave: "apagar", titulo: "Apagar", simbolo: icon("trash", 15),
+                 fazer: () => $("[data-remover-desenho]")?.click() });
+    atalhosDaPeca(tela, id, acoes);
+  };
+
+  const criarPasso = (tipo) => {
+    const passo = novoPasso(tipo);
     const atual = p.passos.findIndex((s) => s.id === ui.elSel);
     if (atual >= 0) {
       /* Nasce ligado ao selecionado e herda para onde ele apontava: inserir no
@@ -1682,7 +1783,7 @@ function ligarDesenho(raiz) {
     salvar(true);
     render();
     $('[data-d-passo="oQue"]')?.focus();
-  }));
+  };
 
   /* --- zoom --- */
   $$("[data-zoom]", raiz).forEach((b) => b.addEventListener("click", () => {
@@ -1704,6 +1805,7 @@ function ligarDesenho(raiz) {
   if (tela) {
     prenderNomesDeRaia(tela);
     ligarNomesDeRaia(tela);
+    if (ui.elSel) atalhosDoPasso(tela, ui.elSel);
     navegarComMouse(tela, () => ui.zoom || 1, (z) => { ui.zoom = z; });
     const idDe = (alvo) => alvo?.closest("[data-bpmn-el]")?.dataset.bpmnEl.split("::")[0] || null;
     const sobOPonteiro = (e) => idDe(document.elementFromPoint(e.clientX, e.clientY));
@@ -1820,6 +1922,7 @@ function ligarDesenho(raiz) {
       const id = idDe(e.target);
       if (!id) return;
       ui.elSel = id;
+      atalhosDoPasso(tela, id);
       trocarSelecao(tela, id, () => {
         const s = p.passos.find((x) => x.id === id);
         return s ? inspetorDesenho(p, s, p.passos.indexOf(s)) : "";
