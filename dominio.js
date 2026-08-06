@@ -101,7 +101,6 @@ function estadoVazio() {
     fins: [],
     documentos: [],
     sistemas: [],
-    regras: [],
     indicadores: [],
     processos: [],
   };
@@ -148,7 +147,7 @@ function normalizarSaidas(bruto) {
 const ID_SEGURO = /^[A-Za-z0-9_:.-]{1,120}$/;
 
 function sanearIds(dados) {
-  const listas = ["setores", "cargos", "processos", "decisoes", "fins", "documentos", "sistemas", "regras", "indicadores"];
+  const listas = ["setores", "cargos", "processos", "decisoes", "fins", "documentos", "sistemas", "indicadores"];
   const trocas = new Map();
 
   const registrar = (obj) => {
@@ -217,45 +216,23 @@ function normalizar(dados) {
     s.critico = !!s.critico;
   });
 
-  /* A regra de negócio deixa de ser texto dentro do passo e vira objeto.
-     Motivo prático: "pedido acima de 10 mil pode ser faturado em 30/60/90/120"
-     não é regra de um processo — vale no Comercial ao orçar, no Financeiro ao
-     aprovar e no Faturamento ao emitir. Como texto, era a mesma frase digitada
-     três vezes, e mudar o valor exigia lembrar dos três lugares. */
-  dados.regras = Array.isArray(dados.regras) ? dados.regras : [];
-  dados.regras.forEach((r) => {
-    r.titulo = r.titulo || "";
-    r.texto = r.texto || "";
-    r.codigo = r.codigo || "";
-    r.vigenteDesde = r.vigenteDesde || "";
-  });
+  /* A regra de negócio saiu do sistema. Ela chegou a ser objeto próprio, com
+     código RN-000 e catálogo na Biblioteca, e a intenção era boa: "pedido acima
+     de 10 mil pode ser faturado em 30/60/90/120" vale no Comercial ao orçar e no
+     Financeiro ao aprovar, então não pertence a um processo só.
 
-  /* Base antiga: cada texto distinto vira uma regra, e o passo passa a apontar
-     para ela. Textos iguais viram UMA regra só — que é justamente o ganho. */
-  const regraPorTexto = new Map(dados.regras.map((r) => [r.texto.trim(), r]));
+     O que derrubou não foi a ideia, foi a duplicidade na cabeça de quem usa:
+     norma, política e contrato já moram em Documento, e quem procura "a regra
+     do faturamento" não sabe qual das duas gavetas abrir. Uma gaveta só erra
+     menos que duas gavetas certas. Regra que precisa ser escrita vira Documento
+     do tipo política ou norma, ligado ao processo.
+
+     Base antiga perde os vestígios aqui, e não em cada tela. */
+  delete dados.regras;
   (dados.processos || []).forEach((p) => (p.passos || []).forEach((s) => {
-    const texto = typeof s.regra === "string" ? s.regra.trim() : "";
-    if (!texto) return;
-    let regra = regraPorTexto.get(texto);
-    if (!regra) {
-      regra = { id: uid("r"), codigo: "", titulo: primeiraLinha(texto), texto, vigenteDesde: "" };
-      dados.regras.push(regra);
-      regraPorTexto.set(texto, regra);
-    }
-    s.regraIds = [...new Set([...(Array.isArray(s.regraIds) ? s.regraIds : []), regra.id])];
+    delete s.regraIds;
     delete s.regra;
   }));
-
-  /* O código é sequencial e estável: quem já tem, mantém. RN-004 continua
-     RN-004 mesmo que a RN-002 seja apagada — código que se remexe deixa de
-     servir para conversar. */
-  let proximo = dados.regras.reduce((maior, r) => {
-    const n = Number(String(r.codigo).replace(/\D/g, ""));
-    return Number.isFinite(n) && n > maior ? n : maior;
-  }, 0);
-  dados.regras.forEach((r) => {
-    if (!r.codigo) r.codigo = `RN-${String(++proximo).padStart(3, "0")}`;
-  });
 
   /* O indicador fecha a ponte com o Bloco 9: sem número definido na modelagem,
      a Inteligência não tem o que medir. Mora fora do processo pelo mesmo motivo
@@ -400,7 +377,7 @@ function normalizar(dados) {
         const ramo = (texto, rotulo) => {
           const novo = {
             id: uid("ps"), tipo: "etapa", cargoId: s.cargoId, sistemaIds: [],
-            oQue: texto, comoFazer: "", porque: "", armadilha: "", regra: "",
+            oQue: texto, comoFazer: "", porque: "", armadilha: "",
             imagem: "", videoUrl: "", seSim: "", seNao: "",
             proximos: depois ? [{ para: depois, rotulo: "" }] : [],
           };
@@ -431,8 +408,6 @@ function normalizar(dados) {
       /* Sistema que sobrou de um apagado vira lixo silencioso. */
       s.sistemaIds = (Array.isArray(s.sistemaIds) ? s.sistemaIds : [])
         .filter((id) => dados.sistemas.some((x) => x.id === id));
-      s.regraIds = (Array.isArray(s.regraIds) ? s.regraIds : [])
-        .filter((id) => dados.regras.some((x) => x.id === id));
     });
   });
 
@@ -479,14 +454,14 @@ function processosDoCargo(cargoId) {
 
 /* A assinatura do que foi aprovado. Não é criptografia — é só o suficiente para
    perceber que o conteúdo mudou depois do carimbo. Cobre o que a aprovação
-   realmente aprova: o que se faz, em que ordem, sob que regra e por quem. */
+   realmente aprova: o que se faz, em que ordem, em que sistema e por quem. */
 function assinaturaDoProcesso(p) {
   const partes = [
     p.nome, p.porque, p.entrada, p.saida, p.donoCargoId,
     (p.cargosIds || []).join(","),
     ...(p.passos || []).map((s) => [
       s.tipo, s.oQue, s.comoFazer, s.porque, s.armadilha,
-      (s.regraIds || []).join("+"), (s.sistemaIds || []).join("+"), s.cargoId,
+      (s.sistemaIds || []).join("+"), s.cargoId,
       (s.proximos || []).map((x) => `${x.para}:${x.rotulo}`).join(">"),
     ].join("|")),
   ].join("~");
@@ -880,13 +855,11 @@ function novoPasso(tipo) {
     tipo,
     cargoId: "",
     sistemaIds: [],
-    regraIds: [],
     setorId: "",
     oQue: "",
     comoFazer: "",
     porque: "",
     armadilha: "",
-    regra: "",
     imagem: "",
     videoUrl: "",
     seSim: "",
@@ -931,7 +904,7 @@ function aplicarNoEstado(m) {
   }
   const [prefixo, ...resto] = m.peca.split(":");
   const id = resto.join(":");
-  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas", r: "regras", ind: "indicadores" }[prefixo];
+  const lista = { p: "processos", d: "decisoes", doc: "documentos", sis: "sistemas", ind: "indicadores" }[prefixo];
   if (!lista) return;
   const i = state[lista].findIndex((x) => x.id === id);
 
@@ -953,7 +926,6 @@ const cargo = (id) => state.cargos.find((c) => c.id === id);
 const processo = (id) => state.processos.find((p) => p.id === id);
 
 const sistema = (id) => state.sistemas.find((s) => s.id === id);
-const regra = (id) => state.regras.find((r) => r.id === id);
 const indicador = (id) => state.indicadores.find((i) => i.id === id);
 const documento = (id) => state.documentos.find((d) => d.id === id);
 
@@ -1112,51 +1084,6 @@ function metaEscrita(i) {
   const sufixo = DIRECOES[i.unidade]?.sufixo ?? "";
   const valor = i.unidade === "reais" ? `R$ ${i.meta}` : `${i.meta}${sufixo}`;
   return `${i.direcao === "maior" ? "no mínimo" : "no máximo"} ${valor}`;
-}
-
-/* Título quando a regra nasce de texto solto: a primeira linha costuma ser a
-   frase que resume. Cortada, porque título de lista não é parágrafo. */
-function primeiraLinha(texto, limite = 60) {
-  const linha = String(texto || "").split("\n")[0].trim();
-  return linha.length > limite ? `${linha.slice(0, limite - 1)}…` : linha;
-}
-
-/* A regra é objeto pela mesma razão que o sistema: ela vale em vários processos
-   ao mesmo tempo. "Pedido acima de 10 mil pode ser faturado em 30/60/90/120"
-   encosta no Comercial, no Financeiro e no Faturamento — escrita três vezes,
-   muda em três lugares e um dia fica diferente nos três. */
-
-/* Quais regras um processo aplica. Derivado dos passos, nunca guardado. */
-function regrasDoProcesso(p) {
-  const ids = [];
-  (p?.passos || []).forEach((s) => (s.regraIds || []).forEach((id) => {
-    if (!ids.includes(id)) ids.push(id);
-  }));
-  return ids.map(regra).filter(Boolean);
-}
-
-/* A pergunta que justifica ter feito isso: mudou a regra, quem é afetado?
-   Devolve os processos e os passos exatos que a aplicam. */
-function ondeApareceARegra(regraId, st = state) {
-  return st.processos
-    .map((p) => ({
-      processo: p,
-      passos: (p.passos || []).filter((s) => (s.regraIds || []).includes(regraId)),
-    }))
-    .filter((x) => x.passos.length);
-}
-
-/* Regra que ninguém aplica é regra que não existe na prática — ou o mapeamento
-   está incompleto. Nos dois casos, é para olhar. */
-function regrasOrfas(st = state) {
-  return st.regras.filter((r) => !ondeApareceARegra(r.id, st).length);
-}
-
-/* Quantos setores diferentes dependem da mesma regra. É o número que mostra
-   por que ela não podia morar dentro de um processo só. */
-function setoresQueDependemDaRegra(regraId, st = state) {
-  const ids = new Set(ondeApareceARegra(regraId, st).map((x) => x.processo.setorId).filter(Boolean));
-  return [...ids].map((id) => st.setores.find((s) => s.id === id)).filter(Boolean);
 }
 
 /* Os documentos que um processo usa. Referência, não cópia. */
@@ -1390,9 +1317,9 @@ function estadoComBpmn(xml, st = state) {
 
    Achar isso exigia abrir peça por peça. A lista abaixo é a resposta: uma
    função que percorre o modelo e devolve o que falta, com o caminho para
-   consertar. Não inventa regra nova — junta as que já existiam espalhadas
-   (elo fraco, regra órfã, sistema sem uso, processo sem indicador) e completa
-   as que faltavam.
+   consertar. Não inventa cobrança nova — junta as que já existiam espalhadas
+   (elo fraco, sistema sem uso, processo sem indicador) e completa as que
+   faltavam.
 
    `peso` ordena por consequência, não por gosto:
    1 quebra o fluxo · 2 impede responsabilizar · 3 deixa o processo oco · 4 sobra solta */
@@ -1430,12 +1357,6 @@ function pendencias(st = state) {
     if (!processos.length) põe(2, "cargo", c.nome, "não aparece em nenhum processo — a trilha dele nasce vazia", abre);
     else if (!c.missao?.trim()) põe(3, "cargo", c.nome, "sem missão escrita", abre);
     else if (!(c.trilha || []).length) põe(4, "cargo", c.nome, "sem nenhum treinamento na trilha", abre);
-  });
-
-  st.regras.forEach((r) => {
-    if (!ondeApareceARegra(r.id, st).length) {
-      põe(4, "regra", `${r.codigo} · ${r.titulo || "sem título"}`, "nenhum passo aplica esta regra", { view: "regraEditor", extras: { regraId: r.id } });
-    }
   });
 
   st.sistemas.forEach((s) => {

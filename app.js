@@ -317,7 +317,7 @@ function render() {
   const grupo = {
     organograma: "organograma", trilha: "organograma", cargoEditor: "organograma",
     fluxo: "fluxo", aula: "fluxo", editor: "fluxo", desenho: "fluxo", macro: "fluxo",
-    biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca", regraEditor: "biblioteca",
+    biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca",
     pendencias: "pendencias",
   }[ui.view];
   $$(".tab").forEach((b) => b.classList.toggle("is-active", b.dataset.go === grupo));
@@ -332,7 +332,6 @@ function render() {
     biblioteca: viewBiblioteca,
     docEditor: viewDocEditor,
     sistemaEditor: viewSistemaEditor,
-    regraEditor: viewRegraEditor,
     desenho: viewDesenho,
     macro: viewMacro,
     pendencias: viewPendencias,
@@ -346,7 +345,6 @@ function render() {
   if (ui.view === "cargoEditor") ligarCargoEditor(main);
   if (ui.view === "docEditor") ligarDocEditor(main);
   if (ui.view === "sistemaEditor") ligarSistemaEditor(main);
-  if (ui.view === "regraEditor") ligarRegraEditor(main);
   if (ui.view === "desenho") ligarDesenho(main);
   if (ui.view === "macro") ligarMacro(main);
   if (ui.view === "pendencias") ligarPendencias(main);
@@ -714,7 +712,7 @@ function viewPendencias() {
 
       ${!tudo.length ? `<div class="note note-why" style="margin-top:20px">
         <div class="block-label">Nada a apontar</div>
-        <p>Todo processo tem dono, executor, entrada, saída e passos; toda regra e todo sistema estão em uso. É o estado em que a IA e os indicadores passam a ter em que se apoiar.</p>
+        <p>Todo processo tem dono, executor, entrada, saída e passos; todo documento e todo sistema estão em uso. É o estado em que a IA e os indicadores passam a ter em que se apoiar.</p>
       </div>` : ""}
     </div>
   `;
@@ -1696,7 +1694,7 @@ function inspetorDesenho(p, s, indice) {
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-sm" data-ia-desenho type="button">${icon("ia", 15)} IA completar este passo</button>
     </div>
-    <p class="hint" style="margin-top:6px">Preenche o que estiver vazio — inclusive o porquê, a armadilha e a regra, que ficam no editor.</p>
+    <p class="hint" style="margin-top:6px">Preenche o que estiver vazio — inclusive o porquê e a armadilha, que ficam no editor.</p>
 
     <div class="btn-row" style="margin-top:18px">
       ${indice > 0 ? '<button class="btn btn-sm" data-mover-desenho="-1" type="button">← Antes</button>' : ""}
@@ -1704,7 +1702,7 @@ function inspetorDesenho(p, s, indice) {
       <button class="btn btn-sm btn-danger" data-remover-desenho type="button">${icon("trash", 15)} Remover</button>
     </div>
 
-    <p class="hint" style="margin-top:18px">Por quê, armadilha, regra, foto e vídeo continuam no editor do processo — aqui fica o esqueleto do fluxo.</p>
+    <p class="hint" style="margin-top:18px">Por quê, armadilha, foto e vídeo continuam no editor do processo — aqui fica o esqueleto do fluxo.</p>
   `;
 }
 
@@ -1715,13 +1713,13 @@ async function completarPassoComIA(botao, p, s) {
     return false;
   }
   const entrada = `${textoDoProcesso(p)}\n\n---\n\nO passo a completar:\n${JSON.stringify(
-    { tipo: s.tipo, oQue: s.oQue, comoFazer: s.comoFazer, porque: s.porque, armadilha: s.armadilha, regra: s.regra, seSim: s.seSim, seNao: s.seNao },
+    { tipo: s.tipo, oQue: s.oQue, comoFazer: s.comoFazer, porque: s.porque, armadilha: s.armadilha, seSim: s.seSim, seNao: s.seNao },
     null, 2,
   )}`;
   const sugestao = await comEspera(botao, () => chamarIA("passo", entrada, contextoBase()));
   if (!sugestao) return false;
   if (sugestao.cargoId && !s.cargoId && cargo(sugestao.cargoId)) s.cargoId = sugestao.cargoId;
-  preencherVazios(s, sugestao, ["comoFazer", "porque", "armadilha", "regra", "seSim", "seNao"]);
+  preencherVazios(s, sugestao, ["comoFazer", "porque", "armadilha", "seSim", "seNao"]);
   p.revisado = false;
   salvar(true);
   return true;
@@ -2162,15 +2160,6 @@ function telaPasso(p, s, i, totalPassos) {
         }).join("")}
       </div>` : ""}
 
-      ${(s.regraIds || []).length ? `<div class="note note-rule" style="margin-top:14px">
-        <div class="block-label">A regra</div>
-        ${s.regraIds.map((id) => {
-          const r = regra(id);
-          if (!r) return "";
-          return `<p><strong>${esc(r.codigo)}</strong> ${esc(r.texto)}${r.vigenteDesde ? ` <span class="hint">— vale desde ${esc(dataCurta(r.vigenteDesde))}</span>` : ""}</p>`;
-        }).join("")}
-      </div>` : ""}
-
       ${s.imagem
         ? `<div class="shot"><img src="${esc(s.imagem)}" alt="Exemplo real do passo ${i}"></div>`
         : (s.videoUrl?.trim() ? "" : '<div class="shot"><div class="shot-empty">Sem exemplo ainda. Um print, foto ou vídeo real aqui é o que faz esse passo grudar.</div></div>')}
@@ -2190,11 +2179,6 @@ function telaPasso(p, s, i, totalPassos) {
       ${s.armadilha?.trim() ? `<div class="note note-trap">
         <div class="block-label">Onde todo mundo erra</div>
         <p>${esc(s.armadilha)}</p>
-      </div>` : ""}
-
-      ${s.regra?.trim() ? `<div class="note note-rule">
-        <div class="block-label">A regra</div>
-        <p>${esc(s.regra)}</p>
       </div>` : ""}
     </div>
   `;
@@ -2340,18 +2324,13 @@ function viewEditor() {
       </div>
 
       ${(() => {
-        const regras = regrasDoProcesso(p);
         const sistemas = sistemasDoProcesso(p);
         const avisar = quemAvisar(p);
-        if (!regras.length && !sistemas.length && !avisar.length) return "";
+        if (!sistemas.length && !avisar.length) return "";
         return `
           <div class="section-title"><h3>Do que este processo depende</h3><span class="line"></span></div>
           <p class="hint">Nada aqui se digita: sai dos passos e do RACI. Serve para responder, sem abrir passo por passo, o que quebra se algo mudar.</p>
           <div class="stack" style="margin-top:12px">
-            ${regras.length ? `<div class="note note-rule">
-              <div class="block-label">Regras que valem aqui</div>
-              <div class="btn-row">${regras.map((r) => `<button class="btn btn-sm link-btn" data-regra="${esc(r.id)}" type="button">${esc(r.codigo)} · ${esc(r.titulo || "sem título")}</button>`).join("")}</div>
-            </div>` : ""}
             ${sistemas.length ? `<div class="note note-why">
               <div class="block-label">Sistemas usados</div>
               <div class="btn-row">${sistemas.map((s) => `<button class="btn btn-sm link-btn" data-sistema="${esc(s.id)}" type="button">${esc(s.nome)}${s.critico ? " (crítico)" : ""}</button>`).join("")}</div>
@@ -2575,18 +2554,6 @@ function editorPasso(s, i, total) {
         <div class="field">
           <label>Onde todo mundo erra</label>
           <textarea data-s="armadilha" placeholder="O erro que você já viu acontecer. Seja específico.">${esc(s.armadilha)}</textarea>
-        </div>
-        <div class="field">
-          <label>Regras que valem aqui <span class="hint">— catalogadas, não digitadas</span></label>
-          ${state.regras.length ? `<div class="chips">
-            ${state.regras.map((r) => `
-              <button class="chip${(s.regraIds || []).includes(r.id) ? " on" : ""}" data-regra-passo="${r.id}" type="button" title="${esc(r.texto)}">${esc(r.codigo)} · ${esc(r.titulo || "sem título")}</button>
-            `).join("")}
-          </div>` : ""}
-          <div class="btn-row" style="margin-top:8px">
-            <button class="btn btn-sm" data-nova-regra-aqui type="button">${icon("plus", 14)} Nova regra</button>
-            <span class="hint">A mesma regra vale em vários processos — por isso ela mora na Biblioteca, não aqui dentro.</span>
-          </div>
         </div>
       </div>
     </div>
@@ -2966,40 +2933,14 @@ function viewBiblioteca() {
       <div class="page-head head-row">
         <div>
           <span class="eyebrow">Biblioteca</span>
-          <h1>RH, regras e políticas</h1>
+          <h1>Documentos e sistemas</h1>
           <p>Regimento interno, política comercial, manuais. O que vale para a empresa inteira e não cabe dentro de um processo específico.</p>
         </div>
         <div class="btn-row">
           <button class="btn" data-novo-doc type="button">${icon("plus")} Novo documento</button>
           <button class="btn" data-novo-sistema type="button">${icon("plus")} Novo sistema</button>
-          <button class="btn" data-nova-regra type="button">${icon("plus")} Nova regra</button>
         </div>
       </div>
-
-      <div class="section-title"><h3>Regras de negócio</h3><span class="line"></span><span class="muted">${state.regras.length}</span></div>
-      <p class="hint">A regra vale na empresa, não dentro de um processo. Catalogada aqui, ela muda num lugar só — e o CIP responde quem é afetado.</p>
-
-      ${regrasOrfas().length ? `<div class="filter-bar aviso" style="margin:12px 0">
-        ${icon("link", 15)} <strong>${regrasOrfas().length} regra${regrasOrfas().length === 1 ? "" : "s"} que nenhum passo aplica.</strong>
-        ${esc(regrasOrfas().map((r) => r.codigo).join(", "))} — ou não vale mais, ou falta marcar onde ela pega.
-      </div>` : ""}
-
-      ${state.regras.length ? `<div class="doc-grid" style="margin-bottom:26px">
-        ${state.regras.map((r) => {
-          const onde = ondeApareceARegra(r.id);
-          const setores = setoresQueDependemDaRegra(r.id);
-          return `
-            <button class="doc-card" data-regra="${r.id}" type="button">
-              <div class="btn-row">
-                <span class="tag navy">${esc(r.codigo)}</span>
-                <span class="tag ${onde.length ? "green" : "amber"}">${onde.length ? `${onde.length} processo${onde.length === 1 ? "" : "s"}` : "não aplicada"}</span>
-                ${setores.length > 1 ? `<span class="tag">${setores.length} setores</span>` : ""}
-              </div>
-              <h3>${esc(r.titulo || "sem título")}</h3>
-              <p>${esc(r.texto)}</p>
-            </button>`;
-        }).join("")}
-      </div>` : '<div class="empty" style="margin-bottom:26px">Nenhuma regra catalogada. A primeira costuma ser a que você mais repete em reunião.</div>'}
 
       <div class="section-title"><h3>Sistemas</h3><span class="line"></span><span class="muted">${state.sistemas.length}</span></div>
       <p class="hint">Onde o trabalho acontece: CAD, ERP, WhatsApp, planilha. Ligando os sistemas aos passos, o CIP responde o que para quando um deles cai.</p>
@@ -3028,7 +2969,7 @@ function viewBiblioteca() {
       <div class="section-title"><h3>Documentos</h3><span class="line"></span><span class="muted">${state.documentos.length}</span></div>
       <div class="note note-rule" style="margin:10px 0 14px">
         <div class="block-label">O que entra aqui — e o que não</div>
-        <p><strong>Não coloque POP aqui.</strong> No CIP o POP é o passo a passo do processo: ele já diz o que fazer, como fazer, quem faz, por quê, onde se erra, a regra e a evidência. Precisou de POP em papel? Abra o processo e use <strong>Imprimir o passo a passo</strong> — sai com carimbo dizendo se está aprovado, por quem e quando.</p>
+        <p><strong>Não coloque POP aqui.</strong> No CIP o POP é o passo a passo do processo: ele já diz o que fazer, como fazer, quem faz, por quê, onde se erra e a evidência. Precisou de POP em papel? Abra o processo e use <strong>Imprimir o passo a passo</strong> — sai com carimbo dizendo se está aprovado, por quem e quando.</p>
         <p style="margin-top:8px">A biblioteca guarda o que <strong>vem de fora</strong> e o CIP não consegue deduzir: norma, manual do fabricante, formulário, contrato, laudo, política, material de treinamento.</p>
       </div>
 
@@ -3253,99 +3194,9 @@ function dataCurta(iso) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || "");
 }
 
-function novaRegra(dono) {
-  const r = { id: uid("r"), codigo: "", titulo: "Nova regra", texto: "", vigenteDesde: hojeISO() };
-  state.regras.push(r);
-  state = normalizar(state); // é normalizar quem dá o código sequencial
-  const criada = state.regras[state.regras.length - 1];
-  if (dono) dono.regraIds = [...(dono.regraIds || []), criada.id];
-  salvar(true);
-  return criada;
-}
-
 function hojeISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function viewRegraEditor() {
-  const r = regra(ui.regraId);
-  if (!r) return viewBiblioteca();
-  const onde = ondeApareceARegra(r.id);
-  const passos = onde.reduce((n, x) => n + x.passos.length, 0);
-  const setores = setoresQueDependemDaRegra(r.id);
-
-  return `
-    <div class="editor">
-      <div class="lesson-top">
-        <button class="btn btn-sm btn-ghost" data-go="biblioteca" type="button">${icon("back", 15)} Biblioteca</button>
-        <span class="spacer"></span>
-        <button class="btn btn-sm btn-danger" data-apagar-regra type="button">${icon("trash", 15)} Apagar</button>
-      </div>
-
-      <span class="eyebrow">${esc(r.codigo)}</span>
-
-      <div class="stack">
-        <div class="field">
-          <label for="r-titulo">Título <span class="hint">— como as pessoas vão chamar essa regra</span></label>
-          <input id="r-titulo" data-s-regra="titulo" value="${esc(r.titulo)}" placeholder="Prazo de pagamento por valor de pedido" />
-        </div>
-        <div class="field">
-          <label for="r-texto">A regra</label>
-          <textarea id="r-texto" data-s-regra="texto" placeholder="Pedido igual ou acima de R$ 10.000 pode ser faturado em 30/60/90/120 ddl.">${esc(r.texto)}</textarea>
-        </div>
-        <div class="field">
-          <label for="r-desde">Vale a partir de</label>
-          <input id="r-desde" type="date" data-s-regra="vigenteDesde" value="${esc(r.vigenteDesde || "")}" />
-          <p class="hint">Regra muda. Quem executou antes da data seguiu a regra anterior, e estava certo.</p>
-        </div>
-      </div>
-
-      <div class="section-title"><h3>Quem é afetado se ela mudar</h3><span class="line"></span></div>
-
-      ${onde.length ? `
-        <p class="hint">${onde.length} processo${onde.length === 1 ? "" : "s"} · ${passos} passo${passos === 1 ? "" : "s"}${setores.length > 1 ? ` · <strong>${setores.length} setores</strong> — é por isso que ela não mora dentro de um processo só` : ""}.</p>
-        <div class="stack" style="margin-top:12px">
-          ${onde.map((x) => `
-            <div class="learn-item">
-              <div class="learn-head">
-                <span class="tag" style="background:${corSetor(x.processo.setorId)}1a;color:${corSetor(x.processo.setorId)}">${esc(setor(x.processo.setorId)?.nome || "sem setor")}</span>
-                <span class="muted">${esc(cargo(x.processo.donoCargoId)?.nome || "sem dono")}</span>
-              </div>
-              <h3>${esc(x.processo.nome)}</h3>
-              <ul class="lista">
-                ${x.passos.map((p) => `<li>${esc(p.oQue || "passo sem título")}</li>`).join("")}
-              </ul>
-              <button class="btn btn-sm link-btn" data-processo="${x.processo.id}" type="button" style="margin-top:12px">Abrir o processo</button>
-            </div>`).join("")}
-        </div>
-      ` : `<div class="empty">Nenhum passo aplica esta regra ainda. Marque-a nos passos, dentro do editor do processo — é a marcação que faz o CIP saber quem avisar quando ela mudar.</div>`}
-    </div>
-  `;
-}
-
-function ligarRegraEditor(raiz) {
-  const r = regra(ui.regraId);
-  if (!r) return;
-
-  $$("[data-s-regra]", raiz).forEach((campo) => campo.addEventListener("input", () => {
-    r[campo.dataset.sRegra] = campo.value;
-    salvar();
-  }));
-
-  $("[data-apagar-regra]", raiz)?.addEventListener("click", () => {
-    const onde = ondeApareceARegra(r.id);
-    const aviso = onde.length
-      ? `${r.codigo} é aplicada em ${onde.length} processo(s). Apagar tira a marcação de todos os passos.`
-      : `Apagar ${r.codigo}?`;
-    if (!confirm(aviso)) return;
-    state.regras = state.regras.filter((x) => x.id !== r.id);
-    state.processos.forEach((p) => (p.passos || []).forEach((passo) => {
-      passo.regraIds = (passo.regraIds || []).filter((id) => id !== r.id);
-    }));
-    salvar(true);
-    ir("biblioteca");
-  });
 }
 
 function novoSistema() {
@@ -3467,13 +3318,11 @@ function abrirContarProcesso() {
         tipo: TIPOS[s.tipo] ? s.tipo : "etapa",
         cargoId: existe(state.cargos, s.cargoId) ? s.cargoId : "",
         sistemaIds: [],
-        regraIds: [],
         setorId: "",
         oQue: s.oQue || "",
         comoFazer: s.comoFazer || "",
         porque: s.porque || "",
         armadilha: s.armadilha || "",
-        regra: s.regra || "",
         imagem: "",
         videoUrl: "",
         seSim: s.seSim || "",
@@ -3543,7 +3392,6 @@ function ligarEventos(raiz) {
   $$("[data-editar-setor]", raiz).forEach((b) => b.addEventListener("click", () => abrirDrawerSetor(b.dataset.editarSetor)));
   $$("[data-doc]", raiz).forEach((b) => b.addEventListener("click", () => ir("docEditor", { docId: b.dataset.doc })));
   $$("[data-sistema]", raiz).forEach((b) => b.addEventListener("click", () => ir("sistemaEditor", { sistemaId: b.dataset.sistema })));
-  $$("[data-regra]", raiz).forEach((b) => b.addEventListener("click", () => ir("regraEditor", { regraId: b.dataset.regra })));
 
   $$("[data-processo]", raiz).forEach((b) => b.addEventListener("click", () => abrirAula(b.dataset.processo)));
   $$("[data-editar]", raiz).forEach((b) => b.addEventListener("click", () => ir("editor", { processoId: b.dataset.editar })));
@@ -3623,7 +3471,6 @@ function ligarEventos(raiz) {
   const nd = $("[data-novo-doc]", raiz);
   if (nd) nd.addEventListener("click", novoDocumento);
   $("[data-novo-sistema]", raiz)?.addEventListener("click", novoSistema);
-  $("[data-nova-regra]", raiz)?.addEventListener("click", () => ir("regraEditor", { regraId: novaRegra().id }));
   $("[data-macro]", raiz)?.addEventListener("click", () => ir("macro"));
   const contar = $("[data-contar]", raiz);
   if (contar) contar.addEventListener("click", abrirContarProcesso);
@@ -3866,21 +3713,6 @@ function ligarEditor(raiz) {
       salvar(true);
     }));
 
-    $$("[data-regra-passo]", bloco).forEach((chip) => chip.addEventListener("click", () => {
-      const id = chip.dataset.regraPasso;
-      s.regraIds = (s.regraIds || []).includes(id)
-        ? s.regraIds.filter((x) => x !== id)
-        : [...(s.regraIds || []), id];
-      chip.classList.toggle("on");
-      salvar(true);
-    }));
-
-    /* Criar já ligada ao passo: quem está escrevendo o passo é quem descobre a
-       regra, e obrigar a ir na Biblioteca e voltar é onde a marcação se perde. */
-    $("[data-nova-regra-aqui]", bloco)?.addEventListener("click", () => {
-      ir("regraEditor", { regraId: novaRegra(s).id });
-    });
-
     $("[data-ia-passo]", bloco)?.addEventListener("click", async (evento) => {
       if (await completarPassoComIA(evento.currentTarget, p, s)) render();
     });
@@ -3930,7 +3762,7 @@ function ligarEditor(raiz) {
   const novoPasso = $("[data-novo-passo]", raiz);
   if (novoPasso) novoPasso.addEventListener("click", () => {
     p.passos = p.passos || [];
-    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", setorId: "", sistemaIds: [], regraIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", imagem: "", videoUrl: "", proximos: [] });
+    p.passos.push({ id: uid("ps"), tipo: "etapa", cargoId: "", setorId: "", sistemaIds: [], oQue: "", comoFazer: "", porque: "", armadilha: "", imagem: "", videoUrl: "", proximos: [] });
     salvar(true);
     render();
     const blocos = $$(".step-editor[data-passo-id]");

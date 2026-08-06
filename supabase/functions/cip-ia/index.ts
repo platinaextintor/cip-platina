@@ -51,8 +51,7 @@ Como você escreve:
 - "O que fazer" é uma frase curta começando por verbo: "Peça a foto da etiqueta", não "É necessário solicitar a foto".
 - "Como fazer" é o detalhe prático: a ordem, as palavras, a ferramenta.
 - "Por quê" é a razão que faz a pessoa lembrar quando estiver sozinha em campo.
-- "A armadilha" é o erro concreto que acontece na prática, não um risco genérico.
-- "A regra" é o inegociável, ou o momento de parar e chamar o supervisor.
+- "A armadilha" é o erro concreto que acontece na prática, não um risco genérico. O inegociável e o momento de parar e chamar o supervisor entram aqui.
 - Passo do tipo decisão sempre traz os dois caminhos preenchidos.
 
 O limite mais importante:
@@ -65,15 +64,14 @@ Tudo que você escreve é rascunho. O gestor revisa antes de publicar.`;
 const PASSO = {
   type: "object",
   additionalProperties: false,
-  required: ["tipo", "cargoId", "oQue", "comoFazer", "porque", "armadilha", "regra", "seSim", "seNao"],
+  required: ["tipo", "cargoId", "oQue", "comoFazer", "porque", "armadilha", "seSim", "seNao"],
   properties: {
     tipo: { type: "string", enum: ["etapa", "decisao", "evidencia", "aprovacao"] },
     cargoId: { type: "string", description: "Id do cargo que executa este passo, entre os ids do contexto. Vazio se o relato não deixar claro." },
     oQue: { type: "string", description: "Uma frase, verbo no início." },
     comoFazer: { type: "string" },
     porque: { type: "string" },
-    armadilha: { type: "string", description: "O erro concreto. Vazio se não souber." },
-    regra: { type: "string", description: "O inegociável. Vazio se não houver." },
+    armadilha: { type: "string", description: "O erro concreto, e o inegociável se houver. Vazio se não souber." },
     seSim: { type: "string", description: "Só para tipo decisao. Vazio nos outros." },
     seNao: { type: "string", description: "Só para tipo decisao. Vazio nos outros." },
   },

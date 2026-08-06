@@ -919,8 +919,6 @@ button.raia-nome:hover { color: var(--navy-2); text-decoration: underline; }
 .note p { font-size: 14px; }
 .note-trap { border-color: var(--red); background: var(--red-bg); }
 .note-trap .block-label, .note-trap p { color: var(--red); }
-.note-rule { border-color: var(--navy-2); background: var(--navy-bg); }
-.note-rule .block-label, .note-rule p { color: var(--navy); }
 .note-why { border-color: var(--line-2); background: var(--soft); }
 
 .forks { display: grid; gap: 10px; margin-top: 18px; }
@@ -1190,7 +1188,7 @@ a.btn, .link-btn {
      conteúdo. Melhor sair em branco: o rótulo já diz o que falta ali. */
   .field input::placeholder, .field textarea::placeholder { color: transparent !important; }
 
-  /* Os chips carregam o RACI, o tipo do passo, as regras e os sistemas. Some
+  /* Os chips carregam o RACI, o tipo do passo e os sistemas. Some
      tudo e a folha perde justamente quem faz o quê. Aqui viram texto: só os
      marcados, separados por vírgula. */
   .chips { display: block !important; }
