@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
       model: MODELO,
       max_tokens: 4000,
       system: sistema,
-      messages,
+      messages: mensagens,
     });
 
     if (resposta.stop_reason === "refusal") {
