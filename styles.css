@@ -1650,3 +1650,123 @@ body.com-consultora { padding-right: 380px; }
   font-weight: 600;
 }
 .manual-elo-icone { position: absolute; top: 11px; right: 13px; }
+
+/* Os dois níveis de desenho, com miniatura de verdade dentro. */
+.manual-nivel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.manual-nivel-cabeca { display: flex; gap: 13px; align-items: flex-start; }
+.manual-nivel-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+/* Filho direto, não descendente: a frase ao lado tem <strong> dentro, e o
+   display:block picotaria o parágrafo em linhas soltas. Segunda vez que caio
+   nisto — o primeiro foi o bloco da consultora. */
+.manual-nivel-cabeca > div > strong { display: block; font-size: 15px; margin-bottom: 3px; }
+.manual-nivel-cabeca > div > span { color: var(--ink-2); font-size: 13.5px; line-height: 1.55; }
+
+/* Só o espaçamento: a moldura e a rolagem já vêm do `.bpmn-wrap` que o
+   renderizador desenha. Repetir aqui dava duas bordas concêntricas.
+
+   E o desenho rola por dentro em vez de encolher — num celular ele é quatro
+   vezes mais largo que a tela, e espremer viraria borrão. */
+.manual-mini { margin-top: 14px; }
+.manual-mini .empty { border: 0; }
+.manual-mini-nota { margin-top: 9px; }
+
+.manual-nivel-nota {
+  border: 1px solid var(--navy-2);
+  border-radius: var(--radius-card);
+  background: var(--navy-bg);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.manual-nivel-nota strong:first-child { display: block; color: var(--ink); margin-bottom: 3px; }
+
+.manual-tipos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.manual-tipo {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 13px 15px;
+}
+.manual-tipo strong { font-size: 14px; }
+.manual-tipo > span:nth-of-type(2) { color: var(--ink-2); font-size: 13.5px; line-height: 1.45; }
+.manual-tipo-bpmn { color: var(--ink-3); font-size: 12px; margin-top: 3px; }
+
+/* O bom e o ruim lado a lado. Regra abstrata não pega; exemplo pega. */
+.manual-exemplos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.manual-exemplo {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  border: 1px solid;
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+}
+.manual-exemplo.ruim { border-color: var(--red); background: var(--red-bg); }
+.manual-exemplo.bom { border-color: var(--green); background: var(--green-bg); }
+.manual-exemplo-marca { font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; }
+.manual-exemplo.ruim .manual-exemplo-marca { color: var(--red); }
+.manual-exemplo.bom .manual-exemplo-marca { color: var(--green); }
+.manual-exemplo-frase { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.45; }
+.manual-exemplo > span:last-child { color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+
+/* Cada célula com a própria borda, e não o truque de gap sobre fundo colorido:
+   seis campos numa grade de quatro colunas deixam duas células vazias, e o
+   fundo do container aparecia como dois retângulos cinza sem explicação. */
+.manual-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.manual-campos > div {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 12px 14px;
+}
+.manual-campos strong { font-size: 13.5px; }
+.manual-campos span { color: var(--ink-2); font-size: 12.5px; line-height: 1.4; }
+
+.manual-estados { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 14px; }
+.manual-estado {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 12px 14px;
+}
+.manual-estado strong { font-size: 13.5px; }
+.manual-estado span { color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+.manual-estado.rascunho { border-left-color: var(--ink-3); }
+.manual-estado.rascunho strong { color: var(--ink-3); }
+.manual-estado.vigente { border-left-color: var(--green); }
+.manual-estado.vigente strong { color: var(--green); }
+.manual-estado.mudou { border-left-color: var(--amber); }
+.manual-estado.mudou strong { color: var(--amber); }

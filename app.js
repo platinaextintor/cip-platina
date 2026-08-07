@@ -957,15 +957,94 @@ function prenderNomesDeRaia(tela) {
    seria obrigar a pessoa a decorar o caminho. */
 
 const PASSOS_DE_COMO_DESENHAR = [
-  ["Confira setores e cargos", "O setor vira raia no fluxograma e o cargo diz quem faz. Sem eles o desenho não tem onde apoiar."],
-  ["Desenhe o processo no fluxo macro", "Uma peça por vez, ligada na anterior. A decisão entra quando o caminho se divide."],
-  ["Abra o processo", "O <strong>+</strong> no canto da peça entra no subprocesso."],
-  ["Diga dono, executor, entrada, saída e o porquê", "O dono responde. O executor faz. Entrada e saída são o que chega e o que sai."],
-  ["Escreva os passos", "Um movimento por passo. Verbo na frente."],
-  ["Ligue documentos, sistemas e indicadores", "A norma que se abre enquanto executa, o sistema onde se faz, o número que mede."],
-  ["Peça a opinião da consultora", "<em>“Leia este processo e me diga o que está ambíguo.”</em>"],
-  ["Aprove quando estiver certo", "Aprovar é assumir, com nome e data, que o processo é esse."],
+  ["Confira setores e cargos",
+   "O setor vira raia no fluxograma e o cargo diz quem faz. Sem eles o desenho não tem onde apoiar. Setor se cria nas duas abas — organograma e desenho — e é o mesmo cadastro."],
+  ["Desenhe o macro: os processos da empresa",
+   "Uma peça por vez, e cada nova <strong>nasce ligada</strong> à que está selecionada. Decisão entra quando o caminho se divide; fim entra quando aquele caminho acaba. <strong>Você não posiciona nada</strong>: ligou, andou para a direita. Arrastar serve só para trocar de raia."],
+  ["Abra o processo pelo <strong>+</strong>",
+   "O marcador no canto de baixo da peça é o que diz, em BPMN, que ali dentro tem mais desenho. Clicar nele entra no subprocesso."],
+  ["Diga dono, executor, entrada, saída e o porquê",
+   "O <strong>dono</strong> responde pelo processo e aprova exceção. O <strong>executor</strong> faz. <strong>Entrada</strong> e <strong>saída</strong> são o que chega e o que sai — e é o que permite ver se a saída de um é mesmo a entrada do outro. O <strong>porquê</strong> é o que faz a pessoa lembrar em campo."],
+  ["Desenhe o subprocesso, ou escreva os passos",
+   "Os dois caminhos escrevem no mesmo lugar: <strong>não existem dois desenhos para manter</strong>. Arraste uma forma sobre outra para reordenar; o passo muda de lugar na lista junto."],
+  ["Diga quem faz cada passo",
+   "É esse campo que cria as raias de dentro — e é aí que o desenho mostra o bastão passando de um cargo para outro e voltando. Em branco, o passo cai na raia do dono."],
+  ["Ligue documentos, sistemas e indicadores",
+   "A norma que se abre enquanto executa, o sistema onde se faz, o número que mede. É o que permite responder depois: <em>o que para se o CAD cair?</em>"],
+  ["Peça a opinião da consultora",
+   "<em>“Leia este processo e me diga o que está ambíguo.”</em> Ela é melhor achando buraco do que preenchendo buraco."],
+  ["Aprove, com o seu nome",
+   "Aprovar é assumir publicamente que o processo é esse. Fica registrado quem e quando — e o selo cai sozinho se alguém editar depois."],
 ];
+
+/* Os quatro tipos de passo, com a forma que cada um vira em BPMN. */
+const TIPOS_DE_PASSO_NO_MANUAL = [
+  ["etapa", "Etapa", "O movimento comum: alguém faz alguma coisa.", "tarefa de usuário"],
+  ["decisao", "Decisão", "O caminho se divide. Escreva a pergunta e o rótulo de cada saída.", "gateway exclusivo"],
+  ["evidencia", "Evidência", "O passo exige prova: foto, comprovante, assinatura.", "tarefa com objeto de dados"],
+  ["aprovacao", "Aprovação", "Alguém precisa liberar antes de seguir.", "tarefa de usuário"],
+];
+
+/* Um bom passo e um passo ruim, lado a lado. Ensinar processo é mais difícil
+   que ensinar o sistema, e regra abstrata não pega — exemplo pega. */
+const PASSO_BOM_E_RUIM = [
+  ["ruim", "Realizar o atendimento ao cliente conforme os procedimentos internos da empresa, garantindo qualidade.",
+   "Não diz o que fazer. Quem entrou ontem lê isso e continua sem saber por onde começar."],
+  ["bom", "Peça a foto da etiqueta antes de falar preço.",
+   "Verbo na frente, uma ação, e dá para conferir se foi feito."],
+];
+
+/* Miniaturas desenhadas pelo renderizador de verdade, não capturadas de tela.
+   Print envelhece: muda uma cor, muda uma forma, e a imagem passa a mentir. */
+function miniaturaDoMacro() {
+  return bpmnDesenhar({
+    faixas: [
+      { id: "com", nome: "Comercial", cor: "#2b46a4" },
+      { id: "tec", nome: "Técnica", cor: "#0c7048" },
+    ],
+    elementos: [
+      { id: "ini", tipo: "inicio", rotulo: "", faixaId: "com", coluna: 0 },
+      { id: "orc", tipo: "subprocesso", rotulo: "Orçamento", sub: "Supervisor", faixaId: "com", coluna: 1 },
+      { id: "gw", tipo: "gateway", rotulo: "Aprovou?", simbolo: "X", faixaId: "com", coluna: 3 },
+      { id: "rec", tipo: "subprocesso", rotulo: "Recarga", sub: "Supervisor", faixaId: "tec", coluna: 5 },
+      { id: "f1", tipo: "fim", rotulo: "Serviço entregue", faixaId: "tec", coluna: 7 },
+      { id: "f2", tipo: "fim", rotulo: "Proposta recusada", faixaId: "com", coluna: 5 },
+    ],
+    fluxos: [
+      { de: "ini", para: "orc", rotulo: "" },
+      { de: "orc", para: "gw", rotulo: "" },
+      { de: "gw", para: "rec", rotulo: "sim" },
+      { de: "gw", para: "f2", rotulo: "não" },
+      { de: "rec", para: "f1", rotulo: "" },
+    ],
+  }, { zoom: 0.72 });
+}
+
+function miniaturaDoSubprocesso() {
+  return bpmnDesenhar({
+    faixas: [
+      { id: "vend", nome: "Vendedor", cor: "#2b46a4" },
+      { id: "sup", nome: "Supervisor", cor: "#9c5806" },
+    ],
+    elementos: [
+      { id: "i", tipo: "inicio", rotulo: "", faixaId: "vend", coluna: 0 },
+      { id: "p1", tipo: "tarefa", rotulo: "Peça a foto da etiqueta", sub: "Etapa", faixaId: "vend", coluna: 1 },
+      { id: "p2", tipo: "tarefa", rotulo: "Monte a proposta", sub: "Etapa", faixaId: "vend", coluna: 3 },
+      { id: "p3", tipo: "gateway", rotulo: "Desconto acima de 10%?", simbolo: "X", faixaId: "vend", coluna: 5 },
+      { id: "p4", tipo: "tarefa", rotulo: "Libere a exceção", sub: "Aprovação", faixaId: "sup", coluna: 7 },
+      { id: "p5", tipo: "tarefa", rotulo: "Registre o envio", sub: "Evidência", dado: "Evidência", faixaId: "vend", coluna: 9 },
+      { id: "f", tipo: "fim", rotulo: "", faixaId: "vend", coluna: 11 },
+    ],
+    fluxos: [
+      { de: "i", para: "p1", rotulo: "" },
+      { de: "p1", para: "p2", rotulo: "" },
+      { de: "p2", para: "p3", rotulo: "" },
+      { de: "p3", para: "p4", rotulo: "sim" },
+      { de: "p3", para: "p5", rotulo: "não" },
+      { de: "p4", para: "p5", rotulo: "" },
+    ],
+  }, { zoom: 0.72 });
+}
 
 const REGRAS_DE_USO = [
   ["etapa", "Nada de parágrafo", "Se o texto virou parágrafo, ele era vários passos. Quebre."],
@@ -1036,12 +1115,76 @@ function viewManual() {
         </div>
       </div>
 
-      <div class="section-title"><h3>Como desenhar um processo</h3><span class="line"></span></div>
+      <div class="section-title"><h3>Os dois níveis de desenho</h3><span class="line"></span></div>
+      <p class="hint">Aqui mora a diferença entre o CIP e um editor de fluxograma: são <strong>dois desenhos encaixados</strong>, e o de dentro é o passo a passo de quem executa. Os dois usam o mesmo desenhista, então a notação sai idêntica.</p>
+
+      <div class="manual-nivel">
+        <div class="manual-nivel-cabeca">
+          <span class="manual-nivel-num">1</span>
+          <div>
+            <strong>Macro — o que a empresa faz</strong>
+            <span>As raias são os <strong>setores</strong>. Cada retângulo é um processo; o <strong>+</strong> no canto diz que ali dentro tem mais desenho. O losango é a decisão, e cada saída dela leva um rótulo. O círculo grosso é um desfecho com nome — e nem todo desfecho é sucesso.</span>
+          </div>
+        </div>
+        <div class="manual-mini">${miniaturaDoMacro()}</div>
+      </div>
+
+      <div class="manual-nivel">
+        <div class="manual-nivel-cabeca">
+          <span class="manual-nivel-num">2</span>
+          <div>
+            <strong>Subprocesso — como se faz aquele processo</strong>
+            <span>Abre pelo <strong>+</strong>. Agora as raias são os <strong>cargos</strong>, e é aqui que o desenho mostra o bastão passando de um para outro e voltando. Cada forma é um passo com conteúdo por trás: o que fazer, como fazer, por quê e onde todo mundo erra.</span>
+          </div>
+        </div>
+        <div class="manual-mini">${miniaturaDoSubprocesso()}</div>
+        <p class="hint manual-mini-nota">Repare no caminho do desconto: ele sobe para o Supervisor e volta. Isso é uma exceção real da operação, desenhada — não uma frase perdida dentro de um campo de texto.</p>
+      </div>
+
+      <div class="manual-nivel-nota">
+        <strong>Desenhar e escrever são a mesma coisa.</strong>
+        Você pode arrastar as formas na tela ou escrever os passos na lista: os dois mexem no mesmo lugar, e o que você faz num aparece no outro na hora. <strong>Não existem dois desenhos para manter em dia</strong> — que é justamente onde o fluxograma da parede sempre descola do procedimento em Word.
+      </div>
+
+      <div class="section-title"><h3>Os quatro tipos de passo</h3><span class="line"></span></div>
+
+      <div class="manual-tipos">
+        ${TIPOS_DE_PASSO_NO_MANUAL.map(([ic, t, d, bpmn]) => `
+          <div class="manual-tipo">
+            <span class="manual-tipo-forma" style="color:${TIPOS[ic]?.cor || "var(--ink-3)"}">${icon(ic, 17)}</span>
+            <strong>${t}</strong>
+            <span>${d}</span>
+            <span class="manual-tipo-bpmn">em BPMN: ${bpmn}</span>
+          </div>`).join("")}
+      </div>
+
+      <div class="section-title"><h3>Como desenhar um processo, do começo ao fim</h3><span class="line"></span></div>
 
       <ol class="manual-trilho">
         ${PASSOS_DE_COMO_DESENHAR.map(([t, d]) => `
           <li><strong>${t}</strong><span>${d}</span></li>`).join("")}
       </ol>
+
+      <div class="section-title"><h3>O que é um passo bem escrito</h3><span class="line"></span></div>
+      <p class="hint">A parte difícil não é o sistema — é escrever de um jeito que a pessoa consiga executar. A régua é simples: <strong>alguém que entrou ontem consegue fazer só lendo isto?</strong></p>
+
+      <div class="manual-exemplos">
+        ${PASSO_BOM_E_RUIM.map(([tipo, texto, porque]) => `
+          <div class="manual-exemplo ${tipo}">
+            <span class="manual-exemplo-marca">${tipo === "bom" ? "assim funciona" : "assim não funciona"}</span>
+            <p class="manual-exemplo-frase">${esc(texto)}</p>
+            <span>${porque}</span>
+          </div>`).join("")}
+      </div>
+
+      <div class="manual-campos">
+        <div><strong>o que fazer</strong><span>uma frase, verbo na frente</span></div>
+        <div><strong>como fazer</strong><span>a ordem, as palavras, a ferramenta</span></div>
+        <div><strong>por quê</strong><span>o que faz lembrar quando estiver sozinho em campo</span></div>
+        <div><strong>onde todo mundo erra</strong><span>o erro concreto que você já viu acontecer</span></div>
+        <div><strong>exemplo real</strong><span>print ou foto — é o que faz grudar</span></div>
+        <div><strong>quem faz</strong><span>o cargo, que vira a raia do desenho</span></div>
+      </div>
 
       <div class="section-title"><h3>Quando um processo fica pronto</h3><span class="line"></span></div>
       <p class="hint">Pronto não é "preenchido". É isto, e a última linha é a que muda tudo:</p>
@@ -1057,7 +1200,27 @@ function viewManual() {
           .map((t, i) => `<div class="manual-pronto-item${i === 6 ? " forte" : ""}">${icon("ok", 15)}<span>${t}</span></div>`).join("")}
       </div>
 
-      <p class="hint" style="margin-top:10px">Editar um processo aprovado derruba o selo sozinho — e alguém precisa aprovar de novo. Selo que sobrevive a qualquer edição diz que foi conferido o que ninguém conferiu.</p>
+      <div class="manual-estados">
+        <div class="manual-estado rascunho">
+          <strong>rascunho</strong>
+          <span>Ainda não foi aprovado por ninguém. Serve para trabalhar, não para mandar alguém seguir.</span>
+        </div>
+        <div class="manual-estado vigente">
+          <strong>vigente</strong>
+          <span>Alguém assumiu, com nome e data, que o processo é esse. É o que pode ser cobrado.</span>
+        </div>
+        <div class="manual-estado mudou">
+          <strong>mudou desde a aprovação</strong>
+          <span>Foi aprovado e alguém editou depois. Volta para a fila de reaprovação sozinho.</span>
+        </div>
+      </div>
+
+      <div class="manual-nivel-nota">
+        <strong>O selo cai sozinho, e é de propósito.</strong>
+        A aprovação guarda um resumo do que foi aprovado — nome, porquê, entradas e saídas, responsáveis e os passos. Mexeu em qualquer um deles, o carimbo cai. Selo que sobrevive a qualquer edição afirma que alguém conferiu o que ninguém conferiu, e é assim que manual de qualidade vira ficção. Trocar um vídeo ou uma foto não derruba.
+      </div>
+
+      <p class="hint" style="margin-top:12px">Na impressão isso vai junto: toda folha sai com o carimbo do estado. Papel sem estado vira verdade oficial na mão de quem recebe.</p>
 
       <div class="section-title"><h3>Seis regras de uso</h3><span class="line"></span></div>
 
