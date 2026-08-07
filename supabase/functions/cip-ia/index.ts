@@ -183,31 +183,63 @@ Deno.serve(async (req: Request) => {
     onde ? `---\n\nOnde a pessoa está agora na tela: ${onde}\nSe a pergunta for vaga ("isso está claro?"), é disto que ela está falando.` : "",
   ].filter(Boolean).join("\n\n");
 
+  /* Esforço calibrado pelo que a pessoa está olhando.
+
+     O padrão do modelo é `high`, e com ele até "o que é POP?" recebe raciocínio
+     profundo antes de responder — lentidão à toa numa conversa. Quem está com um
+     processo aberto costuma pedir análise daquilo ("isso está claro?", "o que
+     falta aqui?") e merece o esforço maior; quem está no mapa geral costuma
+     perguntar vocabulário e direção, onde `medium` responde igual e mais rápido.
+
+     Não é adivinhação sobre o texto da pergunta: é um sinal que o app já tem. */
+  const esforco = corpo.contexto && onde.includes("processo") ? "high" : "medium";
+
   const cliente = new Anthropic({ apiKey: chave });
 
-  try {
-    const resposta = await cliente.messages.create({
-      model: MODELO,
-      max_tokens: 4000,
-      system: sistema,
-      messages: mensagens,
-    });
+  /* Resposta em fluxo, não em bloco. Sem isso a tela fica em "pensando…" até a
+     última palavra ficar pronta, e parece travada — que foi exatamente a queixa.
 
-    if (resposta.stop_reason === "refusal") {
-      return json(req, { erro: "A IA recusou essa pergunta. Reescreva e tente de novo." }, 422);
-    }
+     Vai texto puro, não SSE: o navegador só precisa das letras, e evitar o
+     protocolo evita um parser dos dois lados. O preço é que um erro no meio do
+     fluxo não pode mais virar código HTTP — o status já foi enviado —, então
+     ele vai como frase no fim do texto. */
+  const codificador = new TextEncoder();
+  const fluxo = new ReadableStream({
+    async start(controlador) {
+      const escrever = (t: string) => controlador.enqueue(codificador.encode(t));
+      try {
+        const stream = cliente.messages.stream({
+          model: MODELO,
+          max_tokens: 12000, // teto, não gasto: cobre pensamento + resposta sem cortar no meio
+          system: sistema,
+          output_config: { effort: esforco },
+          messages: mensagens,
+        });
 
-    const texto = resposta.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("\n")
-      .trim();
+        let saiuAlgo = false;
+        for await (const evento of stream) {
+          if (evento.type === "content_block_delta" && evento.delta.type === "text_delta") {
+            saiuAlgo = true;
+            escrever(evento.delta.text);
+          }
+        }
 
-    if (!texto) return json(req, { erro: "A IA não devolveu conteúdo." }, 502);
+        const final = await stream.finalMessage();
+        if (final.stop_reason === "refusal") {
+          escrever(saiuAlgo ? "\n\n(A IA interrompeu a resposta aqui.)" : "A IA recusou essa pergunta. Reescreva e tente de novo.");
+        } else if (!saiuAlgo) {
+          escrever("A IA não devolveu conteúdo.");
+        }
+      } catch (erro) {
+        const mensagem = erro instanceof Error ? erro.message : "falha ao falar com a IA";
+        escrever(`\n\n(A conversa foi interrompida: ${mensagem})`);
+      } finally {
+        controlador.close();
+      }
+    },
+  });
 
-    return json(req, { texto, uso: resposta.usage });
-  } catch (erro) {
-    const mensagem = erro instanceof Error ? erro.message : "Falha ao falar com a IA.";
-    return json(req, { erro: mensagem }, 502);
-  }
+  return new Response(fluxo, {
+    headers: { ...cors(req), "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  });
 });

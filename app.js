@@ -110,7 +110,7 @@ const IA = {
    Agora não há formato — há texto. Não existe caminho entre o que ela diz e os
    campos, e é isso que impede a IA de escrever no CIP: não é uma instrução que
    ela possa desobedecer, é um cano que não foi construído. */
-async function perguntarAConsultora(mensagens, onde) {
+async function perguntarAConsultora(mensagens, onde, aoChegar) {
   const token = await tokenDoUsuario();
   if (!token) throw new Error("Entre na sua conta para conversar com a IA.");
 
@@ -123,14 +123,30 @@ async function perguntarAConsultora(mensagens, onde) {
     },
     body: JSON.stringify({ mensagens, contexto: contextoParaIA(state, { processoId: ui.processoId }), onde }),
   });
-  const corpo = await resposta.json().catch(() => ({}));
-  if (!resposta.ok || corpo.erro) throw new Error(corpo.erro || `Falha ${resposta.status}`);
-  return String(corpo.texto || "");
+
+  /* Erro antes de a resposta começar ainda vem como JSON com código HTTP —
+     token vencido, teto de chamadas, chave faltando. Depois que o texto começa
+     a sair o status já foi enviado, e o que der errado chega como frase. */
+  if (!resposta.ok) {
+    const corpo = await resposta.json().catch(() => ({}));
+    throw new Error(corpo.erro || `Falha ${resposta.status}`);
+  }
+
+  const leitor = resposta.body.getReader();
+  const decodificador = new TextDecoder();
+  let texto = "";
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    texto += decodificador.decode(value, { stream: true });
+    aoChegar?.(texto);
+  }
+  return texto.trim();
 }
 
 /* ---------------------------------------------------------- a consultora */
 
-const consultora = { aberta: false, falas: [], pensando: false, carregada: false };
+const consultora = { aberta: false, falas: [], pensando: false, carregada: false, parcial: "" };
 
 /* As perguntas fixadas existem por um motivo prático: caixa de texto vazia com
    cursor piscando não convida ninguém. Quem nunca usou não sabe o que pode
@@ -206,9 +222,15 @@ function ondeEstou() {
 
 /* A resposta vem em texto. Bloco de três crases vira caixa com botão de copiar
    — é o único jeito de aproveitar uma frase dela, e de propósito: para colar,
-   a pessoa precisa ter lido. O resto é conversa. */
-function falaEmHtml(texto) {
-  const partes = String(texto).split(/```[a-zA-Z]*\n?/);
+   a pessoa precisa ter lido. O resto é conversa.
+
+   Durante o fluxo o texto chega pela metade, e uma abertura de bloco sem
+   fechamento faria o resto da resposta virar caixa de copiar até a última crase
+   chegar. Fecho a crase que falta só para desenhar. */
+function falaEmHtml(texto, emCurso = false) {
+  let bruto = String(texto);
+  if (emCurso && (bruto.match(/```/g) || []).length % 2 === 1) bruto += "\n```";
+  const partes = bruto.split(/```[a-zA-Z]*\n?/);
   return partes.map((parte, i) => {
     if (i % 2 === 1) {
       const limpo = parte.replace(/\n+$/, "");
@@ -249,7 +271,9 @@ function viewConsultora() {
         ? `<div class="ia-fala ia-pessoa">${esc(f.texto)}</div>`
         : `<div class="ia-fala ia-dela">${falaEmHtml(f.texto)}</div>`).join("")}
 
-      ${consultora.pensando ? `<div class="ia-fala ia-dela ia-pensando">${icon("ia", 14)} pensando…</div>` : ""}
+      ${consultora.pensando ? `<div class="ia-fala ia-dela" id="iaParcial">${consultora.parcial
+        ? falaEmHtml(consultora.parcial, true)
+        : `<span class="ia-pensando">${icon("ia", 14)} pensando…</span>`}</div>` : ""}
     </div>
 
     <div class="ia-sugestoes">
@@ -315,13 +339,27 @@ async function enviarParaConsultora(texto) {
   const onde = ondeEstou();
   consultora.falas.push({ papel: "pessoa", texto: pergunta });
   consultora.pensando = true;
+  consultora.parcial = "";
   viewConsultora();
   gravarFala("pessoa", pergunta, onde);
+
+  /* Redesenhar o painel inteiro a cada pedaço de texto tiraria o foco da caixa
+     de escrever e reposicionaria a rolagem várias vezes por segundo. Só o bloco
+     da resposta em curso é trocado. */
+  const desenharParcial = (parcial) => {
+    consultora.parcial = parcial;
+    const bloco = $("#iaParcial");
+    if (!bloco) return viewConsultora();
+    bloco.innerHTML = falaEmHtml(parcial, true);
+    const corpo = $("#iaCorpo");
+    if (corpo) corpo.scrollTop = corpo.scrollHeight;
+  };
 
   try {
     const resposta = await perguntarAConsultora(
       consultora.falas.map((f) => ({ papel: f.papel === "pessoa" ? "pessoa" : "assistente", texto: f.texto })),
       onde,
+      desenharParcial,
     );
     consultora.falas.push({ papel: "ia", texto: resposta });
     gravarFala("ia", resposta, onde);
@@ -329,6 +367,7 @@ async function enviarParaConsultora(texto) {
     consultora.falas.push({ papel: "ia", texto: `Não consegui responder: ${erro.message}` });
   } finally {
     consultora.pensando = false;
+    consultora.parcial = "";
     viewConsultora();
     $("#iaPergunta")?.focus();
   }
