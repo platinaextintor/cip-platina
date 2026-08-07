@@ -2,191 +2,178 @@
 
 Projeto da Platina Extintores para centralizar, ensinar e manter vivos os processos da empresa.
 
+**No ar em https://platinaextintor.github.io/cip-platina/**, com login.
+
 ## A ideia central
 
 O CIP não é um repositório de documentos. É uma tentativa de transformar o jeito Platina de fazer as coisas — que hoje mora na cabeça das pessoas — em algo explícito, oficial e **ensinável**.
 
 O que amarra tudo é a ligação **cargo → o que esse cargo precisa saber**. A pessoa não procura o que interessa: o sistema diz quais processos ela executa e o que ela precisa dominar.
 
-Quatro telas, encaixadas:
-
 | Tela | Responde |
 |---|---|
 | **Organograma** | quem é quem, quem responde a quem |
-| **Trilha do cargo** | o que essa pessoa precisa saber e treinar |
+| **Trilha do cargo** | o que essa pessoa faz, precisa saber, e pelo que é cobrada |
 | **Fluxo macro** | o que a empresa faz, em que ordem |
 | **Aula** | como cada processo se faz, passo a passo |
-| **Biblioteca** | regimento, políticas e manuais da empresa |
+| **Biblioteca** | normas, políticas, manuais e os sistemas usados |
+| **O que falta** | o que está incompleto, na ordem da consequência |
 
-O encaixe acontece no cargo: selecione alguém no organograma e os processos dele acendem no fluxo macro. Abra um processo e ele diz quais cargos executam.
+O encaixe acontece no cargo: abra alguém no organograma e os processos dele aparecem. Abra um processo e ele diz quais cargos executam.
 
-## A trilha do cargo
+## O vocabulário
 
-Clicar num cargo no organograma abre a trilha dele. Ela reúne:
+Seis palavras, e vale usá-las com precisão — é o que evita duas pessoas chamarem coisas diferentes pelo mesmo nome.
 
-- **por que esse cargo existe** — a missão, em uma frase
-- **o que se espera de quem ocupa** — as expectativas, uma por linha
-- **o que precisa dominar** — os temas de conhecimento
-- **processos obrigatórios** — essa lista **se monta sozinha**: todo processo que marca o cargo em "quem executa" aparece aqui. Você não digita duas vezes.
-- **treinamentos** — vídeo do YouTube (toca dentro da página), curso externo, leitura, prática acompanhada ou documento da biblioteca. Cada item marca se é obrigatório e quanto tempo leva.
+| Palavra | O que é |
+|---|---|
+| **Setor** | uma área da empresa. Vira raia no fluxograma. |
+| **Cargo** | uma função dentro de um setor. |
+| **Macro** | a visão de cima, onde os processos se ligam ponta a ponta. |
+| **Processo** | uma peça do macro. Tem dono, executor, entrada e saída. |
+| **Subprocesso** | o desenho de dentro de um processo, feito de passos. |
+| **Passo** | a unidade menor. É onde mora o conteúdo de verdade. |
 
-## Os dois níveis
+**POP** no CIP é o passo a passo do processo — não é documento separado. Precisou de POP em papel? Abra o processo e use *Imprimir o passo a passo*: sai com carimbo dizendo se está aprovado, por quem e quando.
 
-O CIP desenha a empresa em duas alturas, e só duas:
+## O processo é uma aula, não um documento
+
+Um especialista não entrega apostila. Ele diz por que existe, mostra o caminho inteiro, vai um passo por vez, mostra um exemplo real, aponta onde todo mundo erra e checa se você entendeu.
+
+Por isso a unidade do sistema não é o processo — é o **passo**. Cada passo carrega:
+
+- **o que fazer** — uma frase, verbo na frente
+- **como fazer** — o detalhe prático
+- **exemplo real** — print ou foto (é o que faz grudar)
+- **por quê** — a razão, o que faz lembrar em campo
+- **onde todo mundo erra** — a armadilha, e o inegociável quando houver
+- **quem faz** — o cargo, que é o que cria as raias no fluxograma
+- **em que sistema** — o CAD, o ERP, a planilha
+
+Passos de decisão ganham dois caminhos. Cada tipo — etapa, decisão, evidência, aprovação — tem cor e forma próprias.
+
+## Os dois níveis de desenho
 
 | Nível | O que é | Raias | Onde se desenha |
 |---|---|---|---|
 | **Macro** | os processos da empresa e as decisões entre eles | setores | Fluxo macro → **Desenhar o macro** |
 | **Subprocesso** | o que se faz dentro de um processo | cargos | dentro do processo → **Desenhar em tela cheia** |
 
-Um subprocesso aparece na aula como **passo** — mesma coisa, nome diferente conforme a tela.
+### Desenhar
 
-### Desenhar o macro
+Paleta em cima com os símbolos desenhados, inspetor à direita, e um **menu colado na peça selecionada**.
 
-Painel em tela cheia, paleta em cima, inspetor à direita.
+- A peça nova **nasce ligada** à que estava selecionada. `Processo → Decisão → Fim` são três cliques.
+- **Decisão** é o losango. Escreva a pergunta e dê rótulo a cada saída — os rótulos aparecem nas setas.
+- **Duplo clique** renomeia ali mesmo. O **+** no canto de baixo entra no subprocesso.
+- **A posição é automática**: ligou, andou para a direita. Arrastar serve para mudar de raia.
+- **Setor** também se cria aqui, na mesma paleta. É o mesmo cadastro do organograma — criou num, aparece no outro.
 
-- **Processo** e **Decisão** na paleta. A peça nova já nasce **ligada** à que estava selecionada — é assim que se desenha uma cadeia sem parar para ligar uma por uma.
-- **Decisão** é o losango. No inspetor você escreve a pergunta ("Aprovado?") e dá um rótulo a cada saída ("sim", "não"). Os rótulos aparecem nas setas.
-- **Ligar** aponta uma peça para outra, inclusive de volta para um setor anterior.
-- **Duplo clique** numa peça renomeia ali mesmo. Para entrar no processo, clique no **+** do canto de baixo.
-- A **posição é automática**: ligou, andou para a direita. Arrastar serve para mudar de raia.
+Retorno é permitido: *"não aprovou, volta pro orçamento"* é processo real. A seta de retorno é desenhada normalmente; ela só não conta para a posição, senão o mapa se esticaria para sempre.
 
-O exemplo que motivou isso: *Orçamento* no Comercial → decisão *Aprovado?* → pelo "sim" sobe para *Análise de crédito* no Administrativo → volta para *Cadastro de pedido* no Comercial. Tudo isso é desenhável.
-
-O **Fluxo macro** mostra esse mesmo desenho em modo de leitura: clique numa peça e ela abre. Para mexer no desenho, **Desenhar o macro**.
-
-## O mapa da operação
-
-O fluxo macro é um fluxograma editável, na mesma linguagem visual do organograma.
-
-**Raias são os setores** — quem faz. O nome da raia fica preso na borda direita: num macro largo, rolar até o fim e não saber mais em que setor está cada linha é o que torna o mapa inútil. Renomeie uma raia clicando no nome dela.
-
-**Ligações.** O ícone de corrente no nó entra em modo ligação; clique no processo que vem depois e a seta é desenhada. Clique numa seta para desfazer. `Esc` cancela.
-
-**A coluna vem das ligações.** Você não posiciona nada à mão: ligou A em B, B anda uma casa para a direita, mesmo estando em outra raia. É isso que impede a seta de voltar para trás e mantém o mapa legível conforme cresce.
-
-Retorno é permitido — "não aprovou, volta pro orçamento" é processo real. A seta de retorno é desenhada normalmente, ela apenas não conta para a posição, senão o mapa se esticaria para sempre.
-
-**Arraste** um nó para movê-lo de raia.
+O nome da raia fica preso na borda: num macro largo, rolar até o fim e não saber mais em que setor está cada linha é o que torna o mapa inútil.
 
 ## O fluxograma em BPMN 2.0
 
-Além do passo a passo, cada processo tem um fluxograma na notação padrão — a mesma que qualquer consultor, auditor ou certificadora reconhece. Ele aparece na abertura da aula e dentro do editor, e é desenhado a partir dos passos: você não mantém dois desenhos.
-
-A tradução é direta:
+Cada processo tem um fluxograma na notação padrão — a mesma que qualquer consultor, auditor ou certificadora reconhece. Ele é **desenhado a partir dos passos**: você não mantém dois desenhos.
 
 | No CIP | Em BPMN 2.0 |
 |---|---|
-| início e fim do processo | evento de início (círculo fino) e de fim (círculo grosso) |
-| passo do tipo **etapa** | tarefa de usuário |
-| passo do tipo **evidência** | tarefa com objeto de dados anexado — a foto, o comprovante |
-| passo do tipo **aprovação** | tarefa de usuário |
-| passo do tipo **decisão** | gateway exclusivo (losango com X) |
-| "se sim" e "se não" | os dois caminhos que saem do gateway, com rótulo |
-| **quem faz** o passo | a raia (lane) |
+| início e fim | evento de início (círculo fino) e de fim (círculo grosso) |
+| passo **etapa** / **aprovação** | tarefa de usuário |
+| passo **evidência** | tarefa com objeto de dados anexado |
+| passo **decisão** | gateway exclusivo (losango com X) |
+| "se sim" / "se não" | os dois caminhos, com rótulo |
+| **quem faz** | a raia |
+| processo, no macro | subprocesso colapsado (retângulo com **+**) |
 
-O caminho do "não" vira uma tarefa própria que reentra no fluxo depois — não fica só descrito em texto, fica desenhado.
+## A consultora de IA
 
-**Quem faz** é um campo novo em cada passo. É ele que cria as raias, e é aí que o BPMN paga: você vê o trabalho atravessando do Vendedor para o Supervisor e voltando. Deixando em branco, o passo cai na raia do dono do processo.
+Um painel que abre em **qualquer tela** pelo ícone ✦ no topo, e fecha quando atrapalhar.
 
-### Desenhar direto na tela
+**Ela lê tudo e não escreve nada.** Enxerga setores, cargos, processos, documentos, indicadores e a lista do que falta — e os passos do processo que estiver aberto. Mas não existe caminho entre o que ela diz e os campos do sistema. Não é uma regra que ela possa desobedecer: é um cano que não foi construído.
 
-O caminho também corre ao contrário: **você desenha e os passos aparecem**. No editor do processo, o botão **Desenhar em tela cheia** abre o canvas ocupando a janela inteira, com a paleta em cima e um inspetor à direita.
+Gostou de uma frase? Ela vem numa caixa com botão **Copiar**. O copiar e colar não é atrito — é o ato humano de decidir. Para colar, alguém precisa ter lido.
 
-- **Paleta** — Etapa, Decisão, Evidência, Aprovação. Cada forma que entra no desenho é um passo criado na hora, inserido depois do que estiver selecionado.
-- **Clicar numa forma** abre os campos dela à direita: o que fazer, quem faz, como fazer, e os dois caminhos quando é decisão.
-- **Arrastar uma forma sobre outra** a coloca antes daquela — a lista de passos se reorganiza junto.
-- **Zoom** com − / + e um **Ajustar** que encaixa o desenho inteiro na largura da tela.
+Ela é muito mais útil **achando buraco do que preenchendo buraco**. As melhores perguntas são as de crítica:
 
-Não existem dois lugares para manter. O desenho é a lista de passos, vista de outro jeito: o que você faz num aparece no outro na mesma hora. Por quê, armadilha, regra, foto e vídeo continuam no editor — no canvas fica o esqueleto do fluxo.
+> *"Leia este processo e me diga o que está ambíguo."*
+> *"Esses passos servem para alguém que entrou ontem?"*
+> *"Olhando o macro, o que falta para o fluxo fechar ponta a ponta?"*
 
-No **macro** cada processo vira um subprocesso colapsado (o retângulo com +), as raias são os setores, as ligações viram sequence flows, e quem não tem ninguém antes ou depois ganha evento de início ou de fim. As raias aparecem mesmo vazias: o quadro em branco já mostra a empresa inteira esperando ser preenchida.
+Perguntas sugeridas aparecem no rodapé do painel e **mudam conforme a tela** — caixa vazia com cursor piscando não convida ninguém.
 
-## A IA que escuta
-
-Em vez de preencher campo por campo, você conta e a IA estrutura. Ela aparece em cinco lugares:
-
-| Onde | Botão | O que faz |
-|---|---|---|
-| Fluxo macro | **Contar um processo** | Você escreve solto; sai um processo com passos tipados, armadilhas e 3 perguntas |
-| Editor do processo, em cada passo | ícone de brilho | Preenche o porquê, a armadilha e a regra a partir do que você já escreveu |
-| Editor do processo, nas perguntas | **IA escrever 3 perguntas** | Gera perguntas de situação a partir dos passos |
-| Editor do cargo | **IA descrever este cargo** | Missão, expectativas e conhecimentos, a partir dos processos que ele executa |
-| Editor do cargo | **IA sugerir treinamentos** | Vídeo, curso, leitura, prática — sem inventar link |
-| Biblioteca | **IA descrever pelo título** | Resumo, categoria e escopo do documento |
-
-**A IA nunca sobrescreve o que você escreveu.** Ela preenche só os campos vazios. O que é seu continua seu.
+A conversa fica **salva por pessoa**. Cada um enxerga só a sua, e o ícone de lixeira apaga.
 
 ### O limite que ela respeita
 
-Ela **não inventa prazo, valor, percentual, norma técnica nem exigência legal**. Se você não disser, o campo fica em branco esperando você.
+Ela **não inventa prazo, valor, percentual, norma técnica nem exigência legal**. Se você não disser, ela diz que não sabe e pergunta.
 
-Isso não é timidez: extintor mal recarregado mata gente, e um prazo errado escrito como se fosse oficial é pior que um campo vazio. Ela também não inventa nome de documento, sistema ou link.
+Isso não é timidez: extintor mal recarregado mata gente, e um prazo errado dito com segurança é pior que um espaço em branco. Ela também não inventa nome de documento, sistema, cargo ou processo que não exista no CIP.
 
-### O selo de revisão
-
-Todo processo que passou pela IA entra como **não revisado**. Enquanto estiver assim, ele **não conta como pronto** no contador do topo, e o editor mostra um aviso vermelho.
-
-Você lê, corrige o que estiver torto e clica em "Revisei". Depois disso ainda falta a **aprovação com nome** — são duas coisas: revisar o que a IA escreveu, e assumir publicamente que o processo é esse.
-
-### Onde a chave da IA mora
+### Onde a chave dela mora
 
 Numa Edge Function do Supabase chamada `cip-ia`, no projeto **CIP Platina** — nunca no navegador. O que vai no `app.js` é só a chave pública do projeto, que existe exatamente para isso.
 
-Para a IA funcionar, a variável `ANTHROPIC_API_KEY` precisa estar nos secrets do projeto:
+Para funcionar, a variável `ANTHROPIC_API_KEY` precisa estar nos secrets:
 
 > Supabase → CIP Platina → Project Settings → Edge Functions → Secrets → **Add new secret**
 > Nome: `ANTHROPIC_API_KEY` · Valor: a chave do console da Anthropic
 
-Sem ela, os botões de IA respondem com uma mensagem clara dizendo exatamente isso.
-
-A função **exige usuário autenticado**, aceita chamadas só das origens da Platina e trava em 12 chamadas por minuto para segurar um laço acidental. Como o cadastro público está desligado no Supabase, quem não tem conta criada por você não chega nela.
+A função **exige usuário autenticado**, aceita chamadas só das origens da Platina e trava em 20 perguntas por minuto. Como o cadastro público está desligado no Supabase, quem não tem conta criada por você não chega nela.
 
 Ainda assim, vale manter um **limite de gasto no console da Anthropic**: é a trava que não depende de nada dar certo.
 
+## Governança
+
+Um processo conta como **pronto** quando tem dono, executor, o porquê, entrada (se recebe de alguém), saída (se entrega para alguém) e passos com título.
+
+Aprovar é um **ato com nome e data**. E a aprovação guarda uma assinatura do conteúdo aprovado: se alguém editar o processo depois, o selo cai sozinho e a tela passa a dizer *"mudou desde a aprovação"*. Sem isso, "aprovado" viraria carimbo eterno.
+
+O histórico registra quem aprovou e quando. A tela **O que falta** lista tudo que está incompleto, ordenado por consequência — o que quebra o fluxo vem antes do que só está solto.
+
+## O cargo
+
+Além da missão e das expectativas, o cargo responde três perguntas que quase nenhuma descrição responde:
+
+- **o que essa pessoa faz no dia a dia** — as atividades que provavelmente nunca virarão processo mapeado. Os processos que já existem aparecem sozinhos ao lado, para ninguém repetir.
+- **para onde esse cargo leva** — o plano de carreira
+- **pelo que é cobrada** — e aqui **não há campo para digitar**
+
+A cobrança é **deduzida**: sai dos indicadores dos processos que o cargo executa ou dos quais é dono, com o nome do processo de onde cada número vem. Um campo digitado seria a segunda cópia, e no dia em que a meta mudasse no processo a do cargo mostraria o valor velho.
+
+Indicador que não passa por processo nenhum — *"horas de treinamento"* — pode ser ligado direto ao cargo.
+
 ## Onde entram vídeo e documento
 
-**Vídeo do YouTube** em três lugares: no passo do processo ("veja sendo feito"), no processo inteiro (visão geral) e no treinamento da trilha. Basta colar o link — o player aparece embutido, sem cookie de rastreamento.
+**Vídeo do YouTube** em três lugares: no passo, no processo inteiro e no treinamento da trilha. Cole o link — o player aparece embutido, sem cookie de rastreamento.
 
-**Documento** em dois lugares: a **Biblioteca** guarda o que vale para a empresa inteira (regimento, políticas, manuais), e o **material de apoio** do processo guarda o que a pessoa abre enquanto executa (modelo de orçamento, tabela de preço).
+**Documento** em dois lugares: a **Biblioteca** guarda o que vale para a empresa inteira, e o **material de apoio** do processo guarda o que a pessoa abre enquanto executa.
 
-Como ainda não há upload de arquivo, o documento entra como link — Google Drive, OneDrive, Dropbox. Só links `http`/`https` são aceitos.
+Regra de negócio que precisa estar escrita — *"pedido acima de 10 mil pode ser faturado em 30/60/90"* — é um **documento do tipo política ou norma**, ligado ao processo. Não existe cadastro separado de regra: duas gavetas para a mesma coisa é onde o time procura no lugar errado.
 
-## O processo é uma aula, não um documento
+Como ainda não há upload de arquivo, o documento entra como link — Drive, OneDrive, Dropbox. Só `http`/`https`.
 
-Um especialista não entrega apostila. Ele diz por que existe, mostra o caminho inteiro, vai um passo por vez, mostra um exemplo real, aponta onde todo mundo erra e checa se você entendeu.
+## Impressão
 
-Por isso a unidade do sistema não é o processo — é o **passo**. Cada passo carrega cinco coisas:
+Toda tela relevante imprime: o mapa macro, a ficha do processo, o passo a passo e a trilha do cargo. A folha sai com **carimbo de situação** — vigente, mudou desde a aprovação, ou rascunho — porque folha sem estado vira verdade oficial na mão de quem recebe.
 
-- **o que fazer** — uma frase, verbo na frente
-- **como fazer** — o detalhe prático
-- **exemplo real** — print ou foto (é o que faz grudar)
-- **por quê** — a razão, o que faz lembrar em campo
-- **onde todo mundo erra** — a armadilha
-- **a regra** — o inegociável, ou quando chamar o supervisor
+## Como começar
 
-Passos de decisão ganham dois caminhos (se sim / se não). Cada tipo de passo — etapa, decisão, evidência, aprovação — tem cor e forma próprias na tela.
+O CIP vem com um **exemplo mínimo, todo marcado com (TESTE)**: dois setores, três cargos, dois processos ligados por uma decisão, dois desfechos, um documento, um sistema e um indicador. Serve para experimentar tudo sem confundir com dado real.
 
-## Como usar
+Apague quando sua equipe começar, ou vá substituindo peça por peça.
 
-**No ar em https://platinaextintor.github.io/cip-platina/**, com login. O conteúdo vive no Supabase e a edição é ao vivo — o que uma pessoa faz, a outra vê.
-
-Para mexer no código, `index.html` abre direto no navegador; não precisa instalar nada.
-
-O CIP começa **vazio de conteúdo**: vêm só os 4 setores e os 5 cargos com a hierarquia. Missão, processo, subprocesso, trilha e documento são escritos por você — não há exemplo pré-carregado para confundir com dado real.
-
-Se algo travar, abra com `?seguro=1` no fim do endereço: o app inicia vazio **sem gravar por cima** do que está salvo, e oferece baixar o backup.
-
-1. **Organograma** — monte os cargos. Arraste um cargo sobre outro para subordiná-lo, ou sobre a caixa da empresa para levá-lo ao topo. O ícone de corrente liga a partir do chefe: clique nele e depois em quem responde a ele. A árvore se redesenha sozinha, e uma ligação que fecharia ciclo é recusada.
-2. **Trilha** — clique num cargo para escrever a missão, as expectativas e os treinamentos.
-3. **Fluxo macro** — o mapa da operação em raias. Clique em `+ processo` na raia certa, e depois no ícone de corrente para ligar um processo no próximo.
+1. **Organograma** — monte os cargos. Arraste um sobre outro para subordiná-lo. Uma ligação que fecharia ciclo é recusada.
+2. **Trilha** — escreva a missão, as atividades, o plano de carreira.
+3. **Fluxo macro** — desenhe a operação em raias, um processo por vez.
 4. **Editor** — descreva o processo e escreva os passos. Salva sozinho.
-5. **Aula** — clique em qualquer cartão do fluxo para ver como o colaborador vê.
-6. **Biblioteca** — cadastre o regimento e as políticas, e depois aponte a trilha para eles.
+5. **Aula** — veja como o colaborador vê.
+6. **Biblioteca** — cadastre normas e sistemas, e aponte os processos para eles.
 
-Um processo conta como **pronto** quando tem o "por que existe", pelo menos 3 passos escritos **e uma aprovação com nome**. Editar um processo aprovado derruba o selo — a tela passa a dizer "mudou desde a aprovação", e alguém precisa aprovar de novo.
+Vá **um processo por vez**. O de maior volume primeiro.
 
-Vá um processo por vez. O de maior volume primeiro.
+Se algo travar, abra com `?seguro` no fim do endereço: o app inicia vazio **sem gravar por cima** do que está salvo, e oferece baixar uma cópia.
 
 ## Quatro regras para não virar documento morto
 
@@ -197,23 +184,25 @@ Vá um processo por vez. O de maior volume primeiro.
 
 ## Onde os dados vivem
 
-No **Supabase**, uma linha por peça: a estrutura da empresa, cada processo, cada decisão, cada fim nomeado, cada documento, sistema, regra e indicador. Repartir assim é o que permite três pessoas editarem ao mesmo tempo sem uma apagar o trabalho da outra.
+No **Supabase**, uma linha por peça: a estrutura da empresa, cada processo, decisão, fim nomeado, documento, sistema e indicador. Repartir assim é o que permite várias pessoas editarem ao mesmo tempo sem uma apagar o trabalho da outra.
 
-O `localStorage` continua sendo usado como cópia local enquanto você trabalha. **Exporte o JSON de vez em quando** — botão de banco de dados no topo à direita.
+A conversa com a consultora fica em outra tabela, por pessoa.
 
-As imagens são reduzidas para ~1000px antes de guardar, mas ainda assim são o que mais ocupa espaço.
+O `localStorage` é cópia local enquanto você trabalha. **Exporte o JSON de vez em quando** — ícone de banco de dados no topo.
+
+As imagens são reduzidas para ~1000px antes de guardar, mas ainda são o que mais ocupa espaço.
 
 ## O caminho daqui
 
-| Etapa | O que entrega | |
+| | O que entrega | |
 |---|---|---|
-| 1 | organograma + trilha do cargo + fluxo macro + aula + biblioteca | ✔ |
-| 2 | autoria com IA — você conta, ela estrutura | ✔ |
-| 3 | Supabase: banco, login, edição ao vivo entre três pessoas | ✔ |
-| 4 | sistema, regra de negócio e indicador como objetos de primeira classe | ✔ |
-| 5 | governança: aprovação com nome, RACI completo, histórico | ✔ |
+| 1 | organograma + trilha + fluxo macro + aula + biblioteca | ✔ |
+| 2 | Supabase: banco, login, edição ao vivo | ✔ |
+| 3 | sistema e indicador como objetos de primeira classe | ✔ |
+| 4 | governança: aprovação com nome, RACI, histórico | ✔ |
+| 5 | consultora de IA que opina e não escreve | ✔ |
 | 6 | validade de treinamento — NR e reciclagem vencem | |
 | 7 | o mapa como porta de entrada do colaborador | |
 | 8 | comunicados por cargo e confirmação de leitura | |
 
-O que entrou até aqui responde as perguntas inversas: *o que para se o CAD cair?*, *quem é afetado se a regra do prazo mudar?*, *quem aprovou este processo e ele mudou desde então?*
+O que entrou até aqui responde as perguntas inversas: *o que para se o CAD cair?*, *quem executa este processo?*, *quem aprovou, e mudou desde então?*

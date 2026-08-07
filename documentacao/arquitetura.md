@@ -40,8 +40,8 @@ Aplicada em quatro lugares:
 | os sistemas do processo | dos sistemas dos passos dele |
 | quem é processo de apoio | de não ter ligação nenhuma no mapa |
 | se um processo está vigente | da assinatura do conteúdo bater com a da aprovação |
-| quais regras um processo aplica | das regras marcadas nos passos dele |
 | quem usa um documento | dos processos e trilhas que apontam para ele |
+| pelo que um cargo é cobrado | dos indicadores dos processos que ele executa ou responde |
 
 É o que impede o CIP de virar cópias desencontradas — o erro clássico de ferramenta caseira de processo. É também o princípio central do ARIS: cada objeto existe uma vez e é reutilizado.
 
@@ -52,23 +52,22 @@ Aplicada em quatro lugares:
   empresa:    { nome },
   setores:    [{ id, nome, camada }],                           // estrategico | principal | apoio
   cargos:     [{ id, setorId, nome, reportaA, missao, expectativas, conhecimentos,
+                 atividades, planoDeCarreira,                   // o que faz hoje, para onde vai
                  trilha: [{ id, tipo, titulo, url, duracao, obrigatorio, nota, documentoId }] }],
   decisoes:   [{ id, tipo, pergunta, setorId, proximos }],       // exclusivo | inclusivo
   fins:       [{ id, nome, setorId }],                          // desfechos nomeados
   documentos: [{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
   sistemas:   [{ id, nome, descricao, url, critico }],          // onde o trabalho acontece
-  regras:     [{ id, codigo, titulo, texto, vigenteDesde }],    // RN-001; vale na empresa, não no processo
   indicadores:[{ id, nome, pergunta, unidade, direcao, meta,
-                 frequencia, processoIds[] }],                  // a ponte com o Bloco 9
+                 frequencia, processoIds[], cargoIds[] }],      // a ponte com o Bloco 9
   processos:  [{
     id, nome, setorId, donoCargoId, cargosIds[], consultadosIds[], informadosIds[],
-    status, revisado, aprovacao, historico[], videoUrl,
+    status, aprovacao, historico[], videoUrl, documentoIds[],
     proximos: [{ para, rotulo }],
     entrada, saida,                                            // o que chega e o que sai
     porque, seErrar,
-    anexos:    [{ id, titulo, url }],
-    passos:    [{ id, tipo, cargoId, oQue, comoFazer, porque, armadilha, regra,
-                  imagem, videoUrl, sistemaIds[],
+    passos:    [{ id, tipo, cargoId, setorId, oQue, comoFazer, porque, armadilha,
+                  imagem, videoUrl, seSim, seNao, sistemaIds[],
                   proximos: [{ para, rotulo }] }],       // o subprocesso é grafo, não fila
     perguntas: [{ id, pergunta, resposta }],
   }],
@@ -99,7 +98,7 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 
 1. **Estado completo ou nada.** Todo caminho que instala um estado novo passa por `normalizar()`. São três: carregar, importar e apagar. O bug de esquecer um deles quebrou três telas.
 2. **Ligação só aponta para peça viva.** `normalizar()` descarta o resto.
-3. **Rascunho de IA não conta como pronto** até ter revisão humana.
+3. **A IA não tem caminho até os campos.** A Edge Function devolve texto, não estrutura. É invariante de arquitetura, não de instrução.
 4. **Ciclo não trava nem estica.** A busca em profundidade marca arestas de retorno e as tira do cálculo de coluna.
 5. **Link do usuário só passa se for `http`/`https`.**
 6. **Alteração remota substitui no lugar**, nunca no fim — a ordem da lista é a ordem na tela.
@@ -113,12 +112,13 @@ Coisas que precisam continuar verdadeiras. Cada uma tem teste.
 14. **Ciclo fechado ainda tem porta.** Quando todo passo tem entrada, o primeiro vira a entrada — no desenho e na aula, pela mesma regra.
 15. **Cliente não apaga o que não entende.** A sincronia só considera "sumida" uma peça cujo tipo ele sabe escrever. Sem isso, uma aba com código velho lê uma linha nova, não a reconhece, conclui que sumiu e apaga o trabalho de quem está atualizado.
 16. **Toda lista do modelo tem linha no banco.** Um teste percorre o modelo e cobra: acrescentou lista, dá lugar para ela. `fins` viveu meses só no navegador porque ninguém cobrava.
-17. **Revisar e aprovar são dois atos, e o segundo exige o primeiro.** Rascunho de IA não pode ser aprovado sem alguém dizer "li e está certo", com nome. Veio de uma auditoria externa: depois que a IA escreveu 51 passos, *"o risco agora não é falta de estrutura, é alguém aprovar rápido demais conteúdo plausível mas não confirmado"*. Dava para aprovar em dois cliques sem ler — e `porQueNaoPodeAprovar()` devolve o motivo, não um booleano, porque quem clica precisa saber o que falta.
-18. **Aprovação tem nome, data e assinatura do que foi aprovado.** O selo cai sozinho quando o conteúdo muda — selo que sobrevive a qualquer edição afirma que alguém conferiu o que ninguém conferiu. Só cai por mudança no que a aprovação de fato aprova: nome, motivo, entradas e saídas, responsáveis, e os passos com suas regras, sistemas e ligações. Trocar um vídeo ou anexar um arquivo não derruba.
+17. **A IA não escreve no sistema, e isso é de arquitetura.** Houve uma versão em que ela preenchia campo, e para nos defender dela existiam cinco mecanismos — o campo `revisado`, a tarja vermelha, o selo de rascunho na impressão, a trava na aprovação e uma linha em "O que falta". Veio de uma auditoria externa: depois que a IA escreveu 51 passos, *"o risco agora não é falta de estrutura, é alguém aprovar rápido demais conteúdo plausível mas não confirmado"*. A resposta certa não era mais trava — era cortar o cano. Hoje a função devolve texto; não existe caminho até os campos. Os cinco mecanismos saíram junto.
+18. **Aprovação tem nome, data e assinatura do que foi aprovado.** O selo cai sozinho quando o conteúdo muda — selo que sobrevive a qualquer edição afirma que alguém conferiu o que ninguém conferiu. Só cai por mudança no que a aprovação de fato aprova: nome, motivo, entradas e saídas, responsáveis, e os passos com seus sistemas e ligações. Trocar um vídeo não derruba. E `porQueNaoPodeAprovar()` devolve o motivo, não um booleano, porque quem clica precisa saber o que falta.
 19. **"Pronto" passou a exigir aprovação.** Antes bastava estar preenchido — que é a definição de pronto que ninguém assina.
-20. **A regra e o indicador moram fora do processo.** Os dois valem em mais de um: a regra do prazo de pagamento pega Comercial, Financeiro e Faturamento; o prazo médio de entrega mede Comercial e Logística. Guardados dentro, seriam cópias que um dia divergem.
-21. **Mexer no indicador não derruba a aprovação do processo.** O número mede o processo, não faz parte dele. Se derrubasse, ajustar uma meta obrigaria a reaprovar o passo a passo — e ninguém ajustaria.
-22. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
+20. **O sistema e o indicador moram fora do processo.** Os dois valem em mais de um: o CAD é usado no Comercial e no Faturamento; o prazo médio de entrega mede Comercial e Logística. Guardados dentro, seriam cópias que um dia divergem.
+21. **Regra de negócio foi um objeto desses, e saiu.** Tinha código RN-000 e catálogo próprio, e a ideia era boa — *"pedido acima de 10 mil pode ser faturado em 30/60/90"* vale em três setores. O que derrubou não foi a ideia, foi a duplicidade na cabeça de quem usa: norma e política já moram em Documento, e quem procura "a regra do faturamento" não sabe qual gaveta abrir. Uma gaveta só erra menos que duas gavetas certas.
+22. **Mexer no indicador não derruba a aprovação do processo.** O número mede o processo, não faz parte dele. Se derrubasse, ajustar uma meta obrigaria a reaprovar o passo a passo — e ninguém ajustaria.
+23. **Elo fraco é ausência, não semântica.** `elosFracos()` aponta quem entrega sem declarar o que entrega. Se a saída de um é *mesmo* a entrada do outro, só leitura humana diz.
 
 ## Os testes
 
@@ -302,7 +302,7 @@ Uma auditoria externa em 03/08/2026 abriu peça por peça e concluiu o essencial
 | 3 | ficha oca | a casca existe, o trabalho não está descrito — é o que dá ilusão de documentação |
 | 4 | sobrou solto | cadastrado sem uso: ou falta ligar, ou não deveria existir |
 
-A função não inventa regra nova: junta as que já estavam espalhadas (`elosFracos`, `regrasOrfas`, `sistemasOrfaos`, `processosSemIndicador`) e completa o que faltava. Cada item carrega para onde ir, então a lacuna vira trabalho em um clique.
+A função não inventa regra nova: junta as que já estavam espalhadas (`elosFracos`, `sistemasOrfaos`, `processosSemIndicador`) e completa o que faltava. Cada item carrega para onde ir, então a lacuna vira trabalho em um clique.
 
 `retratoDoBloco1()` responde a outra metade: **quanto** está de pé, em números que não dependem de opinião.
 
@@ -310,7 +310,7 @@ A função não inventa regra nova: junta as que já estavam espalhadas (`elosFr
 
 O "material de apoio" do processo era anexo digitado à mão — título e link soltos, **sem nenhuma ligação com a biblioteca**. Documento cadastrado não aparecia em processo nenhum, e anexo de processo não virava documento: duas listas de arquivo na mesma empresa, nenhuma sabendo da outra.
 
-Agora o processo tem `documentoIds` e a biblioteca é o único lugar onde documento existe. Os anexos antigos viram documentos de verdade na migração, e **títulos iguais viram um só** — o mesmo ganho da regra e do sistema.
+Agora o processo tem `documentoIds` e a biblioteca é o único lugar onde documento existe. Os anexos antigos viram documentos de verdade na migração, e **títulos iguais viram um só** — o mesmo ganho do sistema.
 
 A pergunta inversa tem duas metades, porque documento serve para executar **e** para ensinar:
 
@@ -326,7 +326,7 @@ ondeApareceODocumento(id) → { processos, cargos }
 
 Decisão do Eric em 03/08/2026, depois de perguntar o que era POP e de onde vinha.
 
-**POP — Procedimento Operacional Padrão** — vem da gestão da qualidade: política → procedimento → POP → registro. No CIP, **o POP é o passo a passo do processo**. Ele já tem o que fazer, como fazer, quem faz, por quê, onde todo mundo erra, a regra que vale, o sistema onde é feito e a evidência exigida — mais do que um POP tradicional carrega.
+**POP — Procedimento Operacional Padrão** — vem da gestão da qualidade: política → procedimento → POP → registro. No CIP, **o POP é o passo a passo do processo**. Ele já tem o que fazer, como fazer, quem faz, por quê, onde todo mundo erra, o sistema onde é feito e a evidência exigida — mais do que um POP tradicional carrega.
 
 Um POP em Word ao lado disso seria uma segunda verdade sobre o mesmo trabalho, e no dia que a regra mudar uma das duas fica para trás. Precisou de POP em papel? **Imprimir o passo a passo** — sai com carimbo dizendo se está aprovado, por quem e quando.
 
@@ -344,12 +344,11 @@ Processo vira papel: POP na parede da oficina, folha na mão do técnico em camp
 
 Imprimem: a **ficha do processo**, o **passo a passo** (a aula, que é o POP de quem executa), a **trilha do cargo** e o **mapa macro**.
 
-**A regra aqui é de governança, não de estilo: papel não tem estado.** Uma ficha impressa sem dizer se foi aprovada vira verdade oficial na mão de quem a recebe — e boa parte do que está no CIP hoje é rascunho de IA. Por isso o carimbo é obrigatório no topo de tudo que sai:
+**A regra aqui é de governança, não de estilo: papel não tem estado.** Uma ficha impressa sem dizer se foi aprovada vira verdade oficial na mão de quem a recebe. Por isso o carimbo é obrigatório no topo de tudo que sai:
 
 | Situação | O que a folha diz |
 |---|---|
-| rascunho de IA | *"escrito pela IA e ainda não revisado. Não use como procedimento oficial."* |
-| rascunho humano | *"ainda não foi aprovado por ninguém."* |
+| rascunho | *"ainda não foi aprovado por ninguém."* |
 | vigente | *"aprovado por Fulano em 03/08/2026."* |
 | alterado depois | *"esta folha não corresponde ao que foi aprovado."* |
 
@@ -406,7 +405,6 @@ Duas peças podem apontar para o mesmo destino entregando coisas diferentes, e �
 
 `faltaParaAprovar()` é a lista oficial:
 
-- foi revisado por gente (rascunho de IA não passa)
 - tem passos, e nenhum sem título
 - tem dono e tem quem executa
 - diz por que existe
@@ -419,7 +417,7 @@ Duas peças podem apontar para o mesmo destino entregando coisas diferentes, e �
 
 ## O ensaio geral
 
-`testes.html` roda o ciclo inteiro de um processo — nascer, ganhar passos, ligar regra e sistema, receber RACI, ser recusado por falta de revisão, ser revisado, aprovado, alterado, reaprovado — e verifica em cada ponto o que o resto do sistema responde.
+`testes.html` roda o ciclo inteiro de um processo — nascer, ganhar passos, ligar sistema e indicador, receber RACI, ser aprovado, alterado, reaprovado — e verifica em cada ponto o que o resto do sistema responde.
 
 Achou dois defeitos reais na primeira execução:
 

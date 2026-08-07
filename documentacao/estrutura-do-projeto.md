@@ -4,19 +4,32 @@
 CIP Platina Extintores/
 ├── index.html          casca da aplicação
 ├── styles.css          identidade visual e responsividade
+├── dominio.js          o modelo da empresa e as regras que valem sobre ele
 ├── bpmn.js             renderizador BPMN 2.0 em SVG
-├── app.js              toda a lógica
+├── nuvem.js            login, gravação e sincronia ao vivo
+├── app.js              a camada de tela
+├── testes.html         a bateria de testes — abra no navegador
+├── diagnostico.html    checagem de conexão e permissões
+├── ferramentas/
+│   └── varredura.js    cruza botões desenhados × botões escutados
 ├── documentacao/
 │   ├── README-CIP.md
-│   └── estrutura-do-projeto.md
-├── supabase/
-│   └── cip-ia.ts                    fonte da Edge Function (cópia do que está implantado)
-├── dados/
-│   └── cip-workspace.json           o esqueleto em v3, para semear ou importar
-└── backups/
-    ├── snapshot-2026-07-28/          versão anterior (formato antigo)
-    └── snapshot-2026-07-28-final/    versão anterior (formato antigo)
+│   ├── arquitetura.md
+│   ├── estrutura-do-projeto.md
+│   └── visao-de-futuro/             o material que originou o projeto
+└── supabase/
+    ├── functions/cip-ia/index.ts    fonte da Edge Function (cópia do que está implantado)
+    └── migrations/                  o histórico do banco, em ordem
 ```
+
+**As quatro camadas dependem numa direção só**, e é o que permite testar o miolo sem navegador:
+
+```
+dominio.js  ←  bpmn.js  ←  nuvem.js  ←  app.js
+   (o que a empresa É)              (como aparece)
+```
+
+`dominio.js` não conhece tela, rede nem navegador. `testes.html` carrega só as três primeiras — por isso 180 e poucos testes rodam sem subir nada.
 
 ## Como o app.js está organizado
 
@@ -38,8 +51,8 @@ Lido de cima para baixo, na ordem em que aparece:
 | BPMN | `bpmnDoProcesso()` e `bpmnDoMapa()` — traduzem o modelo do CIP para a notação |
 | macro | `viewMacro()` e `ligarMacro()` — o painel em tela cheia do nível 1 |
 | desenho | `viewDesenho()` e `ligarDesenho()` — o canvas do nível 2 |
-| IA | `chamarIA()`, `contextoBase()`, `comEspera()`, `preencherVazios()` e a tela "Contar um processo" |
-| drawer | painel de dados do projeto e o "Contar um processo" |
+| consultora | `perguntarAConsultora()`, `viewConsultora()` e o painel lateral de IA |
+| drawer | painel de dados do projeto |
 
 ## O modelo de dados
 
@@ -48,21 +61,21 @@ Lido de cima para baixo, na ordem em que aparece:
   empresa:  { nome },
   setores:  [{ id, nome }],
   cargos:   [{ id, setorId, nome, reportaA, missao, expectativas, conhecimentos,
+               atividades, planoDeCarreira,
                trilha: [{ id, tipo, titulo, url, duracao, obrigatorio, nota, documentoId }] }],
   documentos:[{ id, titulo, categoria, escopo, resumo, url, videoUrl }],
   sistemas: [{ id, nome, descricao, url, critico }],
-  regras:   [{ id, codigo, titulo, texto, vigenteDesde }],   // RN-001, vale na empresa
-  indicadores:[{ id, nome, pergunta, unidade, direcao, meta, frequencia, processoIds[] }],
+  indicadores:[{ id, nome, pergunta, unidade, direcao, meta, frequencia,
+                 processoIds[], cargoIds[] }],              // cargoIds: o que não passa por processo
   decisoes: [{ id, tipo, pergunta, setorId, proximos }],     // os losangos do macro
   fins:     [{ id, nome, setorId }],                         // desfechos nomeados
   processos:[{
     id, nome, setorId, donoCargoId, cargosIds[], consultadosIds[], informadosIds[],
-    status, revisado, aprovacao, historico[], videoUrl,
+    status, aprovacao, historico[], videoUrl, documentoIds[],
     proximos: [{ para, rotulo }],   // as setas do macro, com "sim"/"não"
     entrada, saida, porque, seErrar,
-    anexos: [{ id, titulo, url }],
-    passos: [{ id, tipo, cargoId, oQue, comoFazer, porque, armadilha,
-               sistemaIds[], regraIds[], imagem, videoUrl,
+    passos: [{ id, tipo, cargoId, setorId, oQue, comoFazer, porque, armadilha,
+               sistemaIds[], imagem, videoUrl, seSim, seNao,
                proximos: [{ para, rotulo }] }],              // o subprocesso é grafo
     perguntas: [{ id, pergunta, resposta }]
   }]
@@ -75,7 +88,9 @@ Quatro decisões que sustentam o resto:
 
 **`reportaA` no cargo** é o que faz o organograma ser hierarquia de verdade, e não uma lista agrupada por setor. O setor virou atributo (a cor), não nível da árvore.
 
-**O que vale em mais de um processo mora fora dele.** Sistema, regra e indicador são objetos próprios, referenciados pelos passos. A regra do prazo de pagamento pega Comercial, Financeiro e Faturamento; guardada dentro de cada um, seriam três cópias que um dia divergem.
+**O que vale em mais de um processo mora fora dele.** Sistema e indicador são objetos próprios, referenciados pelos passos e pelos processos. O CAD é usado no Comercial e no Faturamento; guardado dentro de cada um, seriam duas cópias que um dia divergem.
+
+Regra de negócio já foi um objeto desses, com código RN-000 e catálogo próprio. Saiu: norma e política moram em Documento, e duas gavetas para a mesma coisa é onde o time procura no lugar errado. `normalizar()` apaga os vestígios de bases antigas — o catálogo, a marcação nos passos e o campo de texto solto que existia antes dele.
 
 **O passo é a unidade**, não o processo. Não existe um campo `detalhes` com um parágrafão: quem quiser escrever um, precisa quebrar em passos. É estrutural de propósito.
 
@@ -129,26 +144,23 @@ Passo sem título entra no desenho com o rótulo "sem título". Filtrá-lo — c
 
 A chave da Anthropic mora numa Edge Function do Supabase (`cip-ia`, projeto `zxbjluzxmucpzvgwtkns`), nunca no navegador. O `app.js` carrega apenas a chave pública do projeto.
 
-A função recebe `{ acao, entrada, contexto }` e devolve `{ dados }`. Cada ação tem seu próprio schema JSON e sua própria instrução; o modelo é `claude-opus-5` com **structured outputs**, então o retorno já chega no formato do CIP — não existe parsing de texto solto para dar errado.
+**Repare no que ela devolve: uma string.** A função já preencheu campo — recebia um relato e voltava JSON no formato exato de um passo, de um cargo, de uma trilha, e o app despejava aquilo dentro do modelo. Para nos defender disso existiam cinco mecanismos: o campo `revisado`, a tarja vermelha, o selo de rascunho na impressão, a trava na aprovação e uma linha em "O que falta". Todos existiam por causa dessa função, e todos saíram com ela.
 
-| Ação | Devolve |
-|---|---|
-| `processo` | processo inteiro: nome, ids, porquê, passos tipados, perguntas |
-| `passo` | os campos de um passo |
-| `perguntas` | três perguntas de situação |
-| `cargo` | missão, expectativas, conhecimentos |
-| `trilha` | lista de treinamentos |
-| `documento` | resumo, categoria, escopo |
+Agora não há formato — há texto. **Não existe caminho entre o que a IA diz e os campos.** Não é uma instrução que ela possa desobedecer: é um cano que não foi construído. Ao mexer aqui, essa é a propriedade que não pode voltar.
 
-Três regras que estão no código e valem manter:
+Três decisões no código que valem manter:
 
-**`contextoBase()` manda os ids reais** de setor e cargo junto com o pedido, e o cliente valida o que volta — id que não existe cai no primeiro da lista. Sem isso a IA inventa referência.
+**O contexto vai em duas camadas.** `contextoParaIA(state, { processoId })` manda o mapa inteiro sempre — nomes de tudo, que é barato — e os passos só do processo aberto. Com 19 processos de 8 passos, mandar tudo dava 61 mil caracteres contra um teto de 60 mil, e o servidor fatiava o JSON no meio de uma palavra: a IA lia lixo e respondia pior sem ninguém perceber. Com o foco, 9 mil. Um CIP de 150 processos ainda cabe.
 
-**`preencherVazios()` nunca sobrescreve.** A IA só entra onde o campo está vazio. O texto do gestor é a fonte; o da IA é o preenchimento.
+**Nenhum id vai para a IA.** Só nomes. Id não serve para conversar, e vazado ele apareceria numa resposta para uma pessoa.
 
-**O prompt de sistema proíbe inventar número, prazo, norma e link.** Numa empresa de extintores, um campo vazio é melhor que um dado plausível e errado. Ao mexer no prompt, essa parte não sai.
+**O prompt de sistema proíbe inventar número, prazo, norma e link.** Numa empresa de extintores, um "não sei" é melhor que um dado plausível e errado. Ao mexer no prompt, essa parte não sai.
 
-`processo.revisado` é a trava: rascunho de IA entra como `false`, `mapeado()` recusa, e o editor mostra o aviso até o gestor clicar em "Revisei".
+**A resposta vem em fluxo.** A função devolve `text/plain` em pedaços, não JSON pronto — sem isso a tela fica em "pensando…" até a última palavra e parece travada. O preço: erro no meio não vira mais código HTTP, porque o status já foi enviado; ele chega como frase no fim do texto. Erro *antes* do fluxo continua JSON com status.
+
+**O esforço sai da tela, não do texto da pergunta.** Com um processo aberto a pessoa costuma pedir análise e ganha `high`; no mapa geral costuma perguntar vocabulário e ganha `medium`.
+
+No cliente, só o bloco da resposta em curso é redesenhado — redesenhar o painel a cada pedaço tiraria o foco da caixa de escrever. E `falaEmHtml()` fecha a crase que falta enquanto o texto chega, senão uma abertura de bloco sem fechamento faria o resto da resposta virar caixa de copiar.
 
 `importar()` passa o arquivo por `normalizar()` — sem isso, um backup antigo entra sem `decisoes`/`documentos` e quebra as telas depois. Mesma classe do bug do apagar tudo: **todo caminho que instala um estado novo tem que passar pelo mesmo funil.** Hoje são três: carregar, importar e apagar.
 
@@ -160,4 +172,8 @@ Trocar a quem um cargo responde acontece em dois lugares — arrastar no organog
 
 O editor liga os eventos direto nos campos e **não re-renderiza a cada tecla**, senão o cursor pula. O `render()` só é chamado quando a estrutura muda: adicionar, remover, mover passo ou trocar o tipo.
 
-`mapeado()` é a régua do que conta como pronto: tem o "por que existe" e pelo menos 3 passos com título. Mudar essa função muda o contador do topo e as etiquetas em todas as telas de uma vez.
+**Existe uma régua só para "pronto", e ela é a aprovação.** `faltaParaAprovar()` lista o que impede — dono, executor, o porquê, entrada se recebe, saída se entrega, passos com título — e `mapeado()` é uma linha: `situacaoDoProcesso(p) === "vigente"`.
+
+Houve um tempo em que eram duas definições, e elas discordavam: dava para aprovar um processo de dois passos e o contador do topo continuar dizendo que não estava pronto. Ao mudar o critério, mude `faltaParaAprovar()` — todo o resto sai dela.
+
+`assinaturaDoProcesso()` é o que impede "aprovado" de virar carimbo eterno: a aprovação guarda um resumo do conteúdo aprovado, e editar o processo depois derruba o selo sozinho.
