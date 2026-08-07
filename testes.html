@@ -1121,6 +1121,62 @@
         igual([c.atividades, c.planoDeCarreira], ["", ""]);
       });
 
+      grupo("Domínio · a assinatura da base");
+
+      /* A conversa com a consultora é relida inteira a cada pergunta. Quando a
+         base virou um exemplo mínimo, a IA continuou analisando os 19 processos
+         apagados — ela lia o próprio histórico. A assinatura é como a tela sabe
+         que a conversa envelheceu. */
+      teste("apagar um processo muda a assinatura", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a" }), proc({ id: "b" })] });
+        const antes = assinaturaDaBase();
+        state.processos = state.processos.filter((p) => p.id !== "b");
+        state = normalizar(state);
+        if (assinaturaDaBase() === antes) throw new Error("apagou processo e a assinatura ficou igual");
+      });
+
+      teste("criar um setor muda a assinatura", () => {
+        state = normalizar({ ...semente() });
+        const antes = assinaturaDaBase();
+        state.setores.push({ id: "s-novo", nome: "Novo", camada: "apoio" });
+        state = normalizar(state);
+        if (assinaturaDaBase() === antes) throw new Error("criou setor e a assinatura ficou igual");
+      });
+
+      /* O ponto mais importante: escrever NÃO envelhece a conversa. Se
+         envelhecesse, ninguém conseguiria conversar enquanto trabalha — cada
+         tecla derrubaria o histórico. */
+      teste("escrever dentro de um passo não muda a assinatura", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a", passos: [passo({ id: "1" })] })] });
+        const antes = assinaturaDaBase();
+        state.processos[0].passos[0].comoFazer = "um texto novo e comprido";
+        state.processos[0].passos[0].armadilha = "outro";
+        state.processos[0].porque = "mudei o porquê também";
+        if (assinaturaDaBase() !== antes) throw new Error("escrever texto envelheceu a conversa");
+      });
+
+      teste("renomear um processo não muda a assinatura", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a", nome: "Orçamento" })] });
+        const antes = assinaturaDaBase();
+        state.processos[0].nome = "Cotação";
+        if (assinaturaDaBase() !== antes) throw new Error("renomear envelheceu a conversa");
+      });
+
+      teste("a ordem das peças não muda a assinatura", () => {
+        state = normalizar({ ...semente(), processos: [proc({ id: "a" }), proc({ id: "b" })] });
+        const antes = assinaturaDaBase();
+        state.processos.reverse();
+        if (assinaturaDaBase() !== antes) throw new Error("reordenar envelheceu a conversa");
+      });
+
+      teste("documento, sistema e indicador também contam", () => {
+        state = normalizar({ ...semente() });
+        const antes = assinaturaDaBase();
+        state.documentos.push({ id: "d1", titulo: "X", categoria: "outro", escopo: "", resumo: "", url: "", videoUrl: "" });
+        state = normalizar(state);
+        if (assinaturaDaBase() === antes) throw new Error("documento novo não contou");
+      });
+
       grupo("Domínio · o que a consultora enxerga");
 
       /* A IA deixou de preencher campo e passou a opinar. Para opinar sobre um

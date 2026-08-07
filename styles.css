@@ -1419,3 +1419,18 @@ body.com-consultora { padding-right: 380px; }
   .consultora { display: none !important; }
   body.com-consultora { padding-right: 0; }
 }
+
+/* O corte que separa a conversa da base anterior. Não apaga nada — a pessoa
+   pode querer reler o que discutiu. Só marca onde o chão mudou. */
+.ia-corte { display: grid; gap: 10px; margin: 6px 0; }
+.ia-corte-linha { height: 1px; background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 12px); }
+.ia-corte-texto {
+  border: 1px solid var(--amber);
+  background: var(--amber-bg);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.ia-corte-texto strong { display: block; color: var(--ink); margin-bottom: 2px; }

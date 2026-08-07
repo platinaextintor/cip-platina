@@ -285,17 +285,21 @@ async function lerConversa(limite = 60) {
   if (!cliente || !usuarioAtual) return [];
   const { data, error } = await cliente
     .from("conversas")
-    .select("papel, texto, onde, criado_em")
+    .select("papel, texto, onde, assinatura, criado_em")
     .order("criado_em", { ascending: false })
     .limit(limite);
   if (error) return [];
-  return (data || []).reverse().map((l) => ({ papel: l.papel, texto: l.texto, onde: l.onde || "" }));
+  return (data || []).reverse().map((l) => ({
+    papel: l.papel, texto: l.texto, onde: l.onde || "", assinatura: l.assinatura || "",
+  }));
 }
 
-async function gravarFala(papel, texto, onde = "") {
+/* A assinatura da base viaja com a fala. É o que permite dizer depois "esta
+   conversa é de quando o mapa era outro" sem adivinhar pela data. */
+async function gravarFala(papel, texto, onde = "", assinatura = "") {
   const cliente = nuvemPronta();
   if (!cliente || !usuarioAtual) return;
-  await cliente.from("conversas").insert({ dono: usuarioAtual.id, papel, texto, onde });
+  await cliente.from("conversas").insert({ dono: usuarioAtual.id, papel, texto, onde, assinatura });
 }
 
 async function limparConversa() {

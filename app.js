@@ -110,7 +110,7 @@ const IA = {
    Agora não há formato — há texto. Não existe caminho entre o que ela diz e os
    campos, e é isso que impede a IA de escrever no CIP: não é uma instrução que
    ela possa desobedecer, é um cano que não foi construído. */
-async function perguntarAConsultora(mensagens, onde, aoChegar) {
+async function perguntarAConsultora(mensagens, onde, aoChegar, baseMudou = false) {
   const token = await tokenDoUsuario();
   if (!token) throw new Error("Entre na sua conta para conversar com a IA.");
 
@@ -121,7 +121,12 @@ async function perguntarAConsultora(mensagens, onde, aoChegar) {
       authorization: `Bearer ${token}`,
       apikey: IA.chave,
     },
-    body: JSON.stringify({ mensagens, contexto: contextoParaIA(state, { processoId: ui.processoId }), onde }),
+    body: JSON.stringify({
+      mensagens,
+      contexto: contextoParaIA(state, { processoId: ui.processoId }),
+      onde,
+      baseMudou,
+    }),
   });
 
   /* Erro antes de a resposta começar ainda vem como JSON com código HTTP —
@@ -146,7 +151,16 @@ async function perguntarAConsultora(mensagens, onde, aoChegar) {
 
 /* ---------------------------------------------------------- a consultora */
 
-const consultora = { aberta: false, falas: [], pensando: false, carregada: false, parcial: "" };
+const consultora = { aberta: false, falas: [], pensando: false, carregada: false, parcial: "", assinaturaAoAbrir: "" };
+
+/* A conversa envelheceu? Compara a assinatura da última fala com a da base de
+   agora. Fala sem assinatura é anterior a este mecanismo — e "não sei de que
+   base veio" conta como envelhecida, porque afirmar o contrário seria chute. */
+function conversaDeOutraBase() {
+  const ultima = [...consultora.falas].reverse().find((f) => f.papel === "ia");
+  if (!ultima) return false;
+  return (ultima.assinatura || "") !== assinaturaDaBase();
+}
 
 /* As perguntas fixadas existem por um motivo prático: caixa de texto vazia com
    cursor piscando não convida ninguém. Quem nunca usou não sabe o que pode
@@ -252,6 +266,7 @@ function viewConsultora() {
   if (!consultora.aberta) return;
 
   const vazia = !consultora.falas.length;
+  const velha = !vazia && !consultora.pensando && conversaDeOutraBase();
 
   caixa.innerHTML = `
     <div class="ia-topo">
@@ -270,6 +285,18 @@ function viewConsultora() {
       ${consultora.falas.map((f) => f.papel === "pessoa"
         ? `<div class="ia-fala ia-pessoa">${esc(f.texto)}</div>`
         : `<div class="ia-fala ia-dela">${falaEmHtml(f.texto)}</div>`).join("")}
+
+      ${velha ? `<div class="ia-corte">
+        <span class="ia-corte-linha"></span>
+        <div class="ia-corte-texto">
+          <strong>O mapa mudou depois desta conversa.</strong>
+          Peça foi criada ou apagada desde então, então o que está acima pode falar de coisa que não existe mais.
+          A consultora foi avisada e vai responder pelo mapa de agora.
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn btn-sm" data-ia-limpar type="button">${icon("trash", 14)} Começar conversa nova</button>
+          </div>
+        </div>
+      </div>` : ""}
 
       ${consultora.pensando ? `<div class="ia-fala ia-dela" id="iaParcial">${consultora.parcial
         ? falaEmHtml(consultora.parcial, true)
@@ -337,11 +364,17 @@ async function enviarParaConsultora(texto) {
   if (!pergunta || consultora.pensando) return;
 
   const onde = ondeEstou();
-  consultora.falas.push({ papel: "pessoa", texto: pergunta });
+  /* Lido ANTES de empilhar a resposta: depois de gravar a fala nova com a
+     assinatura de agora, a conversa deixaria de parecer velha e a IA nunca
+     seria avisada da mudança. */
+  const baseMudou = conversaDeOutraBase();
+  const assinatura = assinaturaDaBase();
+
+  consultora.falas.push({ papel: "pessoa", texto: pergunta, assinatura });
   consultora.pensando = true;
   consultora.parcial = "";
   viewConsultora();
-  gravarFala("pessoa", pergunta, onde);
+  gravarFala("pessoa", pergunta, onde, assinatura);
 
   /* Redesenhar o painel inteiro a cada pedaço de texto tiraria o foco da caixa
      de escrever e reposicionaria a rolagem várias vezes por segundo. Só o bloco
@@ -360,9 +393,10 @@ async function enviarParaConsultora(texto) {
       consultora.falas.map((f) => ({ papel: f.papel === "pessoa" ? "pessoa" : "assistente", texto: f.texto })),
       onde,
       desenharParcial,
+      baseMudou,
     );
-    consultora.falas.push({ papel: "ia", texto: resposta });
-    gravarFala("ia", resposta, onde);
+    consultora.falas.push({ papel: "ia", texto: resposta, assinatura });
+    gravarFala("ia", resposta, onde, assinatura);
   } catch (erro) {
     consultora.falas.push({ papel: "ia", texto: `Não consegui responder: ${erro.message}` });
   } finally {
@@ -384,7 +418,9 @@ async function abrirConsultora() {
     consultora.carregada = true;
     const antigas = await lerConversa();
     if (antigas.length && !consultora.falas.length) {
-      consultora.falas = antigas.map((f) => ({ papel: f.papel === "pessoa" ? "pessoa" : "ia", texto: f.texto }));
+      consultora.falas = antigas.map((f) => ({
+        papel: f.papel === "pessoa" ? "pessoa" : "ia", texto: f.texto, assinatura: f.assinatura || "",
+      }));
       viewConsultora();
     }
   }

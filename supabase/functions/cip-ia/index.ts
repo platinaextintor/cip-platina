@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
     return json(req, { erro: "Muitas perguntas seguidas. Espere um minuto e tente de novo." }, 429);
   }
 
-  let corpo: { mensagens?: Fala[]; contexto?: unknown; onde?: string };
+  let corpo: { mensagens?: Fala[]; contexto?: unknown; onde?: string; baseMudou?: boolean };
   try {
     corpo = await req.json();
   } catch {
@@ -175,12 +175,25 @@ Deno.serve(async (req: Request) => {
     : `(O CIP ficou grande demais para caber nesta pergunta: ${bruto.length} caracteres, o limite é ${TETO_CONTEXTO}. Você está sem o contexto desta vez. Diga isso a quem perguntou, em uma linha, antes de responder.)`;
   const onde = String(corpo.onde ?? "").slice(0, 300);
 
+  /* A conversa é relida inteira a cada pergunta, então uma análise feita quando
+     a base era outra volta com a mesma segurança de quando foi escrita. Sem
+     este aviso a IA continua falando de processo apagado — foi o que aconteceu
+     quando 19 processos importados viraram um exemplo de dois. */
+  const avisoDeBaseTrocada = corpo.baseMudou
+    ? `---
+
+ATENÇÃO — o mapa mudou no meio desta conversa. Peça foi criada ou apagada depois que as mensagens acima foram escritas, então parte do que VOCÊ mesma disse antes pode falar de processo, setor ou documento que não existe mais.
+
+A lista acima é a única verdade sobre o que existe agora. Não repita análise de peça que não esteja nela. Se a pessoa perguntar sobre algo que sumiu, diga que aquilo não está mais no CIP — não descreva de memória.`
+    : "";
+
   /* O contexto entra no system, não na conversa: ele muda a cada pergunta
      (o gestor navega enquanto conversa) e não deve virar histórico. */
   const sistema = [
     SISTEMA,
     contexto ? `---\n\nO CIP da Platina neste momento:\n${contexto}` : "",
     onde ? `---\n\nOnde a pessoa está agora na tela: ${onde}\nSe a pergunta for vaga ("isso está claro?"), é disto que ela está falando.` : "",
+    avisoDeBaseTrocada,
   ].filter(Boolean).join("\n\n");
 
   /* Esforço calibrado pelo que a pessoa está olhando.

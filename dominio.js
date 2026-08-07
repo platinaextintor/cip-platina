@@ -487,6 +487,35 @@ function assinaturaDoProcesso(p) {
   return `${h.toString(36)}-${partes.length.toString(36)}`;
 }
 
+/* Que peças existem — não o que está escrito dentro delas.
+
+   Serve para a consultora saber que a conversa envelheceu. O caso que exigiu
+   isso: a base tinha 19 processos importados, virou um exemplo de dois, e a
+   conversa antiga continuava falando de processos apagados — a IA relia o
+   próprio histórico e analisava coisa que não existe mais.
+
+   De propósito só os ids: escrever um passo, corrigir uma armadilha ou renomear
+   um campo NÃO muda a assinatura. Se mudasse, a conversa quebraria a cada tecla
+   e ninguém conseguiria conversar enquanto trabalha. O que muda a assinatura é
+   peça entrando ou saindo — que é exatamente quando a conversa passa a falar de
+   um mapa que não é mais o de agora. */
+function assinaturaDaBase(st = state) {
+  const ids = [
+    ...st.setores.map((x) => `s${x.id}`),
+    ...st.cargos.map((x) => `c${x.id}`),
+    ...st.processos.map((x) => `p${x.id}`),
+    ...st.decisoes.map((x) => `d${x.id}`),
+    ...st.fins.map((x) => `f${x.id}`),
+    ...st.documentos.map((x) => `o${x.id}`),
+    ...st.sistemas.map((x) => `i${x.id}`),
+    ...st.indicadores.map((x) => `n${x.id}`),
+  ].sort().join(",");
+
+  let h = 5381;
+  for (let i = 0; i < ids.length; i++) h = ((h << 5) + h + ids.charCodeAt(i)) >>> 0;
+  return `${h.toString(36)}-${ids.length.toString(36)}`;
+}
+
 /* Três estados, e o do meio é o que faltava: aprovado mas alterado depois.
    Chamar isso de "vigente" seria mentir; chamar de "rascunho" apagaria o
    trabalho de quem aprovou. */
