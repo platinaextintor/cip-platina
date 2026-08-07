@@ -1434,3 +1434,219 @@ body.com-consultora { padding-right: 380px; }
   color: var(--ink-2);
 }
 .ia-corte-texto strong { display: block; color: var(--ink); margin-bottom: 2px; }
+
+/* ---------------------------------------------------------------- como usar
+
+   Tela de apresentação, não de trabalho: cartão largo, pouca borda, muito ar.
+   Tudo em grid com `auto-fit`, então a mesma marcação vira três colunas no
+   monitor e uma no celular sem media query. */
+.manual { max-width: 960px; }
+
+.manual-destaques {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.manual-destaques > div {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--navy-2);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 13px 15px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.manual-destaques strong { display: block; color: var(--ink); margin-bottom: 3px; }
+
+/* A corrente. No desktop as peças ficam lado a lado com a seta entre elas;
+   no celular viram pilha e a seta aponta para baixo. */
+.manual-corrente {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.manual-elo {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 13px 14px;
+}
+.manual-elo-icone { color: var(--navy-2); }
+.manual-elo strong { font-size: 14px; }
+.manual-elo span:last-child { color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+
+.manual-telas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.manual-tela {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 15px 16px;
+}
+.manual-tela:hover { border-color: var(--navy-2); background: var(--soft); }
+.manual-tela-icone { color: var(--navy-2); }
+.manual-tela strong { font-size: 15px; }
+.manual-tela > span:nth-of-type(2) { color: var(--ink-2); font-size: 13.5px; line-height: 1.45; }
+.manual-tela-ir { color: var(--navy-2); font-size: 12.5px; margin-top: 4px; }
+
+.manual-ia {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  margin-top: 12px;
+  border: 1px solid var(--navy-2);
+  border-radius: var(--radius-card);
+  background: var(--navy-bg);
+  padding: 15px 17px;
+}
+/* Só o título vira bloco. `\.manual-ia strong` pegava também os destaques
+   dentro do parágrafo e picotava a frase em três linhas. */
+.manual-ia > div > strong { display: block; font-size: 15px; margin-bottom: 3px; }
+.manual-ia span { color: var(--ink-2); font-size: 13.5px; line-height: 1.5; }
+.manual-ia .manual-tela-icone { color: var(--navy); flex: none; }
+
+/* O trilho numerado. O número sai do contador do <ol>, então inserir um passo
+   no meio não exige renumerar nada à mão. */
+.manual-trilho { counter-reset: passo; display: grid; gap: 2px; list-style: none; }
+.manual-trilho li {
+  counter-increment: passo;
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 11px 0 11px 46px;
+  border-left: 2px solid var(--line);
+  margin-left: 14px;
+}
+.manual-trilho li::before {
+  content: counter(passo);
+  position: absolute;
+  left: -15px;
+  top: 10px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.manual-trilho li:last-child { border-left-color: transparent; }
+.manual-trilho li strong { font-size: 14.5px; }
+.manual-trilho li span { color: var(--ink-2); font-size: 13.5px; line-height: 1.5; }
+
+.manual-pronto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px;
+}
+.manual-pronto-item {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 10px 13px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.manual-pronto-item svg { flex: none; margin-top: 2px; color: var(--green); }
+.manual-pronto-item.forte { border-color: var(--green); background: var(--green-bg); color: var(--ink); font-weight: 600; }
+
+.manual-regras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  gap: 12px;
+}
+.manual-regra {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 13px 15px;
+}
+.manual-regra-icone { color: var(--ink-3); }
+.manual-regra strong { font-size: 14px; }
+.manual-regra span:last-child { color: var(--ink-2); font-size: 13.5px; line-height: 1.45; }
+
+.manual-futuro { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.manual-futuro > div { border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--paper); padding: 15px 17px; }
+.manual-futuro .lista { margin-top: 10px; font-size: 13.5px; }
+.manual-futuro-marca {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.manual-futuro-marca.feito { background: var(--green-bg); color: var(--green); }
+.manual-futuro-marca.adiante { background: var(--soft); color: var(--ink-3); }
+
+.manual-ciclo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  padding: 20px 18px;
+}
+.manual-ciclo-passo {
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  padding: 7px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.manual-ciclo-seta { color: var(--navy-2); font-size: 17px; }
+.manual-ciclo-nota { text-align: center; margin-top: 8px; }
+
+@media print {
+  .manual-tela-ir { display: none; }
+  .manual-tela:hover { background: var(--paper); }
+}
+
+/* A corrente tem ordem, e a grade quebra em linhas conforme a largura — o que
+   apagaria a sequência. O número diz a ordem de leitura seja qual for o
+   formato da tela. */
+.manual-corrente { counter-reset: elo; }
+.manual-elo { counter-increment: elo; padding-top: 26px; }
+.manual-elo::before {
+  content: counter(elo);
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--navy-bg);
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 600;
+}
+.manual-elo-icone { position: absolute; top: 11px; right: 13px; }

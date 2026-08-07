@@ -605,6 +605,7 @@ function render() {
     fluxo: "fluxo", aula: "fluxo", editor: "fluxo", desenho: "fluxo", macro: "fluxo",
     biblioteca: "biblioteca", docEditor: "biblioteca", sistemaEditor: "biblioteca",
     pendencias: "pendencias",
+    manual: "manual",
   }[ui.view];
   $$(".tab").forEach((b) => b.classList.toggle("is-active", b.dataset.go === grupo));
 
@@ -621,6 +622,7 @@ function render() {
     desenho: viewDesenho,
     macro: viewMacro,
     pendencias: viewPendencias,
+    manual: viewManual,
   };
   const main = $("#main");
   main.innerHTML = (telas[ui.view] || viewOrganograma)();
@@ -943,6 +945,163 @@ function prenderNomesDeRaia(tela) {
   };
   tela.addEventListener("scroll", ajustar, { passive: true });
   requestAnimationFrame(ajustar);
+}
+
+/* ---------------------------------------------------------------- como usar
+
+   A aba que explica o CIP para quem chegou hoje. Não é documentação: é uma
+   apresentação guiada, feita para ser lida em pé, em poucos minutos.
+
+   Ela não guarda nem calcula nada — mas os cartões das telas usam `data-go`,
+   que `ligarEventos()` já escuta. Explicar uma tela e não deixar ir até ela
+   seria obrigar a pessoa a decorar o caminho. */
+
+const PASSOS_DE_COMO_DESENHAR = [
+  ["Confira setores e cargos", "O setor vira raia no fluxograma e o cargo diz quem faz. Sem eles o desenho não tem onde apoiar."],
+  ["Desenhe o processo no fluxo macro", "Uma peça por vez, ligada na anterior. A decisão entra quando o caminho se divide."],
+  ["Abra o processo", "O <strong>+</strong> no canto da peça entra no subprocesso."],
+  ["Diga dono, executor, entrada, saída e o porquê", "O dono responde. O executor faz. Entrada e saída são o que chega e o que sai."],
+  ["Escreva os passos", "Um movimento por passo. Verbo na frente."],
+  ["Ligue documentos, sistemas e indicadores", "A norma que se abre enquanto executa, o sistema onde se faz, o número que mede."],
+  ["Peça a opinião da consultora", "<em>“Leia este processo e me diga o que está ambíguo.”</em>"],
+  ["Aprove quando estiver certo", "Aprovar é assumir, com nome e data, que o processo é esse."],
+];
+
+const REGRAS_DE_USO = [
+  ["etapa", "Nada de parágrafo", "Se o texto virou parágrafo, ele era vários passos. Quebre."],
+  ["documento", "POP é o passo a passo", "No CIP não existe POP em arquivo separado. Precisou em papel? Imprima o passo a passo."],
+  ["leitura", "Documento externo fica na Biblioteca", "Norma, política, contrato e manual — inclusive regra de negócio que precise estar escrita."],
+  ["link", "Sistema se liga ao passo", "É o que permite responder o que para se o CAD cair."],
+  ["ok", "Indicador mede processo ou cargo", "E a cobrança do cargo sai sozinha dos processos dele."],
+  ["ia", "A decisão é humana", "A consultora sugere e critica. Ela não escreve nos campos — quem cola é você."],
+];
+
+function viewManual() {
+  const elo = (icone, titulo, texto) => `
+    <div class="manual-elo">
+      <span class="manual-elo-icone">${icon(icone, 17)}</span>
+      <strong>${titulo}</strong>
+      <span>${texto}</span>
+    </div>`;
+
+  const cartaoDeTela = (ir, icone, titulo, texto) => `
+    <button class="manual-tela" data-go="${ir}" type="button">
+      <span class="manual-tela-icone">${icon(icone, 18)}</span>
+      <strong>${esc(titulo)}</strong>
+      <span>${texto}</span>
+      <span class="manual-tela-ir">abrir →</span>
+    </button>`;
+
+  return `
+    <div class="page manual">
+      <div class="page-head">
+        <span class="eyebrow">Como usar</span>
+        <h1>O CIP em poucos minutos</h1>
+        <p>A Central Inteligente de Processos mostra como a Platina funciona: quem faz o quê, quais processos existem, como executar cada um e o que ainda falta preencher.</p>
+      </div>
+
+      <div class="manual-destaques">
+        <div><strong>Não é pasta de arquivos.</strong> É o trabalho da casa desenhado, com dono e com nome.</div>
+        <div><strong>A unidade é o passo.</strong> Não o processo, não o documento — o movimento que a pessoa faz.</div>
+        <div><strong>Nada é digitado duas vezes.</strong> O que o sistema consegue deduzir, ele deduz.</div>
+      </div>
+
+      <div class="section-title"><h3>A lógica central</h3><span class="line"></span></div>
+      <p class="hint">Cada peça se apoia na anterior. É essa corrente que separa o CIP de um repositório de documentos.</p>
+
+      <div class="manual-corrente">
+        ${elo("data", "Setor", "a área. Vira raia no desenho.")}
+        ${elo("curso", "Cargo", "a função dentro do setor. Diz quem faz.")}
+        ${elo("etapa", "Processo", "o trabalho, com dono, entrada e saída.")}
+        ${elo("decisao", "Passos", "o passo a passo de quem executa.")}
+        ${elo("documento", "Documentos e sistemas", "a norma que se abre e o sistema onde se faz.")}
+        ${elo("ok", "Indicadores", "o número que diz se está indo bem.")}
+        ${elo("ia", "Consultora", "lê tudo isso e aponta o que está frouxo.")}
+      </div>
+
+      <div class="section-title"><h3>As telas</h3><span class="line"></span></div>
+
+      <div class="manual-telas">
+        ${cartaoDeTela("organograma", "data", "Organograma", "Quem é quem, e quem responde a quem.")}
+        ${cartaoDeTela("fluxo", "etapa", "Fluxo macro", "Como os processos se conectam, ponta a ponta.")}
+        ${cartaoDeTela("biblioteca", "documento", "Biblioteca", "Documentos, normas, políticas e sistemas.")}
+        ${cartaoDeTela("pendencias", "ok", "O que falta", "As pendências para fechar a modelagem.")}
+      </div>
+
+      <div class="manual-ia">
+        <span class="manual-tela-icone">${icon("ia", 18)}</span>
+        <div>
+          <strong>Consultora de IA</strong>
+          <span>Abre em qualquer tela pelo ícone <strong>✦</strong> no topo. Ela lê tudo que está mapeado e ajuda a revisar, criticar e melhorar — mas <strong>não escreve sozinha no sistema</strong>. Gostou de uma frase? Ela vem com botão de copiar.</span>
+        </div>
+      </div>
+
+      <div class="section-title"><h3>Como desenhar um processo</h3><span class="line"></span></div>
+
+      <ol class="manual-trilho">
+        ${PASSOS_DE_COMO_DESENHAR.map(([t, d]) => `
+          <li><strong>${t}</strong><span>${d}</span></li>`).join("")}
+      </ol>
+
+      <div class="section-title"><h3>Quando um processo fica pronto</h3><span class="line"></span></div>
+      <p class="hint">Pronto não é "preenchido". É isto, e a última linha é a que muda tudo:</p>
+
+      <div class="manual-pronto">
+        ${["tem dono, que responde por ele",
+           "tem quem executa",
+           "diz por que existe",
+           "diz o que recebe, se recebe de alguém",
+           "diz o que entrega, se entrega para alguém",
+           "tem os passos escritos",
+           "foi aprovado, com nome e data"]
+          .map((t, i) => `<div class="manual-pronto-item${i === 6 ? " forte" : ""}">${icon("ok", 15)}<span>${t}</span></div>`).join("")}
+      </div>
+
+      <p class="hint" style="margin-top:10px">Editar um processo aprovado derruba o selo sozinho — e alguém precisa aprovar de novo. Selo que sobrevive a qualquer edição diz que foi conferido o que ninguém conferiu.</p>
+
+      <div class="section-title"><h3>Seis regras de uso</h3><span class="line"></span></div>
+
+      <div class="manual-regras">
+        ${REGRAS_DE_USO.map(([ic, t, d]) => `
+          <div class="manual-regra">
+            <span class="manual-regra-icone">${icon(ic, 16)}</span>
+            <strong>${t}</strong>
+            <span>${d}</span>
+          </div>`).join("")}
+      </div>
+
+      <div class="section-title"><h3>Para onde isto vai</h3><span class="line"></span></div>
+
+      <div class="manual-futuro">
+        <div>
+          <span class="manual-futuro-marca feito">já dá para fazer</span>
+          <ul class="lista">
+            <li>os processos reais da empresa mapeados</li>
+            <li>trilha de conhecimento por cargo</li>
+            <li>biblioteca viva de normas e procedimentos</li>
+            <li>indicadores ligados aos processos</li>
+            <li>a IA achando lacuna e risco no que já está escrito</li>
+          </ul>
+        </div>
+        <div>
+          <span class="manual-futuro-marca adiante">mais adiante</span>
+          <ul class="lista">
+            <li>validade de treinamento — NR e reciclagem vencem</li>
+            <li>o mapa como porta de entrada de quem chega</li>
+            <li>comunicado por cargo, com confirmação de leitura</li>
+            <li>conexão com os dados da operação</li>
+            <li>painéis e melhoria contínua em cima do que foi medido</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="manual-ciclo">
+        ${["Mapear", "Ensinar", "Executar melhor", "Medir", "Melhorar"]
+          .map((t) => `<span class="manual-ciclo-passo">${esc(t)}</span>`).join('<span class="manual-ciclo-seta">→</span>')}
+      </div>
+      <p class="hint manual-ciclo-nota">E volta ao começo: o que a medição mostrar torto vira processo redesenhado.</p>
+    </div>
+  `;
 }
 
 /* A tela do que falta. A auditoria externa precisou abrir peça por peça para
